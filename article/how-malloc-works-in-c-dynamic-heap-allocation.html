@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How malloc Works in C: Dynamic Heap Allocation - c</title>
+    <meta name="description" content="The malloc function in C provides dynamic memory allocation by requesting, organizing, and serving chunks of memory from the heap during program execution. This article examines the internal mechanics of malloc, explaining how it communicates with the op">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-malloc-works-in-c-dynamic-heap-allocation">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How malloc Works in C: Dynamic Heap Allocation - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-malloc-works-in-c-dynamic-heap-allocation" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The malloc function in C provides dynamic memory allocation by requesting, organizing, and serving chunks of memory from the heap during program execution. This article examines the internal mechanics of malloc, explaining how it communicates with the op" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-malloc-works-in-c-dynamic-heap-allocation">How malloc Works
+in C: Dynamic Heap Allocation</h1>
+<p>The <code>malloc</code> function in C provides dynamic memory
+allocation by requesting, organizing, and serving chunks of memory from
+the heap during program execution. This article examines the internal
+mechanics of <code>malloc</code>, explaining how it communicates with
+the operating system via system calls, how standard C library allocators
+track and structure memory blocks, and how techniques like splitting,
+coalescing, and free lists prevent fragmentation and maintain optimal
+runtime performance.</p>
+<h2 id="the-heap-and-virtual-address-space">The Heap and Virtual Address
+Space</h2>
+<p>Every C program runs within its own virtual address space, typically
+divided into segments: text (code), data, BSS, stack, and heap. While
+the stack automatically grows and shrinks with function calls, the heap
+is designed for variable-sized, manually managed memory whose lifetime
+exceeds the scope of the function that created it.</p>
+<p>The heap begins directly above the BSS segment and historically grows
+upward toward higher memory addresses. <code>malloc</code> serves as an
+intermediary between user code and the operating system kernel, avoiding
+the heavy performance penalty of invoking a system call for every memory
+request.</p>
+<h2 id="system-calls-interfacing-with-the-operating-system">System
+Calls: Interfacing with the Operating System</h2>
+<p>When a program requests memory that exceeds the current heap
+boundary, <code>malloc</code> asks the kernel to expand the process's
+address space. It primarily utilizes two system calls:</p>
+<ol type="1">
+<li><strong><code>brk</code> and <code>sbrk</code></strong>: Used for
+relatively small allocations. The <code>brk</code> call sets the address
+of the program break, which marks the end of the heap segment. When
+<code>malloc</code> exhausts its current pool of heap memory, it calls
+<code>brk</code> or <code>sbrk</code> to increment the break pointer,
+reserving more contiguous virtual pages.</li>
+<li><strong><code>mmap</code></strong>: Used for large allocations
+(often exceeding a threshold like 128 KB in implementations such as
+<code>glibc</code>'s <code>ptmalloc</code>). Instead of extending the
+continuous heap, <code>mmap</code> maps an anonymous page directly into
+the process's address space. When <code>free()</code> is called on an
+<code>mmap</code>-allocated region, the memory is immediately unmapped
+and returned to the OS via <code>munmap</code>.</li>
+</ol>
+<h2 id="chunk-structure-and-metadata">Chunk Structure and Metadata</h2>
+<p>When <code>malloc(size_t size)</code> is called, it allocates more
+than just the requested number of bytes. The allocator embeds metadata
+immediately preceding the memory address returned to the pointer.</p>
+<p>A typical memory chunk consists of:</p>
+<ul>
+<li><strong>Header</strong>: Contains control information, primarily the
+total size of the chunk (including the header) and status bits
+indicating whether the chunk is allocated or free, and whether it was
+allocated via <code>mmap</code>.</li>
+<li><strong>Payload</strong>: The usable memory region returned to the
+programmer. The pointer returned by <code>malloc</code> points directly
+to the start of this payload, not the start of the chunk.</li>
+<li><strong>Padding/Alignment</strong>: Memory systems require specific
+alignment (usually 8-byte or 16-byte boundaries) for hardware
+performance and safety. <code>malloc</code> pads requests to satisfy
+these architecture-specific constraints.</li>
+</ul>
+<h2 id="managing-free-memory-free-lists">Managing Free Memory: Free
+Lists</h2>
+<p>To avoid repeatedly requesting memory from the OS, freed chunks are
+retained in user-space data structures known as free lists. Modern
+allocators employ several types of bins to track available blocks:</p>
+<ul>
+<li><strong>Fastbins / Small Bins</strong>: Single-linked lists or
+fixed-size pools that hold small chunks for rapid retrieval, using a
+LIFO (last-in, first-out) order to maximize CPU cache locality.</li>
+<li><strong>Unsorted Bins</strong>: Chunks recently freed are placed
+here temporarily, allowing them to be quickly reallocated if a similar
+size is requested shortly afterward.</li>
+<li><strong>Large Bins</strong>: Sorted doubly-linked lists used for
+larger allocations where searching by size is required.</li>
+</ul>
+<h2 id="search-strategies">Search Strategies</h2>
+<p>When allocating from existing free lists, <code>malloc</code> uses
+search heuristics to locate a suitable block:</p>
+<ul>
+<li><strong>First-Fit</strong>: Selects the first free block that is
+large enough. It is fast but can lead to fragmentation near the
+beginning of the heap.</li>
+<li><strong>Best-Fit</strong>: Scans all free blocks to find the
+smallest block that accommodates the request. This minimizes wasted
+space within the selected block but can be slower and produces tiny,
+unusable fragments.</li>
+<li><strong>Segregated-Fit</strong>: Routes the request to a specific
+size bin containing chunks within a narrow size range, combining the
+speed of first-fit with the space efficiency of best-fit.</li>
+</ul>
+<h2 id="splitting-and-coalescing">Splitting and Coalescing</h2>
+<p>If the selected free chunk is significantly larger than the requested
+size, <code>malloc</code> splits the chunk. The first part is sized to
+the request, marked as allocated, and returned to the caller. The
+remainder becomes a new, smaller free chunk and is returned to the
+appropriate free list.</p>
+<p>Conversely, when memory is released using <code>free()</code>, the
+allocator inspects adjacent chunks. If neighboring chunks are also
+marked as free, they are merged—a process known as coalescing.
+Coalescing recombines adjacent fragments into a single larger block,
+preventing external fragmentation and ensuring future large allocations
+can be satisfied without expanding the heap.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

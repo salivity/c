@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bit Masks in C: Using AND, OR, and XOR - c</title>
+    <meta name="description" content="A bit mask is a predefined sequence of bits used to selectively view, modify, or toggle specific bits within a larger byte or integer. In C programming, bit masks are essential for low-level systems programming, embedded devices, and performance-critical">
+    <link rel="canonical" href="https://salivity.github.io/c/article/bit-masks-in-c-using-and-or-and-xor">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Bit Masks in C: Using AND, OR, and XOR - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/bit-masks-in-c-using-and-or-and-xor" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="A bit mask is a predefined sequence of bits used to selectively view, modify, or toggle specific bits within a larger byte or integer. In C programming, bit masks are essential for low-level systems programming, embedded devices, and performance-critical" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="bit-masks-in-c-using-and-or-and-xor">Bit Masks in C: Using AND,
+OR, and XOR</h1>
+<p>A bit mask is a predefined sequence of bits used to selectively view,
+modify, or toggle specific bits within a larger byte or integer. In C
+programming, bit masks are essential for low-level systems programming,
+embedded devices, and performance-critical applications where packing
+multiple boolean states or flags into a single integer saves memory and
+processing cycles. This guide explains the core concepts of bit masks
+and demonstrates how to manipulate them efficiently using C's bitwise
+AND (<code>&amp;</code>), OR (<code>|</code>), and XOR (<code>^</code>)
+operators.</p>
+<h2 id="what-is-a-bit-mask">What is a Bit Mask?</h2>
+<p>A bit mask acts as a filter over binary data. By setting specific
+bits to <code>1</code> or <code>0</code> in the mask, you define which
+bits of a target variable you want to target. In C, masks are typically
+constructed using unsigned integers and the bitwise left-shift operator
+(<code>&lt;&lt;</code>).</p>
+<p>For example, to target the third bit (index 2) of a byte:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#define FLAG_A </span><span class="op">(</span><span class="dv">1</span><span class="pp"> </span><span class="op">&lt;&lt;</span><span class="pp"> </span><span class="dv">0</span><span class="op">)</span><span class="pp"> </span><span class="co">// 00000001</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#define FLAG_B </span><span class="op">(</span><span class="dv">1</span><span class="pp"> </span><span class="op">&lt;&lt;</span><span class="pp"> </span><span class="dv">1</span><span class="op">)</span><span class="pp"> </span><span class="co">// 00000010</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#define FLAG_C </span><span class="op">(</span><span class="dv">1</span><span class="pp"> </span><span class="op">&lt;&lt;</span><span class="pp"> </span><span class="dv">2</span><span class="op">)</span><span class="pp"> </span><span class="co">// 00000100</span></span></code></pre></div>
+<h2 id="setting-bits-with-bitwise-or-">Setting Bits with Bitwise OR
+(<code>|</code>)</h2>
+<p>The bitwise OR operator compares corresponding bits of two operands.
+If either bit is <code>1</code>, the resulting bit is <code>1</code>; it
+is <code>0</code> only if both bits are <code>0</code>.</p>
+<p>Because <code>x | 1 = 1</code> and <code>x | 0 = x</code>, the OR
+operator is used to turn on (set to <code>1</code>) specific bits in a
+variable without altering the remaining bits.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">char</span> status <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> <span class="co">// 00000000</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Turn on FLAG_A and FLAG_C</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>status <span class="op">|=</span> FLAG_A<span class="op">;</span>         <span class="co">// 00000001</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>status <span class="op">|=</span> FLAG_C<span class="op">;</span>         <span class="co">// 00000101</span></span></code></pre></div>
+<h2 id="checking-and-clearing-bits-with-bitwise-and-">Checking and
+Clearing Bits with Bitwise AND (<code>&amp;</code>)</h2>
+<p>The bitwise AND operator evaluates to <code>1</code> only if both
+corresponding bits are <code>1</code>. If either bit is <code>0</code>,
+the result is <code>0</code>.</p>
+<h3 id="checking-a-bit">Checking a Bit</h3>
+<p>To test whether a specific bit is set, apply the bit mask with
+<code>&amp;</code>. If the bit is set, the expression evaluates to a
+non-zero value.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>status <span class="op">&amp;</span> FLAG_A<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Executes if FLAG_A is set</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="clearing-a-bit">Clearing a Bit</h3>
+<p>Because <code>x &amp; 0 = 0</code> and <code>x &amp; 1 = x</code>,
+clearing (turning off) a bit requires combining the bitwise AND operator
+with the bitwise NOT operator (<code>~</code>). Inverting the mask
+creates a pattern where the target bit is <code>0</code> and all other
+bits are <code>1</code>.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Turn off FLAG_A</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>status <span class="op">&amp;=</span> <span class="op">~</span>FLAG_A<span class="op">;</span> <span class="co">// status &amp; 11111110</span></span></code></pre></div>
+<h2 id="toggling-bits-with-bitwise-xor-">Toggling Bits with Bitwise XOR
+(<code>^</code>)</h2>
+<p>The bitwise XOR (exclusive OR) operator returns <code>1</code> if the
+corresponding bits are different, and <code>0</code> if they are
+identical.</p>
+<p>Because <code>x ^ 1 = ~x</code> (flipping the bit) and
+<code>x ^ 0 = x</code> (leaving the bit unchanged), XOR is used to
+toggle a bit between <code>0</code> and <code>1</code>.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Toggle FLAG_C (if it is 1, it becomes 0; if it is 0, it becomes 1)</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>status <span class="op">^=</span> FLAG_C<span class="op">;</span></span></code></pre></div>
+<h2 id="summary-of-operations">Summary of Operations</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Operation</th>
+<th style="text-align: left;">Operator Expression</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Set bit</strong></td>
+<td style="text-align: left;">`variable</td>
+<td style="text-align: left;">= MASK;`</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Clear bit</strong></td>
+<td style="text-align: left;"><code>variable &amp;= ~MASK;</code></td>
+<td style="text-align: left;">Turns the targeted bit(s) to
+<code>0</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Toggle bit</strong></td>
+<td style="text-align: left;"><code>variable ^= MASK;</code></td>
+<td style="text-align: left;">Inverts the targeted bit(s).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Check bit</strong></td>
+<td
+style="text-align: left;"><code>(variable &amp; MASK) != 0</code></td>
+<td style="text-align: left;">Evaluates to true if the bit is
+<code>1</code>.</td>
+</tr>
+</tbody>
+</table></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

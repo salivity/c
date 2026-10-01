@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Implementing container_of Using offsetof in C - c</title>
+    <meta name="description" content="The containerof macro is a foundational design pattern in C—most notably used throughout the Linux kernel—that allows a program to retrieve a pointer to an enclosing structure from a pointer to one of its internal members. This article explains how t">
+    <link rel="canonical" href="https://salivity.github.io/c/article/implementing-container-of-using-offsetof-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Implementing container_of Using offsetof in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/implementing-container-of-using-offsetof-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The containerof macro is a foundational design pattern in C—most notably used throughout the Linux kernel—that allows a program to retrieve a pointer to an enclosing structure from a pointer to one of its internal members. This article explains how t" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="implementing-container_of-using-offsetof-in-c">Implementing
+container_of Using offsetof in C</h1>
+<p>The <code>container_of</code> macro is a foundational design pattern
+in C—most notably used throughout the Linux kernel—that allows a program
+to retrieve a pointer to an enclosing structure from a pointer to one of
+its internal members. This article explains how the underlying pointer
+arithmetic functions, details how the standard <code>offsetof</code>
+macro works, and demonstrates how to implement <code>container_of</code>
+both in strict standard C and as a type-safe generic macro using
+compiler extensions.</p>
+<h3 id="the-underlying-mechanics">The Underlying Mechanics</h3>
+<p>In C, a structure lays its members out sequentially in contiguous
+memory, with alignment padding where required. If you know the memory
+address of a specific member inside an instance of a struct, as well as
+the exact byte offset of that member from the beginning of the struct,
+you can find the starting address of the containing structure by
+subtracting the offset from the member's address.</p>
+<p>The standard library header <code>&lt;stddef.h&gt;</code> provides
+the <code>offsetof</code> macro:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stddef.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>offsetof<span class="op">(</span>type<span class="op">,</span> member<span class="op">)</span></span></code></pre></div>
+<p>This macro returns the offset in bytes of <code>member</code> from
+the beginning of <code>type</code> as a <code>size_t</code>.</p>
+<h3 id="standard-c-implementation">Standard C Implementation</h3>
+<p>The simplest, standard-compliant implementation uses pointer
+arithmetic by casting the member pointer to a byte pointer
+(<code>char *</code>) before performing the subtraction:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stddef.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#define container_of</span><span class="op">(</span><span class="pp">ptr</span><span class="op">,</span><span class="pp"> type</span><span class="op">,</span><span class="pp"> member</span><span class="op">)</span><span class="pp"> </span><span class="op">\</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="pp">    </span><span class="op">((</span><span class="pp">type </span><span class="op">*)((</span><span class="dt">char</span><span class="pp"> </span><span class="op">*)(</span><span class="pp">ptr</span><span class="op">)</span><span class="pp"> </span><span class="op">-</span><span class="pp"> offsetof</span><span class="op">(</span><span class="pp">type</span><span class="op">,</span><span class="pp"> member</span><span class="op">)))</span></span></code></pre></div>
+<ol type="1">
+<li><code>(char *)(ptr)</code>: Converts the member pointer into a
+byte-addressed pointer, ensuring the subsequent subtraction decreases
+the address by single bytes.</li>
+<li><code>- offsetof(type, member)</code>: Moves the pointer backward by
+the exact byte distance between the start of <code>type</code> and the
+location of <code>member</code>.</li>
+<li><code>(type *)</code>: Casts the resulting base address to a pointer
+of the container struct type.</li>
+</ol>
+<h3 id="type-safe-implementation-gnu-c-extensions">Type-Safe
+Implementation (GNU C Extensions)</h3>
+<p>The basic standard implementation lacks compile-time validation: if a
+caller accidentally passes an unrelated pointer type as
+<code>ptr</code>, the compiler will silently compute an invalid
+address.</p>
+<p>To prevent this, the Linux kernel uses GNU C extensions—specifically
+statement expressions <code>({})</code> and the <code>typeof</code>
+operator—to enforce type checking:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stddef.h&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#define container_of</span><span class="op">(</span><span class="pp">ptr</span><span class="op">,</span><span class="pp"> type</span><span class="op">,</span><span class="pp"> member</span><span class="op">)</span><span class="pp"> </span><span class="op">({</span><span class="pp">                      </span><span class="op">\</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="pp">    </span><span class="dt">const</span><span class="pp"> </span><span class="kw">typeof</span><span class="op">(((</span><span class="pp">type </span><span class="op">*)</span><span class="dv">0</span><span class="op">)-&gt;</span><span class="pp">member</span><span class="op">)</span><span class="pp"> </span><span class="op">*</span><span class="pp">__mptr </span><span class="op">=</span><span class="pp"> </span><span class="op">(</span><span class="pp">ptr</span><span class="op">);</span><span class="pp">          </span><span class="op">\</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="pp">    </span><span class="op">(</span><span class="pp">type </span><span class="op">*)((</span><span class="dt">char</span><span class="pp"> </span><span class="op">*)</span><span class="pp">__mptr </span><span class="op">-</span><span class="pp"> offsetof</span><span class="op">(</span><span class="pp">type</span><span class="op">,</span><span class="pp"> member</span><span class="op">));</span><span class="pp">          </span><span class="op">\</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="op">})</span></span></code></pre></div>
+<ul>
+<li><code>typeof(((type *)0)-&gt;member)</code> extracts the declared
+type of the specified structure member without evaluating the null
+pointer dereference at runtime.</li>
+<li><code>const typeof(...) *__mptr = (ptr);</code> assigns the supplied
+pointer to a temporary pointer of the expected type. If the type of
+<code>ptr</code> does not match the member type, the compiler issues a
+warning.</li>
+<li>The last line evaluates to the target container pointer and forms
+the return value of the statement expression.</li>
+</ul>
+<h3 id="practical-usage-example">Practical Usage Example</h3>
+<p>The primary use case for <code>container_of</code> is implementing
+intrusive data structures, such as linked lists, where the link nodes
+are embedded directly inside data objects:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stddef.h&gt;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#define container_of</span><span class="op">(</span><span class="pp">ptr</span><span class="op">,</span><span class="pp"> type</span><span class="op">,</span><span class="pp"> member</span><span class="op">)</span><span class="pp"> </span><span class="op">({</span><span class="pp">                      </span><span class="op">\</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="pp">    </span><span class="dt">const</span><span class="pp"> </span><span class="kw">typeof</span><span class="op">(((</span><span class="pp">type </span><span class="op">*)</span><span class="dv">0</span><span class="op">)-&gt;</span><span class="pp">member</span><span class="op">)</span><span class="pp"> </span><span class="op">*</span><span class="pp">__mptr </span><span class="op">=</span><span class="pp"> </span><span class="op">(</span><span class="pp">ptr</span><span class="op">);</span><span class="pp">          </span><span class="op">\</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="pp">    </span><span class="op">(</span><span class="pp">type </span><span class="op">*)((</span><span class="dt">char</span><span class="pp"> </span><span class="op">*)</span><span class="pp">__mptr </span><span class="op">-</span><span class="pp"> offsetof</span><span class="op">(</span><span class="pp">type</span><span class="op">,</span><span class="pp"> member</span><span class="op">));</span><span class="pp">          </span><span class="op">\</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="op">})</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> list_node <span class="op">{</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> list_node <span class="op">*</span>next<span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> task <span class="op">{</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> id<span class="op">;</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> priority<span class="op">;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> list_node node<span class="op">;</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process_node<span class="op">(</span><span class="kw">struct</span> list_node <span class="op">*</span>n<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Recover the enclosing task struct from the list_node pointer</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> task <span class="op">*</span>t <span class="op">=</span> container_of<span class="op">(</span>n<span class="op">,</span> <span class="kw">struct</span> task<span class="op">,</span> node<span class="op">);</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Task ID: </span><span class="sc">%d</span><span class="st">, Priority: </span><span class="sc">%d\n</span><span class="st">&quot;</span><span class="op">,</span> t<span class="op">-&gt;</span>id<span class="op">,</span> t<span class="op">-&gt;</span>priority<span class="op">);</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> task my_task <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>        <span class="op">.</span>id <span class="op">=</span> <span class="dv">101</span><span class="op">,</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>        <span class="op">.</span>priority <span class="op">=</span> <span class="dv">5</span><span class="op">,</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>        <span class="op">.</span>node <span class="op">=</span> <span class="op">{</span> NULL <span class="op">}</span></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>    <span class="op">};</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>    process_node<span class="op">(&amp;</span>my_task<span class="op">.</span>node<span class="op">);</span></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>By decoupling the link element from the data payload,
+<code>container_of</code> allows generalized algorithms (such as list
+traversal, sorting, and tree balancing) to manipulate node pointers
+while allowing user code to seamlessly recover the application-specific
+data.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>I/O Multiplexing in C: Select, Poll, and Epoll - c</title>
+    <meta name="description" content="I/O multiplexing allows a network server written in C to monitor multiple socket descriptors concurrently using a single thread, eliminating the need to allocate dedicated threads or processes per client connection. Operating systems provide system calls">
+    <link rel="canonical" href="https://salivity.github.io/c/article/i-o-multiplexing-in-c-select-poll-and-epoll">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="I/O Multiplexing in C: Select, Poll, and Epoll - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/i-o-multiplexing-in-c-select-poll-and-epoll" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="I/O multiplexing allows a network server written in C to monitor multiple socket descriptors concurrently using a single thread, eliminating the need to allocate dedicated threads or processes per client connection. Operating systems provide system calls" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="io-multiplexing-in-c-select-poll-and-epoll">I/O Multiplexing in
+C: Select, Poll, and Epoll</h1>
+<p>I/O multiplexing allows a network server written in C to monitor
+multiple socket descriptors concurrently using a single thread,
+eliminating the need to allocate dedicated threads or processes per
+client connection. Operating systems provide system calls—primarily
+<code>select</code>, <code>poll</code>, and Linux-specific
+<code>epoll</code>—that notify an application when one or more sockets
+are ready for non-blocking read or write operations. While all three
+mechanisms solve the fundamental concurrency bottleneck of synchronous
+blocking I/O, they differ significantly in their internal kernel
+architecture, memory overhead, API ergonomics, and algorithmic
+scalability.</p>
+<h3 id="the-concept-of-io-multiplexing">The Concept of I/O
+Multiplexing</h3>
+<p>In a traditional blocking network model, calling <code>read()</code>
+or <code>recv()</code> on a socket stalls thread execution until data
+arrives from the client. To serve thousands of concurrent clients, a
+server would need thousands of threads, incurring severe
+context-switching overhead and memory consumption.</p>
+<p>I/O multiplexing resolves this by setting client sockets to
+non-blocking mode (<code>O_NONBLOCK</code> via <code>fcntl</code>) and
+registering their file descriptors with an OS-level polling mechanism.
+The application suspends execution on a single system call until the
+kernel signals that network activity has occurred on at least one
+registered descriptor.</p>
+<hr />
+<h3 id="1-select-the-legacy-standard">1. <code>select()</code>: The
+Legacy Standard</h3>
+<p>Introduced in BSD Unix, <code>select()</code> is defined in
+<code>&lt;sys/select.h&gt;</code> and is the most portable I/O
+multiplexing call.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> select<span class="op">(</span><span class="dt">int</span> nfds<span class="op">,</span> fd_set <span class="op">*</span>readfds<span class="op">,</span> fd_set <span class="op">*</span>writefds<span class="op">,</span> </span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>           fd_set <span class="op">*</span>exceptfds<span class="op">,</span> <span class="kw">struct</span> timeval <span class="op">*</span>timeout<span class="op">);</span></span></code></pre></div>
+<h4 id="mechanics">Mechanics</h4>
+<ul>
+<li><strong>Bitmasks:</strong> Sockets are tracked using fixed-size bit
+arrays (<code>fd_set</code>). Macros like <code>FD_SET()</code>,
+<code>FD_CLR()</code>, and <code>FD_ISSET()</code> manipulate these
+masks.</li>
+<li><strong>In-Place Modification:</strong> The kernel modifies the
+passed <code>fd_set</code> pointers in place to indicate readiness.
+Consequently, the application must re-populate the sets before every
+invocation of <code>select()</code>.</li>
+</ul>
+<h4 id="limitations">Limitations</h4>
+<ul>
+<li><strong>Descriptor Limit:</strong> Sockets cannot exceed
+<code>FD_SETSIZE</code> (typically hardcoded to 1024 in glibc). Sockets
+with descriptor numbers <span class="math inline">\(\ge 1024\)</span>
+cause undefined behavior or buffer overflows.</li>
+<li><strong>Linear Complexity (<span
+class="math inline">\(O(N)\)</span>):</strong> The kernel iterates
+through all bits up to <code>nfds</code> to determine readiness. Upon
+return, the user space must also iterate through all descriptors up to
+<code>nfds</code> with <code>FD_ISSET()</code> to find which sockets
+fired.</li>
+<li><strong>Repeated Copying:</strong> The entire bitmask state must be
+copied from user space to kernel space and back on every call.</li>
+</ul>
+<hr />
+<h3 id="2-poll-overcoming-fixed-limits">2. <code>poll()</code>:
+Overcoming Fixed Limits</h3>
+<p>Standardized by POSIX in <code>&lt;poll.h&gt;</code>,
+<code>poll()</code> improves upon <code>select()</code> by ditching
+bitmasks in favor of a dynamic array of structures.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> pollfd <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span>   fd<span class="op">;</span>       <span class="co">/* file descriptor */</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">short</span> events<span class="op">;</span>   <span class="co">/* requested events (e.g., POLLIN, POLLOUT) */</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">short</span> revents<span class="op">;</span>  <span class="co">/* returned events */</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> poll<span class="op">(</span><span class="kw">struct</span> pollfd <span class="op">*</span>fds<span class="op">,</span> nfds_t nfds<span class="op">,</span> <span class="dt">int</span> timeout<span class="op">);</span></span></code></pre></div>
+<h4 id="mechanics-1">Mechanics</h4>
+<ul>
+<li><strong>Separation of Input and Output:</strong> <code>events</code>
+defines what to listen for, while the kernel writes results exclusively
+to <code>revents</code>. This eliminates the need to rebuild the
+tracking structure before each loop iteration.</li>
+<li><strong>No Hardcoded Limit:</strong> The <code>fds</code> array can
+be dynamically allocated to accommodate any number of file descriptors
+permitted by system resource limits (<code>RLIMIT_NOFILE</code>).</li>
+</ul>
+<h4 id="limitations-1">Limitations</h4>
+<ul>
+<li><strong>Linear Complexity (<span
+class="math inline">\(O(N)\)</span>):</strong> Like
+<code>select()</code>, both the kernel and the user application must
+perform an <span class="math inline">\(O(N)\)</span> scan across the
+entire array on each iteration to check for ready sockets.</li>
+<li><strong>Memory Overhead:</strong> The entire array of
+<code>struct pollfd</code> instances must be copied between user space
+and kernel space on every call, generating substantial overhead under
+high connection counts.</li>
+</ul>
+<hr />
+<h3 id="3-epoll-high-performance-scalability-for-linux">3.
+<code>epoll()</code>: High-Performance Scalability for Linux</h3>
+<p>Introduced in Linux 2.6 and defined in
+<code>&lt;sys/epoll.h&gt;</code>, <code>epoll</code> solves the <span
+class="math inline">\(O(N)\)</span> scaling bottlenecks of
+<code>select()</code> and <code>poll()</code> by decoupling event
+registration from event waiting.</p>
+<h4 id="core-api">Core API</h4>
+<ol type="1">
+<li><strong><code>epoll_create1(int flags)</code></strong>: Allocates an
+<code>epoll</code> instance in the kernel and returns an epoll file
+descriptor.</li>
+<li><strong><code>epoll_ctl(int epfd, int op, int fd, struct epoll_event *event)</code></strong>:
+Adds (<code>EPOLL_CTL_ADD</code>), modifies
+(<code>EPOLL_CTL_MOD</code>), or removes (<code>EPOLL_CTL_DEL</code>)
+specific file descriptors within the kernel's interest list.</li>
+<li><strong><code>epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)</code></strong>:
+Blocks until one or more registered descriptors become ready, writing
+only the active events into the user-provided <code>events</code>
+buffer.</li>
+</ol>
+<h4 id="architectural-advantages">Architectural Advantages</h4>
+<ul>
+<li><strong>Persistent State in Kernel Space:</strong> Monitored
+descriptors are organized inside the kernel using a red-black tree.
+Descriptors are registered once; the application does not re-pass lists
+on every wait call.</li>
+<li><strong>Constant-Time Notification (<span
+class="math inline">\(O(1)\)</span>):</strong> The kernel uses hardware
+interrupts and internal device callbacks to place ready descriptors
+directly into a ready list (a doubly linked list).</li>
+<li><strong>Sparse Event Retrieval:</strong> <code>epoll_wait()</code>
+returns only the descriptors that actually have events pending (<span
+class="math inline">\(O(K)\)</span>, where <span
+class="math inline">\(K\)</span> is the number of active sockets),
+completely eliminating the need for linear scans across inactive
+connections.</li>
+</ul>
+<h4 id="triggering-modes">Triggering Modes</h4>
+<ul>
+<li><strong>Level-Triggered (LT):</strong> Default behavior.
+<code>epoll_wait()</code> continuously reports a descriptor as ready as
+long as its buffer contains data.</li>
+<li><strong>Edge-Triggered (ET):</strong> Enabled via the
+<code>EPOLLET</code> flag. The kernel notifies the application only when
+a state change occurs (e.g., new data arrives). To avoid dropped packets
+or hung connections, sockets must be non-blocking, and loops must drain
+the socket using <code>read()</code> or <code>write()</code> until
+encountering an <code>EAGAIN</code> or <code>EWOULDBLOCK</code>
+error.</li>
+</ul>
+<hr />
+<h3 id="technical-comparison">Technical Comparison</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;"><code>select()</code></th>
+<th style="text-align: left;"><code>poll()</code></th>
+<th style="text-align: left;"><code>epoll()</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Availability</strong></td>
+<td style="text-align: left;">POSIX / Ubiquitous</td>
+<td style="text-align: left;">POSIX / Ubiquitous</td>
+<td style="text-align: left;">Linux-only</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Max Connections</strong></td>
+<td style="text-align: left;">Typically 1024
+(<code>FD_SETSIZE</code>)</td>
+<td style="text-align: left;">Limited by system file limits</td>
+<td style="text-align: left;">Limited by system file limits</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Kernel Data
+Structure</strong></td>
+<td style="text-align: left;">Bitmask array</td>
+<td style="text-align: left;">Array of <code>pollfd</code> structs</td>
+<td style="text-align: left;">Red-Black Tree &amp; Ready List</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Time Complexity</strong></td>
+<td style="text-align: left;"><span
+class="math inline">\(O(N)\)</span></td>
+<td style="text-align: left;"><span
+class="math inline">\(O(N)\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(O(K)\)</span>
+(where <span class="math inline">\(K \le N\)</span> ready events)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Memory Transfer</strong></td>
+<td style="text-align: left;">Re-copied on every invocation</td>
+<td style="text-align: left;">Re-copied on every invocation</td>
+<td style="text-align: left;">Transferred only on modification
+(<code>epoll_ctl</code>)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Triggering Modes</strong></td>
+<td style="text-align: left;">Level-Triggered only</td>
+<td style="text-align: left;">Level-Triggered only</td>
+<td style="text-align: left;">Level-Triggered and Edge-Triggered</td>
+</tr>
+</tbody>
+</table>
+<p>For modern high-load network daemons on Linux (such as Nginx or
+Redis), <code>epoll</code> is the industry standard because its
+performance remains steady regardless of the number of idle connections.
+For cross-platform tools where connection counts remain low or
+deterministic, <code>select()</code> and <code>poll()</code> continue to
+provide portable alternatives.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

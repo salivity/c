@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Configure GDT and IDT Using C Structs - c</title>
+    <meta name="description" content="In x86 systems programming, the Global Descriptor Table (GDT) and Interrupt Descriptor Table (IDT) are essential data structures used by the CPU to manage memory segmentation and hardware or software interrupts. This article details how to define, config">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-to-configure-gdt-and-idt-using-c-structs">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Configure GDT and IDT Using C Structs - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-to-configure-gdt-and-idt-using-c-structs" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In x86 systems programming, the Global Descriptor Table (GDT) and Interrupt Descriptor Table (IDT) are essential data structures used by the CPU to manage memory segmentation and hardware or software interrupts. This article details how to define, config" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-configure-gdt-and-idt-using-c-structs">How to Configure
+GDT and IDT Using C Structs</h1>
+<p>In x86 systems programming, the Global Descriptor Table (GDT) and
+Interrupt Descriptor Table (IDT) are essential data structures used by
+the CPU to manage memory segmentation and hardware or software
+interrupts. This article details how to define, configure, and
+initialize both GDT and IDT entries directly in C using byte-aligned
+structures, demonstrating the precise field layouts required by the
+processor and the inline assembly needed to load them into CPU
+registers.</p>
+<h2 id="packing-structures-in-c">Packing Structures in C</h2>
+<p>By default, C compilers align structure members to boundaries
+matching their data types for performance reasons. Because the x86 CPU
+expects exact, unpadded binary layouts for GDT and IDT entries, you must
+use compiler-specific attributes—such as GCC's
+<code>__attribute__((packed))</code>—to eliminate padding bytes.</p>
+<hr />
+<h2 id="configuring-the-global-descriptor-table-gdt">Configuring the
+Global Descriptor Table (GDT)</h2>
+<p>The GDT defines the characteristics of the various memory areas
+(segments) used during program execution. Each 8-byte entry contains
+base address pieces, limit pieces, and access flags scattered across
+specific bit positions.</p>
+<h3 id="1-defining-the-gdt-structures">1. Defining the GDT
+Structures</h3>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdint.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> gdt_entry <span class="op">{</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint16_t</span> limit_low<span class="op">;</span>       <span class="co">// Lower 16 bits of segment limit</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint16_t</span> base_low<span class="op">;</span>        <span class="co">// Lower 16 bits of segment base</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint8_t</span>  base_middle<span class="op">;</span>     <span class="co">// Middle 8 bits of segment base</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint8_t</span>  access<span class="op">;</span>          <span class="co">// Access flags (present, privilege, type)</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint8_t</span>  granularity<span class="op">;</span>     <span class="co">// Granularity and upper 4 bits of limit</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint8_t</span>  base_high<span class="op">;</span>       <span class="co">// Upper 8 bits of segment base</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> __attribute__<span class="op">((</span>packed<span class="op">));</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> gdt_ptr <span class="op">{</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint16_t</span> limit<span class="op">;</span>           <span class="co">// Table size minus 1</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint32_t</span> base<span class="op">;</span>            <span class="co">// Address of the first gdt_entry</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> __attribute__<span class="op">((</span>packed<span class="op">));</span></span></code></pre></div>
+<h3 id="2-setting-gdt-entries">2. Setting GDT Entries</h3>
+<p>A helper function shifts and masks the values into their correct
+positions:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#define GDT_ENTRIES </span><span class="dv">3</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> gdt_entry gdt<span class="op">[</span>GDT_ENTRIES<span class="op">];</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> gdt_ptr gp<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> gdt_set_gate<span class="op">(</span><span class="dt">int</span> num<span class="op">,</span> <span class="dt">uint32_t</span> base<span class="op">,</span> <span class="dt">uint32_t</span> limit<span class="op">,</span> <span class="dt">uint8_t</span> access<span class="op">,</span> <span class="dt">uint8_t</span> gran<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    gdt<span class="op">[</span>num<span class="op">].</span>base_low    <span class="op">=</span> <span class="op">(</span>base <span class="op">&amp;</span> <span class="bn">0xFFFF</span><span class="op">);</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    gdt<span class="op">[</span>num<span class="op">].</span>base_middle <span class="op">=</span> <span class="op">(</span>base <span class="op">&gt;&gt;</span> <span class="dv">16</span><span class="op">)</span> <span class="op">&amp;</span> <span class="bn">0xFF</span><span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    gdt<span class="op">[</span>num<span class="op">].</span>base_high   <span class="op">=</span> <span class="op">(</span>base <span class="op">&gt;&gt;</span> <span class="dv">24</span><span class="op">)</span> <span class="op">&amp;</span> <span class="bn">0xFF</span><span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    gdt<span class="op">[</span>num<span class="op">].</span>limit_low   <span class="op">=</span> <span class="op">(</span>limit <span class="op">&amp;</span> <span class="bn">0xFFFF</span><span class="op">);</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    gdt<span class="op">[</span>num<span class="op">].</span>granularity <span class="op">=</span> <span class="op">(</span>limit <span class="op">&gt;&gt;</span> <span class="dv">16</span><span class="op">)</span> <span class="op">&amp;</span> <span class="bn">0x0F</span><span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    gdt<span class="op">[</span>num<span class="op">].</span>granularity <span class="op">|=</span> gran <span class="op">&amp;</span> <span class="bn">0xF0</span><span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    gdt<span class="op">[</span>num<span class="op">].</span>access      <span class="op">=</span> access<span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> gdt_init<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    gp<span class="op">.</span>limit <span class="op">=</span> <span class="op">(</span><span class="kw">sizeof</span><span class="op">(</span><span class="kw">struct</span> gdt_entry<span class="op">)</span> <span class="op">*</span> GDT_ENTRIES<span class="op">)</span> <span class="op">-</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    gp<span class="op">.</span>base  <span class="op">=</span> <span class="op">(</span><span class="dt">uint32_t</span><span class="op">)&amp;</span>gdt<span class="op">;</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Entry 0: Mandatory Null Descriptor</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    gdt_set_gate<span class="op">(</span><span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">);</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Entry 1: Kernel Code Segment (Base=0, Limit=4GB, 4KB granularity, 32-bit protected)</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    gdt_set_gate<span class="op">(</span><span class="dv">1</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="bn">0xFFFFFFFF</span><span class="op">,</span> <span class="bn">0x9A</span><span class="op">,</span> <span class="bn">0xCF</span><span class="op">);</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Entry 2: Kernel Data Segment (Base=0, Limit=4GB, 4KB granularity, 32-bit protected)</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>    gdt_set_gate<span class="op">(</span><span class="dv">2</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="bn">0xFFFFFFFF</span><span class="op">,</span> <span class="bn">0x92</span><span class="op">,</span> <span class="bn">0xCF</span><span class="op">);</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Load into CPU GDTR register</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>    __asm__ <span class="dt">volatile</span><span class="op">(</span><span class="st">&quot;lgdt (%0)&quot;</span> <span class="op">:</span> <span class="op">:</span> <span class="st">&quot;r&quot;</span> <span class="op">(&amp;</span>gp<span class="op">));</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<hr />
+<h2 id="configuring-the-interrupt-descriptor-table-idt">Configuring the
+Interrupt Descriptor Table (IDT)</h2>
+<p>The IDT tells the processor which Interrupt Service Routine (ISR) to
+execute when an exception, software interrupt, or hardware interrupt
+occurs. In 32-bit protected mode, each IDT gate is 8 bytes long.</p>
+<h3 id="1-defining-the-idt-structures">1. Defining the IDT
+Structures</h3>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> idt_entry <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint16_t</span> offset_low<span class="op">;</span>      <span class="co">// Lower 16 bits of the ISR address</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint16_t</span> selector<span class="op">;</span>        <span class="co">// Kernel segment selector (e.g., Code Segment 0x08)</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint8_t</span>  zero<span class="op">;</span>            <span class="co">// Always set to 0</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint8_t</span>  type_attr<span class="op">;</span>       <span class="co">// Type and attributes (P, DPL, Gate Type)</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint16_t</span> offset_high<span class="op">;</span>     <span class="co">// Upper 16 bits of the ISR address</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> __attribute__<span class="op">((</span>packed<span class="op">));</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> idt_ptr <span class="op">{</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint16_t</span> limit<span class="op">;</span>           <span class="co">// Table size minus 1</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint32_t</span> base<span class="op">;</span>            <span class="co">// Address of the first idt_entry</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> __attribute__<span class="op">((</span>packed<span class="op">));</span></span></code></pre></div>
+<h3 id="2-setting-idt-entries">2. Setting IDT Entries</h3>
+<p>To configure an interrupt gate, mask the function pointer
+representing your handler into the upper and lower halves of the
+descriptor:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#define IDT_ENTRIES </span><span class="dv">256</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> idt_entry idt<span class="op">[</span>IDT_ENTRIES<span class="op">];</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> idt_ptr ip<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> idt_set_gate<span class="op">(</span><span class="dt">uint8_t</span> num<span class="op">,</span> <span class="dt">uint32_t</span> base<span class="op">,</span> <span class="dt">uint16_t</span> sel<span class="op">,</span> <span class="dt">uint8_t</span> flags<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    idt<span class="op">[</span>num<span class="op">].</span>offset_low  <span class="op">=</span> base <span class="op">&amp;</span> <span class="bn">0xFFFF</span><span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    idt<span class="op">[</span>num<span class="op">].</span>offset_high <span class="op">=</span> <span class="op">(</span>base <span class="op">&gt;&gt;</span> <span class="dv">16</span><span class="op">)</span> <span class="op">&amp;</span> <span class="bn">0xFFFF</span><span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    idt<span class="op">[</span>num<span class="op">].</span>selector    <span class="op">=</span> sel<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    idt<span class="op">[</span>num<span class="op">].</span>zero        <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    idt<span class="op">[</span>num<span class="op">].</span>type_attr   <span class="op">=</span> flags<span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="co">// Example ISR signature</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> default_exception_handler<span class="op">(</span><span class="dt">void</span><span class="op">);</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> idt_init<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    ip<span class="op">.</span>limit <span class="op">=</span> <span class="op">(</span><span class="kw">sizeof</span><span class="op">(</span><span class="kw">struct</span> idt_entry<span class="op">)</span> <span class="op">*</span> IDT_ENTRIES<span class="op">)</span> <span class="op">-</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    ip<span class="op">.</span>base  <span class="op">=</span> <span class="op">(</span><span class="dt">uint32_t</span><span class="op">)&amp;</span>idt<span class="op">;</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Clear all entries</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> IDT_ENTRIES<span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>        idt_set_gate<span class="op">(</span>i<span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">);</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Set a gate (e.g., Interrupt 0 for Divide Error)</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 0x08 is the Kernel Code Segment selector, 0x8E is a 32-bit Interrupt Gate (Present, Ring 0)</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>    idt_set_gate<span class="op">(</span><span class="dv">0</span><span class="op">,</span> <span class="op">(</span><span class="dt">uint32_t</span><span class="op">)</span>default_exception_handler<span class="op">,</span> <span class="bn">0x08</span><span class="op">,</span> <span class="bn">0x8E</span><span class="op">);</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Load into CPU IDTR register</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>    __asm__ <span class="dt">volatile</span><span class="op">(</span><span class="st">&quot;lidt (%0)&quot;</span> <span class="op">:</span> <span class="op">:</span> <span class="st">&quot;r&quot;</span> <span class="op">(&amp;</span>ip<span class="op">));</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Using packed structures alongside bitwise operators guarantees that
+memory matches the x86 specification. Once the pointer structures are
+filled, executing <code>lgdt</code> and <code>lidt</code> commits the
+changes to the processor, establishing basic memory mapping and
+interrupt delivery.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How C Handles Variadic Functions on the Stack - c</title>
+    <meta name="description" content="The C programming language manages variable-length parameter lists (variadic functions) through a combination of calling conventions, pointer arithmetic, and stack memory organization. Because the compiler cannot predict the exact count or types of optio">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-c-handles-variadic-functions-on-the-stack">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How C Handles Variadic Functions on the Stack - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-c-handles-variadic-functions-on-the-stack" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The C programming language manages variable-length parameter lists (variadic functions) through a combination of calling conventions, pointer arithmetic, and stack memory organization. Because the compiler cannot predict the exact count or types of optio" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-c-handles-variadic-functions-on-the-stack">How C Handles
+Variadic Functions on the Stack</h1>
+<p>The C programming language manages variable-length parameter lists
+(variadic functions) through a combination of calling conventions,
+pointer arithmetic, and stack memory organization. Because the compiler
+cannot predict the exact count or types of optional arguments at compile
+time, it relies on strict runtime conventions where the caller places
+arguments into memory in a predictable sequence. This article examines
+how the stack frame is organized, how standard macros like
+<code>va_start</code> and <code>va_arg</code> traverse memory, and how
+modern register-based calling conventions adapt these traditional stack
+mechanisms.</p>
+<h2 id="the-foundation-calling-conventions-and-stack-alignment">The
+Foundation: Calling Conventions and Stack Alignment</h2>
+<p>To make variadic functions possible, C relies heavily on calling
+conventions that satisfy two main requirements: the caller must clean up
+the stack, and the position of the first argument must remain
+predictable.</p>
+<p>In traditional 32-bit x86 systems using the <code>cdecl</code>
+calling convention:</p>
+<ol type="1">
+<li><strong>Right-to-Left Push Order:</strong> Arguments are evaluated
+and pushed onto the call stack from right to left.</li>
+<li><strong>Caller Cleanup:</strong> Because the callee (the called
+function) does not inherently know how many bytes were pushed, the
+caller is responsible for adjusting the stack pointer (<code>ESP</code>)
+after the function returns.</li>
+<li><strong>Fixed Anchor Position:</strong> Because the rightmost
+argument is pushed first and the leftmost argument is pushed last, the
+first named parameter always sits at a known, fixed offset relative to
+the base pointer (<code>EBP</code>) or stack pointer
+(<code>ESP</code>).</li>
+</ol>
+<p>Under standard architecture rules, stack elements are aligned to word
+boundaries (4 bytes on 32-bit systems, 8 bytes on 64-bit systems). Types
+smaller than the architecture's native word size (such as
+<code>char</code> or <code>short</code>) are widened to <code>int</code>
+via default argument promotions, guaranteeing predictable memory
+stepping intervals.</p>
+<h2 id="traditional-32-bit-stack-layout-mechanics">Traditional 32-Bit
+Stack Layout Mechanics</h2>
+<p>On a standard 32-bit machine, memory addresses grow downward as the
+stack grows. When a variadic function such as
+<code>int printf(const char *format, ...)</code> is invoked:</p>
+<ol type="1">
+<li>Optional arguments are pushed onto the stack in reverse order.</li>
+<li>The mandatory <code>format</code> pointer is pushed last.</li>
+<li>The <code>CALL</code> instruction pushes the return address.</li>
+<li>The function prologue pushes the old <code>EBP</code> and allocates
+local variables.</li>
+</ol>
+<p>This creates a contiguous block of arguments in memory where memory
+addresses increase from the first parameter to the last:</p>
+<ul>
+<li><code>[EBP + 0]</code>: Saved Frame Pointer (<code>EBP</code>)</li>
+<li><code>[EBP + 4]</code>: Return Address</li>
+<li><code>[EBP + 8]</code>: First named argument
+(<code>format</code>)</li>
+<li><code>[EBP + 12]</code>: First variadic argument</li>
+<li><code>[EBP + 16]</code>: Second variadic argument</li>
+<li><code>[EBP + 20]</code>: Third variadic argument</li>
+</ul>
+<p>Because the arguments reside sequentially in memory, any subsequent
+argument can be accessed using pointer arithmetic anchored to the
+address of the mandatory named parameter.</p>
+<h2 id="how-stdargh-operates-internally">How <code>stdarg.h</code>
+Operates Internally</h2>
+<p>The <code>&lt;stdarg.h&gt;</code> header provides four macros that
+formalize stack traversal without requiring inline assembly:</p>
+<h3 id="1-va_list">1. <code>va_list</code></h3>
+<p>On simple stack-based architectures, <code>va_list</code> is defined
+simply as a character pointer (<code>typedef char *va_list;</code>).
+This pointer tracks the current memory address being read on the
+stack.</p>
+<h3 id="2-va_startap-last_named_arg">2.
+<code>va_start(ap, last_named_arg)</code></h3>
+<p>The <code>va_start</code> macro initializes the <code>va_list</code>
+pointer. It takes the address of the last known named parameter, adds
+its aligned size, and assigns the resulting memory address to the
+pointer:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#define va_start</span><span class="op">(</span><span class="pp">ap</span><span class="op">,</span><span class="pp"> last_arg</span><span class="op">)</span><span class="pp"> </span><span class="op">\</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">    </span><span class="op">((</span><span class="pp">ap</span><span class="op">)</span><span class="pp"> </span><span class="op">=</span><span class="pp"> </span><span class="op">(</span><span class="dt">va_list</span><span class="op">)&amp;(</span><span class="pp">last_arg</span><span class="op">)</span><span class="pp"> </span><span class="op">+</span><span class="pp"> </span><span class="kw">sizeof</span><span class="op">(</span><span class="pp">last_arg</span><span class="op">))</span></span></code></pre></div>
+<p>This points the <code>ap</code> pointer directly at the base of the
+first undeclared argument on the stack.</p>
+<h3 id="3-va_argap-type">3. <code>va_arg(ap, type)</code></h3>
+<p>The <code>va_arg</code> macro retrieves the value stored at the
+current pointer location, casts it to the requested data type, and
+advances the pointer by the size of that type (rounded up to the stack
+alignment boundary):</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#define va_arg</span><span class="op">(</span><span class="pp">ap</span><span class="op">,</span><span class="pp"> type</span><span class="op">)</span><span class="pp"> </span><span class="op">\</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">    </span><span class="op">(*(</span><span class="pp">type </span><span class="op">*)((</span><span class="pp">ap </span><span class="op">+=</span><span class="pp"> </span><span class="kw">sizeof</span><span class="op">(</span><span class="pp">type</span><span class="op">))</span><span class="pp"> </span><span class="op">-</span><span class="pp"> </span><span class="kw">sizeof</span><span class="op">(</span><span class="pp">type</span><span class="op">)))</span></span></code></pre></div>
+<p>Because the memory layout contains raw bytes with no embedded type
+metadata, the function must deduce the expected type externally (for
+example, by parsing <code>%d</code> or <code>%s</code> specifiers in a
+format string).</p>
+<h3 id="4-va_endap">4. <code>va_end(ap)</code></h3>
+<p>On simple architectures, <code>va_end</code> resets the pointer to
+<code>NULL</code> to avoid dangling references. On architectures with
+complex state tracking, it performs necessary cleanup.</p>
+<h2 id="variadic-functions-in-modern-64-bit-architectures">Variadic
+Functions in Modern 64-Bit Architectures</h2>
+<p>Modern 64-bit calling conventions (such as the System V AMD64 ABI
+used in Linux/macOS and the Microsoft x64 convention used in Windows) do
+not pass all arguments on the stack. Instead, the first several
+integer/pointer arguments are passed via general-purpose registers
+(e.g., <code>RDI</code>, <code>RSI</code>, <code>RDX</code>,
+<code>RCX</code>, <code>R8</code>, <code>R9</code>), while
+floating-point arguments use SIMD registers
+(<code>XMM0</code>–<code>XMM7</code>).</p>
+<p>To preserve the sequential memory traversal model expected by the C
+standard, the compiler implements a <strong>Register Save Area
+(RSA)</strong>:</p>
+<ol type="1">
+<li><strong>Spilling to the Stack:</strong> When a variadic function
+begins execution, the compiler automatically generates a prologue that
+dumps the potential argument registers into a contiguous block on the
+local stack frame.</li>
+<li><strong>Complex <code>va_list</code> Structure:</strong> In System V
+AMD64, <code>va_list</code> is not a simple pointer. It is defined as an
+array of structures containing:
+<ul>
+<li><code>gp_offset</code>: Byte offset to the next available
+general-purpose register in the register save area.</li>
+<li><code>fp_offset</code>: Byte offset to the next available
+floating-point register in the register save area.</li>
+<li><code>reg_save_area</code>: Pointer to the base of the register save
+area on the stack.</li>
+<li><code>overflow_arg_area</code>: Pointer to arguments that spilled
+directly onto the call stack because register capacity was
+exceeded.</li>
+</ul></li>
+<li><strong>Branching Retrieval:</strong> When <code>va_arg</code> is
+executed, the macro determines whether the requested type should be
+pulled from the <code>reg_save_area</code> using the register offsets or
+from the <code>overflow_arg_area</code> on the stack.</li>
+</ol>
+<p>Through this spilling process, modern 64-bit C compilers translate
+register-based calling conventions back into a contiguous stack layout,
+ensuring that variadic operations behave consistently regardless of
+underlying hardware differences.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

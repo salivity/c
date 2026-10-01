@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Valgrind Detects Memory Errors in C Programs - c</title>
+    <meta name="description" content="Valgrind, predominantly through its default tool Memcheck, detects uninitialized reads and memory mismanagement in C binaries by using dynamic binary instrumentation to run programs in a synthetic CPU environment. Rather than requiring source-code altera">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-valgrind-detects-memory-errors-in-c-programs">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Valgrind Detects Memory Errors in C Programs - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-valgrind-detects-memory-errors-in-c-programs" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Valgrind, predominantly through its default tool Memcheck, detects uninitialized reads and memory mismanagement in C binaries by using dynamic binary instrumentation to run programs in a synthetic CPU environment. Rather than requiring source-code altera" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-valgrind-detects-memory-errors-in-c-programs">How Valgrind
+Detects Memory Errors in C Programs</h1>
+<p>Valgrind, predominantly through its default tool Memcheck, detects
+uninitialized reads and memory mismanagement in C binaries by using
+dynamic binary instrumentation to run programs in a synthetic CPU
+environment. Rather than requiring source-code alterations, it
+disassembles the executable’s machine instructions, inserts
+instrumentation code to monitor every memory read, write, and
+allocation, and tracks the state of every bit of data and memory
+location throughout execution.</p>
+<h2 id="dynamic-binary-instrumentation-dbi">Dynamic Binary
+Instrumentation (DBI)</h2>
+<p>Valgrind does not run your C executable directly on the host
+processor. Instead, it acts as a virtual machine using just-in-time
+(JIT) compilation:</p>
+<ol type="1">
+<li><strong>Disassembly to IR:</strong> Valgrind translates machine code
+into an architecture-neutral Intermediate Representation (IR).</li>
+<li><strong>Instrumentation:</strong> Memcheck inserts analysis routines
+around memory accesses, stack updates, and CPU register operations.</li>
+<li><strong>Recompilation:</strong> The instrumented IR is compiled back
+into host machine code and executed on a simulated processor.</li>
+</ol>
+<p>Because this transformation happens at runtime, Valgrind can track
+memory access patterns across dynamically linked libraries and custom
+routines without requiring recompilation with special compiler flags
+(though compiling with <code>-g</code> provides helpful source-line
+information in error reports).</p>
+<h2 id="tracking-uninitialized-reads-v-bits">Tracking Uninitialized
+Reads: V-Bits</h2>
+<p>To detect uninitialized memory reads, Memcheck implements a shadow
+memory system using <strong>V-bits</strong> (Validity bits). Every
+single bit of data in registers and physical memory is paired with a
+corresponding shadow V-bit:</p>
+<ul>
+<li>A V-bit value of <code>0</code> denotes uninitialized (undefined)
+data.</li>
+<li>A V-bit value of <code>1</code> denotes initialized (defined)
+data.</li>
+</ul>
+<p>When a block of memory is allocated via <code>malloc()</code>, its
+shadow V-bits are set to <code>0</code>. When data is written to that
+memory, the corresponding V-bits are set to <code>1</code>.</p>
+<h3 id="lazy-checking-and-propagation">Lazy Checking and
+Propagation</h3>
+<p>Memcheck does not immediately report an error merely because
+uninitialized data is copied or moved between registers and memory.
+Instead, it propagates the V-bits through arithmetic and logical
+operations. An error is only flagged when undefined data threatens
+program correctness:</p>
+<ul>
+<li>Evaluating a conditional jump (e.g.,
+<code>if (uninitialized_var)</code>)</li>
+<li>Using an uninitialized value as a memory address (pointer
+dereferencing)</li>
+<li>Passing uninitialized data to system calls (e.g.,
+<code>write()</code>)</li>
+</ul>
+<p>This design avoids false positives for standard C idioms, such as
+copying partially uninitialized structs via <code>memcpy</code>.</p>
+<h2 id="detecting-invalid-accesses-a-bits-and-redzones">Detecting
+Invalid Accesses: A-Bits and Redzones</h2>
+<p>Alongside V-bits, Memcheck maintains <strong>A-bits</strong>
+(Addressability bits) to determine whether a program has the legal right
+to access a specific byte of memory:</p>
+<ul>
+<li>An A-bit value of <code>1</code> indicates accessible memory.</li>
+<li>An A-bit value of <code>0</code> indicates inaccessible memory.</li>
+</ul>
+<p>When a byte is accessed, Memcheck checks its A-bit. If the bit is
+<code>0</code>, an "Invalid read" or "Invalid write" error is raised
+immediately.</p>
+<h3 id="heap-interception-and-redzones">Heap Interception and
+Redzones</h3>
+<p>Valgrind replaces the standard C library memory allocators
+(<code>malloc</code>, <code>calloc</code>, <code>realloc</code>, and
+<code>free</code>) with its own versions:</p>
+<ul>
+<li><strong>Buffer Overflows/Underflows:</strong> When memory is
+allocated, Memcheck surrounds the block with non-addressable padding
+zones called "redzones." If a program writes past an array boundary, it
+hits a redzone (where A-bits are <code>0</code>), triggering an
+out-of-bounds error.</li>
+<li><strong>Use-After-Free:</strong> When <code>free()</code> is called,
+Memcheck marks the memory block's A-bits as invalid and places the block
+into a quarantine queue. The memory is not immediately returned to the
+system pool, ensuring that subsequent reads or writes to the freed
+pointer hit an invalid zone and trigger an error.</li>
+</ul>
+<h3 id="stack-and-global-variables">Stack and Global Variables</h3>
+<p>Memcheck tracks stack pointer (<code>ESP</code>/<code>RSP</code>)
+movements to allocate and deallocate stack frames. When a function
+creates local variables, the corresponding stack space is marked
+addressable (A-bits = <code>1</code>), but undefined (V-bits =
+<code>0</code>). When the function returns and the stack unwinds, that
+memory range is marked inaccessible, allowing Memcheck to catch dangling
+stack pointers.</p>
+<h2 id="memory-leak-detection">Memory Leak Detection</h2>
+<p>When a program terminates, Memcheck performs a
+garbage-collection-style reachability analysis across the heap to detect
+leaks:</p>
+<ol type="1">
+<li>It searches the "root set" (CPU registers, the stack, and
+global/static data segments) for pointer-sized values.</li>
+<li>It treats any matching value as a reference to an allocated heap
+block and recursively traces pointers through the heap.</li>
+<li>It classifies untraced blocks into specific categories:
+<ul>
+<li><strong>Definitely Lost:</strong> No pointer exists that points to
+the beginning or the middle of the block.</li>
+<li><strong>Indirectly Lost:</strong> The block is referenced only by
+other blocks that are themselves lost (e.g., nodes in a lost linked
+list).</li>
+<li><strong>Possibly Lost:</strong> A pointer exists, but it points to
+the interior of the block rather than the start.</li>
+<li><strong>Still Reachable:</strong> A valid pointer to the block still
+exists at program termination, which often happens when a program exits
+without explicitly freeing static structures.</li>
+</ul></li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

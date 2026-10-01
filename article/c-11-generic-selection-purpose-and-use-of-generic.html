@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C11 Generic Selection: Purpose and Use of _Generic - c</title>
+    <meta name="description" content="This article provides an overview of the generic selection feature introduced via the Generic keyword in the C11 standard. It explores the core purpose of generic selection, explains how it enables compile-time type dispatching in standard C, and outline">
+    <link rel="canonical" href="https://salivity.github.io/c/article/c-11-generic-selection-purpose-and-use-of-generic">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C11 Generic Selection: Purpose and Use of _Generic - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/c-11-generic-selection-purpose-and-use-of-generic" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of the generic selection feature introduced via the Generic keyword in the C11 standard. It explores the core purpose of generic selection, explains how it enables compile-time type dispatching in standard C, and outline" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c11-generic-selection-purpose-and-use-of-_generic">C11 Generic
+Selection: Purpose and Use of _Generic</h1>
+<p>This article provides an overview of the generic selection feature
+introduced via the <code>_Generic</code> keyword in the C11 standard. It
+explores the core purpose of generic selection, explains how it enables
+compile-time type dispatching in standard C, and outlines how developers
+use it to implement function overloading, build type-generic math
+interfaces, and write safer, more maintainable code without runtime
+overhead.</p>
+<h2 id="the-core-purpose-of-generic-selection">The Core Purpose of
+Generic Selection</h2>
+<p>Before the C11 standard, C lacked native support for function
+overloading. If a programmer needed a function that operated on multiple
+data types—such as <code>float</code>, <code>double</code>, and
+<code>int</code>—they had to write distinctly named functions for each
+type (for example, <code>abs()</code>, <code>labs()</code>, and
+<code>fabs()</code>).</p>
+<p>The primary purpose of the <code>_Generic</code> keyword in C11 is to
+provide compile-time type-based expression selection. It allows C
+programmers to associate different expressions with specific data types,
+effectively mimicking function overloading and type genericity while
+preserving the simple ABI and procedural nature of the language.</p>
+<h2 id="syntax-and-mechanics">Syntax and Mechanics</h2>
+<p>Generic selection operates purely at compile time. The basic syntax
+is structured like a compile-time switch statement based on types:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">_Generic</span><span class="op">(</span> controlling<span class="op">-</span>expression<span class="op">,</span> \</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    type1<span class="op">:</span> result1<span class="op">,</span> \</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    type2<span class="op">:</span> result2<span class="op">,</span> \</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">default</span><span class="op">:</span> default_result \</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">)</span></span></code></pre></div>
+<ol type="1">
+<li><strong>Controlling Expression</strong>: The expression whose type
+is inspected. Crucially, this expression is unevaluated at runtime; the
+compiler only determines its resulting type.</li>
+<li><strong>Type Associations</strong>: A list mapping data types to
+specific replacement expressions or function pointers.</li>
+<li><strong>Default Case</strong>: An optional fallback expression
+selected when the controlling expression's type matches none of the
+listed types.</li>
+</ol>
+<p>During compilation, the compiler inspects the type of the controlling
+expression, selects the matching branch, and discards all other
+branches.</p>
+<h2 id="common-use-cases">Common Use Cases</h2>
+<h3 id="1-pseudo-function-overloading">1. Pseudo-Function
+Overloading</h3>
+<p>The most frequent application of <code>_Generic</code> is pairing it
+with the preprocessor to create function wrappers that automatically
+route arguments to the correct implementation.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> print_int<span class="op">(</span><span class="dt">int</span> x<span class="op">)</span>       <span class="op">{</span> printf<span class="op">(</span><span class="st">&quot;Integer: </span><span class="sc">%d\n</span><span class="st">&quot;</span><span class="op">,</span> x<span class="op">);</span> <span class="op">}</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> print_double<span class="op">(</span><span class="dt">double</span> x<span class="op">)</span> <span class="op">{</span> printf<span class="op">(</span><span class="st">&quot;Double: </span><span class="sc">%f\n</span><span class="st">&quot;</span><span class="op">,</span> x<span class="op">);</span> <span class="op">}</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> print_string<span class="op">(</span><span class="dt">char</span> <span class="op">*</span>x<span class="op">)</span>  <span class="op">{</span> printf<span class="op">(</span><span class="st">&quot;String: </span><span class="sc">%s\n</span><span class="st">&quot;</span><span class="op">,</span> x<span class="op">);</span> <span class="op">}</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="pp">#define print</span><span class="op">(</span><span class="pp">X</span><span class="op">)</span><span class="pp"> </span><span class="dt">_Generic</span><span class="op">((</span><span class="pp">X</span><span class="op">),</span><span class="pp"> </span><span class="op">\</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="pp">    </span><span class="dt">int</span><span class="op">:</span><span class="pp"> print_int</span><span class="op">,</span><span class="pp"> </span><span class="op">\</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="pp">    </span><span class="dt">double</span><span class="op">:</span><span class="pp"> print_double</span><span class="op">,</span><span class="pp"> </span><span class="op">\</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="pp">    </span><span class="dt">char</span><span class="op">*:</span><span class="pp"> print_string </span><span class="op">\</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="op">)(</span><span class="pp">X</span><span class="op">)</span></span></code></pre></div>
+<p>Calling <code>print(42)</code> routes to <code>print_int(42)</code>,
+while <code>print(3.14)</code> routes to
+<code>print_double(3.14)</code>.</p>
+<h3 id="2-standardized-type-generic-math-tgmathh">2. Standardized
+Type-Generic Math (<code>&lt;tgmath.h&gt;</code>)</h3>
+<p>Historically, the type-generic math library
+(<code>&lt;tgmath.h&gt;</code>) introduced in C99 relied on
+compiler-specific built-ins and magic macros. C11 standardizes this
+behavior using <code>_Generic</code>, allowing standard functions like
+<code>sin()</code> to resolve to <code>sinf()</code>,
+<code>sin()</code>, or <code>sinl()</code> depending on whether the
+argument is a <code>float</code>, <code>double</code>, or
+<code>long double</code>.</p>
+<h3 id="3-type-assertions-and-safety">3. Type Assertions and Safety</h3>
+<p>Generic selection can enforce compile-time validation. If an
+unexpected type is passed and no <code>default</code> branch is
+provided, the compiler issues an error, preventing silent conversions
+and type-mismatch bugs.</p>
+<h2 id="advantages-over-pre-c11-alternatives">Advantages Over Pre-C11
+Alternatives</h2>
+<ul>
+<li><strong>Zero Runtime Overhead</strong>: Because generic selection
+resolves during compilation, it adds no CPU cycles, stack frames, or
+memory overhead to the running program.</li>
+<li><strong>Preserved C ABI</strong>: Unlike C++ name mangling, C
+functions remain simple symbols, retaining full compatibility with
+dynamic linkers and foreign function interfaces (FFIs).</li>
+<li><strong>Cleaner APIs</strong>: Library authors can expose unified,
+intuitive interfaces to users without requiring them to remember
+distinct names for every numerical variant of an algorithm.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

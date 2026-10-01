@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Role of Void Pointers in C Programming - c</title>
+    <meta name="description" content="A void pointer (void ) in the C programming language serves as a generic pointer capable of storing the memory address of any data type. This article explores how void pointers act as universal memory containers, their essential role in dynamic memory al">
+    <link rel="canonical" href="https://salivity.github.io/c/article/the-role-of-void-pointers-in-c-programming">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="The Role of Void Pointers in C Programming - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/the-role-of-void-pointers-in-c-programming" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="A void pointer (void ) in the C programming language serves as a generic pointer capable of storing the memory address of any data type. This article explores how void pointers act as universal memory containers, their essential role in dynamic memory al" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="the-role-of-void-pointers-in-c-programming">The Role of Void
+Pointers in C Programming</h1>
+<p>A void pointer (<code>void *</code>) in the C programming language
+serves as a generic pointer capable of storing the memory address of any
+data type. This article explores how void pointers act as universal
+memory containers, their essential role in dynamic memory allocation,
+their use in generic data structures and callback functions, and the
+operational rules governing their dereferencing and pointer
+arithmetic.</p>
+<h3 id="what-is-a-void-pointer">What is a Void Pointer?</h3>
+<p>A void pointer is an untyped or raw memory address container. Unlike
+typed pointers (such as <code>int *</code> or <code>char *</code>),
+which inform the compiler about the underlying data size and memory
+layout, a <code>void *</code> represents only an address without
+associating it with a specific data type. In C, any data pointer can be
+converted to a <code>void *</code> and back again without explicit
+casting and without loss of data.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> num <span class="op">=</span> <span class="dv">42</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> <span class="op">*</span>ptr <span class="op">=</span> <span class="op">&amp;</span>num<span class="op">;</span> <span class="co">// Implicit conversion to void*</span></span></code></pre></div>
+<h3 id="dynamic-memory-allocation">Dynamic Memory Allocation</h3>
+<p>The most common application of void pointers is in dynamic memory
+management functions like <code>malloc()</code>, <code>calloc()</code>,
+and <code>realloc()</code>. These functions allocate raw memory blocks
+on the heap without knowing beforehand what type of data will be stored
+in them.</p>
+<p>By returning <code>void *</code>, <code>malloc()</code> provides a
+generic address that the caller can assign to any typed pointer:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">double</span> <span class="op">*</span>data <span class="op">=</span> malloc<span class="op">(</span><span class="dv">10</span> <span class="op">*</span> <span class="kw">sizeof</span><span class="op">(</span><span class="dt">double</span><span class="op">));</span></span></code></pre></div>
+<p>Because <code>void *</code> automatically converts to any typed
+pointer in C, the programmer does not need to cast the return value of
+<code>malloc()</code>.</p>
+<h3 id="building-generic-data-structures">Building Generic Data
+Structures</h3>
+<p>C does not natively support templates or object-oriented
+polymorphism. The void pointer fills this gap by allowing developers to
+build generic data structures—such as linked lists, stacks, queues, and
+hash maps—that store arbitrary payload data.</p>
+<p>A generic linked list node, for example, typically uses a
+<code>void *</code> for its data field:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Node <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> <span class="op">*</span>data<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> Node <span class="op">*</span>next<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>This structure allows the same linked list logic to manage integers,
+complex structs, or strings without rewriting the container logic for
+every separate data type.</p>
+<h3 id="generic-functions-and-callbacks">Generic Functions and
+Callbacks</h3>
+<p>Void pointers enable higher-order generic functions within the
+standard C library, such as <code>qsort()</code> and
+<code>bsearch()</code>. These functions require the memory address of
+the array, the number of elements, the size of each element, and a
+comparator function pointer.</p>
+<p>The comparison function receives two <code>const void *</code>
+arguments, representing two elements of unknown type:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> compare_integers<span class="op">(</span><span class="dt">const</span> <span class="dt">void</span> <span class="op">*</span>a<span class="op">,</span> <span class="dt">const</span> <span class="dt">void</span> <span class="op">*</span>b<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> val_a <span class="op">=</span> <span class="op">*(</span><span class="dt">const</span> <span class="dt">int</span> <span class="op">*)</span>a<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> val_b <span class="op">=</span> <span class="op">*(</span><span class="dt">const</span> <span class="dt">int</span> <span class="op">*)</span>b<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">(</span>val_a <span class="op">-</span> val_b<span class="op">);</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The comparator explicitly casts the generic pointers to the
+appropriate concrete type before dereferencing them, allowing the
+algorithm to remain entirely type-agnostic.</p>
+<h3 id="restrictions-dereferencing-and-pointer-arithmetic">Restrictions:
+Dereferencing and Pointer Arithmetic</h3>
+<p>Because the compiler cannot determine the size or layout of the
+target data, a void pointer cannot be dereferenced directly. Attempting
+to write <code>*ptr</code> on a <code>void *</code> produces a
+compilation error. It must always be cast to a concrete data pointer
+first.</p>
+<p>Similarly, standard C forbids pointer arithmetic on
+<code>void *</code> because the increment step size
+(<code>sizeof(void)</code>) is undefined. While some compilers (like
+GCC) support void pointer arithmetic as an extension by treating
+<code>sizeof(void)</code> as 1, portable C code requires casting the
+void pointer to <code>char *</code> or <code>uint8_t *</code> before
+performing byte-level address calculations.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

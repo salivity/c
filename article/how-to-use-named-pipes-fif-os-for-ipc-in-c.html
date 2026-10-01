@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Use Named Pipes (FIFOs) for IPC in C - c</title>
+    <meta name="description" content="Named pipes, also known as FIFOs (First-In, First-Out), provide a robust mechanism for inter-process communication (IPC) between unrelated local processes on Unix-like operating systems. Unlike standard anonymous pipes, which require a parent-child relat">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-to-use-named-pipes-fif-os-for-ipc-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Use Named Pipes (FIFOs) for IPC in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-to-use-named-pipes-fif-os-for-ipc-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Named pipes, also known as FIFOs (First-In, First-Out), provide a robust mechanism for inter-process communication (IPC) between unrelated local processes on Unix-like operating systems. Unlike standard anonymous pipes, which require a parent-child relat" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-use-named-pipes-fifos-for-ipc-in-c">How to Use Named
+Pipes (FIFOs) for IPC in C</h1>
+<p>Named pipes, also known as FIFOs (First-In, First-Out), provide a
+robust mechanism for inter-process communication (IPC) between unrelated
+local processes on Unix-like operating systems. Unlike standard
+anonymous pipes, which require a parent-child relationship established
+through <code>fork()</code>, a named pipe exists as a special device
+file in the filesystem. This article explains how named pipes operate in
+the C programming language, demonstrating how independent programs can
+open, read, and write to a shared FIFO using standard system-level file
+operations.</p>
+<h2 id="the-concept-of-a-fifo-in-unix">The Concept of a FIFO in
+Unix</h2>
+<p>A named pipe behaves similarly to a standard pipe: data written to
+one end is read from the other in strict sequential order. However,
+because it has an entry in the filesystem directory tree, any process
+with appropriate permissions can access it using its path. The data
+itself does not reside on disk; the filesystem entry serves merely as an
+access point or reference handle, while the operating system kernel
+manages the communication buffer in memory.</p>
+<h2 id="creating-a-named-pipe">Creating a Named Pipe</h2>
+<p>A named pipe is created programmatically in C using the
+<code>mkfifo()</code> function, declared in
+<code>&lt;sys/stat.h&gt;</code>.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;sys/types.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;sys/stat.h&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> mkfifo<span class="op">(</span><span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>pathname<span class="op">,</span> mode_t mode<span class="op">);</span></span></code></pre></div>
+<p>The <code>pathname</code> parameter defines where the FIFO will exist
+in the filesystem, and <code>mode</code> sets file permissions (subject
+to the calling process's <code>umask</code>). If the FIFO already
+exists, <code>mkfifo()</code> returns <code>-1</code> and sets
+<code>errno</code> to <code>EEXIST</code>.</p>
+<h2 id="inter-process-communication-mechanism">Inter-Process
+Communication Mechanism</h2>
+<p>Once created, processes interact with the FIFO using standard POSIX
+system calls: <code>open()</code>, <code>read()</code>,
+<code>write()</code>, and <code>close()</code>.</p>
+<p>By default, opening a named pipe blocks until both the read and write
+ends are open:</p>
+<ul>
+<li>A process opening a FIFO with <code>O_RDONLY</code> will block until
+another process opens it with <code>O_WRONLY</code>.</li>
+<li>Conversely, a process opening the FIFO with <code>O_WRONLY</code>
+will block until a reading process connects.</li>
+</ul>
+<p>This synchronization behavior ensures that data is not written into a
+void and that a reader does not spin idly waiting for an initial
+connection.</p>
+<h3 id="implementation-the-writer-process">Implementation: The Writer
+Process</h3>
+<p>The writer process creates the pipe (or assumes it exists), opens it
+for writing, sends data, and closes the descriptor.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// writer.c</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;fcntl.h&gt;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;sys/stat.h&gt;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;unistd.h&gt;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string.h&gt;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>fifo_path <span class="op">=</span> <span class="st">&quot;/tmp/my_fifo&quot;</span><span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Create the FIFO if it doesn&#39;t exist</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    mkfifo<span class="op">(</span>fifo_path<span class="op">,</span> <span class="bn">0666</span><span class="op">);</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Writer: Waiting for reader...</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">);</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> fd <span class="op">=</span> open<span class="op">(</span>fifo_path<span class="op">,</span> O_WRONLY<span class="op">);</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> message<span class="op">[]</span> <span class="op">=</span> <span class="st">&quot;Hello from the unrelated writer process!&quot;</span><span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    write<span class="op">(</span>fd<span class="op">,</span> message<span class="op">,</span> strlen<span class="op">(</span>message<span class="op">)</span> <span class="op">+</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    close<span class="op">(</span>fd<span class="op">);</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Writer: Data sent and connection closed.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">);</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="implementation-the-reader-process">Implementation: The Reader
+Process</h3>
+<p>The reader process opens the same path for reading, retrieves the
+data from the kernel buffer, and processes it.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// reader.c</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;fcntl.h&gt;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;unistd.h&gt;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>fifo_path <span class="op">=</span> <span class="st">&quot;/tmp/my_fifo&quot;</span><span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> buffer<span class="op">[</span><span class="dv">128</span><span class="op">];</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Reader: Waiting for writer...</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">);</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> fd <span class="op">=</span> open<span class="op">(</span>fifo_path<span class="op">,</span> O_RDONLY<span class="op">);</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">ssize_t</span> bytes_read <span class="op">=</span> read<span class="op">(</span>fd<span class="op">,</span> buffer<span class="op">,</span> <span class="kw">sizeof</span><span class="op">(</span>buffer<span class="op">));</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>bytes_read <span class="op">&gt;</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        printf<span class="op">(</span><span class="st">&quot;Reader received: </span><span class="sc">%s\n</span><span class="st">&quot;</span><span class="op">,</span> buffer<span class="op">);</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    close<span class="op">(</span>fd<span class="op">);</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="lifecycle-and-cleanup">Lifecycle and Cleanup</h2>
+<p>When all writer descriptors are closed, any subsequent
+<code>read()</code> call by the reader returns <code>0</code>, signaling
+End-of-File (EOF). If a process attempts to write to a named pipe that
+has no readers open, the kernel sends a <code>SIGPIPE</code> signal to
+the writer, which terminates the process unless handled or ignored.</p>
+<p>The FIFO special file remains in the filesystem after the
+communicating processes terminate. To clean up the resource, a process
+can remove it using the <code>unlink()</code> system call:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>unlink<span class="op">(</span><span class="st">&quot;/tmp/my_fifo&quot;</span><span class="op">);</span></span></code></pre></div></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

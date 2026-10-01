@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fast-Math and NaN Propagation Issues in C - c</title>
+    <meta name="description" content="Enabling fast-math optimizations in C compilers allows for aggressive floating-point performance gains by deliberately relaxing strict adherence to IEEE 754 standards. However, this performance comes at the cost of correctness, particularly regarding how">
+    <link rel="canonical" href="https://salivity.github.io/c/article/fast-math-and-na-n-propagation-issues-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Fast-Math and NaN Propagation Issues in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/fast-math-and-na-n-propagation-issues-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Enabling fast-math optimizations in C compilers allows for aggressive floating-point performance gains by deliberately relaxing strict adherence to IEEE 754 standards. However, this performance comes at the cost of correctness, particularly regarding how" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="fast-math-and-nan-propagation-issues-in-c">Fast-Math and NaN
+Propagation Issues in C</h1>
+<p>Enabling fast-math optimizations in C compilers allows for aggressive
+floating-point performance gains by deliberately relaxing strict
+adherence to IEEE 754 standards. However, this performance comes at the
+cost of correctness, particularly regarding how Not-a-Number (NaN)
+values behave. Under fast-math, compilers assume that NaNs do not exist,
+leading to eliminated sanity checks, mathematically invalid algebraic
+simplifications, and broken NaN propagation.</p>
+<h3 id="the-ieee-754-baseline">The IEEE 754 Baseline</h3>
+<p>Under the IEEE 754 floating-point specification, operations involving
+a NaN operand are required to produce a NaN result (known as quiet NaN
+propagation). Furthermore, standard comparison rules dictate that any
+equality or relational comparison involving NaN must evaluate to false,
+with the sole exception that <code>x != x</code> evaluates to true when
+<code>x</code> is NaN. These rules provide a reliable mechanism for
+signaling unrepresentable operations (such as <code>0.0 / 0.0</code> or
+<code>sqrt(-1.0)</code>) and allowing downstream code to detect
+computational errors without halting execution.</p>
+<h3 id="the-compiler-assumption-finite-math-only">The Compiler
+Assumption: Finite Math Only</h3>
+<p>When flags such as <code>-ffast-math</code> (in GCC or Clang) are
+used, the compiler activates a cluster of subordinate flags, most
+notably <code>-ffinite-math-only</code> and
+<code>-fno-honor-nans</code>.</p>
+<p>With these flags enabled, the compiler enters an optimization state
+where it assumes that every floating-point variable is a valid, finite
+real number. If a program encounters a NaN at runtime, the program
+enters undefined behavior territory from the compiler’s perspective.
+Because the compiler is legally permitted to treat this condition as
+impossible, it changes how machine code is generated in several critical
+ways:</p>
+<ol type="1">
+<li><p><strong>Dead Code Elimination on Checks:</strong> Functions like
+<code>isnan(x)</code> or idioms like <code>if (x != x)</code> are
+evaluated at compile time. Since the compiler assumes <code>x</code> is
+a finite number, <code>x != x</code> is statically resolved to
+<code>false</code>, and <code>isnan(x)</code> is assumed to return zero.
+The entire error-handling branch is removed from the resulting
+binary.</p></li>
+<li><p><strong>Aggressive Algebraic Simplifications:</strong> In
+standard IEEE 754 arithmetic, identities such as
+<code>x - x == 0.0</code>, <code>0.0 * x == 0.0</code>, and
+<code>x / x == 1.0</code> are invalid when <code>x</code> is NaN; these
+operations must evaluate to NaN. Under fast-math, the compiler assumes
+standard real-number algebra applies. It will freely replace
+<code>x - x</code> with <code>0.0</code> or <code>0.0 * x</code> with
+<code>0.0</code>. If <code>x</code> was a NaN intended to propagate
+downstream to indicate an upstream failure, it is silently replaced by a
+valid numerical value.</p></li>
+<li><p><strong>Reordering and Instruction Substitution:</strong> IEEE
+754 requires operations to occur in an exact sequence to preserve
+precision and status flags. Fast-math enables associative reordering
+(via <code>-fassociative-math</code>) and permits hardware-specific
+approximations (like reciprocal square-root instructions). These
+alternate instruction sequences often do not preserve NaN payloads and
+may fail to generate quiet NaNs when expected.</p></li>
+</ol>
+<h3 id="consequences-for-software-reliability">Consequences for Software
+Reliability</h3>
+<p>Because fast-math strips away the underlying logic required to track
+floating-point exceptions, programs that rely on NaN propagation for
+error checking, NaN-boxing, or handling missing data will produce
+silent, incorrect results rather than gracefully failing.</p>
+<p>If targeted optimizations are required without breaking NaN handling,
+developers must avoid monolithic flags like <code>-ffast-math</code>.
+Instead, they should selectively enable non-destructive flags (such as
+<code>-fno-trapping-math</code>) while explicitly keeping
+<code>-fhonor-nans</code> enabled to ensure IEEE 754 compliance where
+data validity matters.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

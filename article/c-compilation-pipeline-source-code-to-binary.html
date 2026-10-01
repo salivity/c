@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C Compilation Pipeline: Source Code to Binary - c</title>
+    <meta name="description" content="The C compilation pipeline is a multi-stage process that converts human-readable C source code into an executable machine binary. This pipeline consists of four distinct phases: preprocessing, compilation, assembly, and linking. Each stage accepts the ou">
+    <link rel="canonical" href="https://salivity.github.io/c/article/c-compilation-pipeline-source-code-to-binary">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C Compilation Pipeline: Source Code to Binary - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/c-compilation-pipeline-source-code-to-binary" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The C compilation pipeline is a multi-stage process that converts human-readable C source code into an executable machine binary. This pipeline consists of four distinct phases: preprocessing, compilation, assembly, and linking. Each stage accepts the ou" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-compilation-pipeline-source-code-to-binary">C Compilation
+Pipeline: Source Code to Binary</h1>
+<p>The C compilation pipeline is a multi-stage process that converts
+human-readable C source code into an executable machine binary. This
+pipeline consists of four distinct phases: preprocessing, compilation,
+assembly, and linking. Each stage accepts the output of the previous
+stage, applies specific transformations, and generates intermediate
+representations until the final standalone binary is produced for the
+target hardware architecture.</p>
+<h3 id="1-preprocessing">1. Preprocessing</h3>
+<p>The pipeline begins with the preprocessor (often invoked internally
+as <code>cpp</code>). The preprocessor processes all preprocessor
+directives, which are lines beginning with the <code>#</code>
+symbol.</p>
+<p>Key tasks performed during preprocessing include:</p>
+<ul>
+<li><strong>Header Inclusion (<code>#include</code>):</strong> Replacing
+<code>#include</code> directives with the actual contents of the
+specified header files (such as <code>stdio.h</code>).</li>
+<li><strong>Macro Expansion (<code>#define</code>):</strong> Scanning
+the code for defined macro names and replacing them with their
+corresponding values or code blocks.</li>
+<li><strong>Conditional Compilation (<code>#ifdef</code>,
+<code>#ifndef</code>, <code>#endif</code>):</strong> Evaluating
+conditional flags to include or exclude blocks of code prior to
+compilation.</li>
+<li><strong>Comment Removal:</strong> Stripping all single-line
+(<code>//</code>) and multi-line (<code>/* */</code>) comments from the
+source file.</li>
+</ul>
+<p>The output of this stage is an expanded, pure C source file,
+typically denoted with a <code>.i</code> extension.</p>
+<h3 id="2-compilation">2. Compilation</h3>
+<p>In the compilation phase, the preprocessed source code is analyzed
+and converted into assembly language specific to the target CPU
+architecture. Compilers like GCC or Clang run their primary compilation
+engine (such as <code>cc1</code>) during this step.</p>
+<p>This phase involves several internal sub-steps:</p>
+<ul>
+<li><strong>Lexical Analysis (Tokenization):</strong> Converting the
+stream of characters into recognized tokens (keywords, identifiers,
+operators).</li>
+<li><strong>Syntax and Semantic Analysis:</strong> Parsing tokens into
+an Abstract Syntax Tree (AST) to verify grammatical correctness and type
+safety.</li>
+<li><strong>Intermediate Representation (IR) Generation:</strong>
+Converting the AST into a hardware-independent intermediate
+representation.</li>
+<li><strong>Optimization:</strong> Analyzing the IR to eliminate dead
+code, unroll loops, inline functions, and optimize register usage.</li>
+<li><strong>Code Generation:</strong> Translating the optimized IR into
+target-specific assembly code.</li>
+</ul>
+<p>The output of the compilation stage is an assembly language file,
+typically carrying a <code>.s</code> extension.</p>
+<h3 id="3-assembly">3. Assembly</h3>
+<p>The assembly phase translates human-readable assembly instructions
+into raw machine code (native CPU instructions). This step is handled by
+an assembler (such as <code>as</code>).</p>
+<p>The assembler converts mnemonic instructions (such as
+<code>mov</code>, <code>add</code>, or <code>jmp</code>) into their
+binary opcode equivalents. Because external function addresses and
+cross-file memory locations cannot be determined yet, the assembler
+leaves placeholders for these references within the output.</p>
+<p>The resulting output is an unlinked object file, typically with a
+<code>.o</code> (on Unix-like systems) or <code>.obj</code> (on Windows)
+extension. Object files contain machine code organized into standard
+formats such as ELF (Executable and Linkable Format) or PE (Portable
+Executable), complete with symbol tables and relocation entries.</p>
+<h3 id="4-linking">4. Linking</h3>
+<p>The final stage of the pipeline is linking, handled by the linker
+(such as <code>ld</code>). A program often consists of multiple source
+files and relies on external libraries, such as the C Standard Library
+(<code>libc</code>).</p>
+<p>The linker performs two primary tasks:</p>
+<ul>
+<li><strong>Symbol Resolution:</strong> Matching undefined external
+symbols (such as calls to <code>printf</code>) to their corresponding
+definitions across other object files and libraries.</li>
+<li><strong>Relocation:</strong> Merging the code and data segments from
+all input object files into a single unified layout and adjusting memory
+addresses so every instruction correctly targets valid memory
+locations.</li>
+</ul>
+<p>Linking can be static (embedding library code directly into the final
+file) or dynamic (leaving references that the operating system resolves
+at runtime). Once linking is complete, the linker writes out the final,
+executable binary ready to be loaded into memory and executed by the
+operating system.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

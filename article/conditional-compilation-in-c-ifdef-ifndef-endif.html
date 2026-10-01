@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conditional Compilation in C: ifdef, ifndef, endif - c</title>
+    <meta name="description" content="Conditional compilation in C allows developers to selectively compile or ignore specific blocks of source code based on defined preprocessor conditions. This article covers how directives such as #ifdef, #ifndef, and #endif operate at the preprocessor st">
+    <link rel="canonical" href="https://salivity.github.io/c/article/conditional-compilation-in-c-ifdef-ifndef-endif">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Conditional Compilation in C: ifdef, ifndef, endif - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/conditional-compilation-in-c-ifdef-ifndef-endif" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Conditional compilation in C allows developers to selectively compile or ignore specific blocks of source code based on defined preprocessor conditions. This article covers how directives such as #ifdef, #ifndef, and #endif operate at the preprocessor st" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="conditional-compilation-in-c-ifdef-ifndef-endif">Conditional
+Compilation in C: ifdef, ifndef, endif</h1>
+<p>Conditional compilation in C allows developers to selectively compile
+or ignore specific blocks of source code based on defined preprocessor
+conditions. This article covers how directives such as
+<code>#ifdef</code>, <code>#ifndef</code>, and <code>#endif</code>
+operate at the preprocessor stage, their core syntax, and their
+practical applications in managing platform-specific code, debugging
+routines, and header file guards.</p>
+<h3 id="how-conditional-compilation-works">How Conditional Compilation
+Works</h3>
+<p>Before a C program is compiled into machine code, it passes through
+the C preprocessor. The preprocessor scans the code for
+directives—statements beginning with a hash symbol (<code>#</code>).</p>
+<p>Conditional compilation directives instruct the preprocessor to
+include or exclude segments of code before the compiler generates object
+code. If a condition evaluates to true, the enclosed code is forwarded
+to the compiler; if false, the preprocessor strips the code away
+entirely, ensuring it does not appear in the final executable.</p>
+<h3 id="the-ifdef-directive">The <code>#ifdef</code> Directive</h3>
+<p>The <code>#ifdef</code> (if defined) directive checks whether a
+specific preprocessor macro has been defined using <code>#define</code>
+or via compiler flags (such as <code>-D</code> in GCC or Clang). It does
+not evaluate the value of the macro, only its existence.</p>
+<p><strong>Syntax:</strong></p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#ifdef MACRO_NAME</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Code included if MACRO_NAME is defined</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#endif</span></span></code></pre></div>
+<p><strong>Example:</strong></p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#define DEBUG</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="pp">#ifdef DEBUG</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Debug mode is active.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">);</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="pp">#endif</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Program running.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">);</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>If <code>DEBUG</code> is defined, the debug message will compile and
+execute. If <code>DEBUG</code> is omitted or undefined via
+<code>#undef</code>, the preprocessor removes that <code>printf</code>
+statement before compilation.</p>
+<h3 id="the-ifndef-directive">The <code>#ifndef</code> Directive</h3>
+<p>The <code>#ifndef</code> (if not defined) directive performs the
+opposite check: it evaluates to true only if the specified identifier
+has not been defined.</p>
+<p><strong>Syntax:</strong></p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#ifndef MACRO_NAME</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Code included if MACRO_NAME is not defined</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#endif</span></span></code></pre></div>
+<p><strong>Example:</strong></p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#ifndef BUFFER_SIZE</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#define BUFFER_SIZE </span><span class="dv">1024</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#endif</span></span></code></pre></div>
+<p>In this case, <code>BUFFER_SIZE</code> defaults to <code>1024</code>
+only if it was not previously defined elsewhere in the project or
+command line.</p>
+<h3 id="the-endif-directive">The <code>#endif</code> Directive</h3>
+<p>Every conditional block opened by <code>#ifdef</code>,
+<code>#ifndef</code>, or <code>#if</code> must be closed with an
+<code>#endif</code> directive. It signals to the preprocessor the
+boundary where conditional inclusion ends and normal processing resumes.
+Omitting an <code>#endif</code> results in a compilation error.</p>
+<h3 id="expanding-conditions-with-else-and-elif">Expanding Conditions
+with <code>#else</code> and <code>#elif</code></h3>
+<p>To handle alternative scenarios, <code>#ifdef</code> and
+<code>#ifndef</code> can be paired with <code>#else</code> and
+<code>#elif</code>:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#ifdef WINDOWS</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="pp">#include </span><span class="im">&lt;windows.h&gt;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#elif defined(LINUX)</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="pp">#include </span><span class="im">&lt;unistd.h&gt;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="pp">#else</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    <span class="pp">#error &quot;Unsupported platform&quot;</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="pp">#endif</span></span></code></pre></div>
+<h3 id="common-practical-applications">Common Practical
+Applications</h3>
+<ol type="1">
+<li><strong>Header Guards:</strong> The most common use of
+<code>#ifndef</code> is preventing multiple inclusions of the same
+header file, which prevents duplicate definition errors.</li>
+</ol>
+<div class="sourceCode" id="cb6"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#ifndef MY_HEADER_H</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#define MY_HEADER_H</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Declarations and definitions go here</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="pp">#endif </span><span class="co">// MY_HEADER_H</span></span></code></pre></div>
+<ol start="2" type="1">
+<li><p><strong>Platform Dependency:</strong> Directives allow a single
+codebase to support multiple operating systems or architectures by
+conditionally compiling system-specific API calls.</p></li>
+<li><p><strong>Debugging and Logging:</strong> Developers can toggle
+diagnostic logging on or off without incurring runtime performance
+penalties, as disabled debug statements are fully removed at build
+time.</p></li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

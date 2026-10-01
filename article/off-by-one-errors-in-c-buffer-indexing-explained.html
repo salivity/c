@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Off-by-One Errors in C Buffer Indexing Explained - c</title>
+    <meta name="description" content="An off-by-one error (OBOE) is a common logic flaw that occurs when a program iterates through a sequence or accesses a collection using an incorrect boundary condition, targeting an index that is one position ahead or behind the intended target. In the C">
+    <link rel="canonical" href="https://salivity.github.io/c/article/off-by-one-errors-in-c-buffer-indexing-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Off-by-One Errors in C Buffer Indexing Explained - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/off-by-one-errors-in-c-buffer-indexing-explained" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="An off-by-one error (OBOE) is a common logic flaw that occurs when a program iterates through a sequence or accesses a collection using an incorrect boundary condition, targeting an index that is one position ahead or behind the intended target. In the C" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="off-by-one-errors-in-c-buffer-indexing-explained">Off-by-One
+Errors in C Buffer Indexing Explained</h1>
+<p>An off-by-one error (OBOE) is a common logic flaw that occurs when a
+program iterates through a sequence or accesses a collection using an
+incorrect boundary condition, targeting an index that is one position
+ahead or behind the intended target. In the C programming language,
+these errors frequently manifest during buffer manipulation due to
+zero-based indexing, faulty loop comparisons, and improper accounting
+for string null terminators. This article explains the mechanics behind
+off-by-one errors in C, demonstrates how they appear in code, and
+details the security and stability risks they introduce.</p>
+<h3 id="the-mechanism-of-zero-based-indexing">The Mechanism of
+Zero-Based Indexing</h3>
+<p>In C, arrays and memory buffers use zero-based indexing. When an
+array is declared with a specific size, the valid indices range from
+<code>0</code> to <code>size - 1</code>:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> buffer<span class="op">[</span><span class="dv">5</span><span class="op">];</span> <span class="co">// Valid indices: 0, 1, 2, 3, 4</span></span></code></pre></div>
+<p>Accessing <code>buffer[5]</code> does not trigger a compile-time
+error in standard C, but it references memory directly outside the
+allocated bounds of the array. An off-by-one error occurs when a
+developer incorrectly assumes the upper bound is equal to the size of
+the array rather than <code>size - 1</code>.</p>
+<h3 id="common-manifestations-in-c">Common Manifestations in C</h3>
+<h4 id="1-incorrect-loop-boundary-conditions">1. Incorrect Loop Boundary
+Conditions</h4>
+<p>The most frequent source of an off-by-one error is using a
+less-than-or-equal-to operator (<code>&lt;=</code>) instead of a strict
+less-than operator (<code>&lt;</code>) when iterating through an
+array:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#define SIZE </span><span class="dv">10</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> buffer<span class="op">[</span>SIZE<span class="op">];</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Error: Loop runs 11 times (i = 0 through 10)</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;=</span> SIZE<span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    buffer<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> <span class="co">// buffer[10] is out of bounds</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In the final iteration, <code>i</code> equals <code>10</code>,
+causing the program to write beyond the allocated space of
+<code>buffer</code>. The correct loop boundary should strictly check
+<code>i &lt; SIZE</code>.</p>
+<h4 id="2-neglecting-the-null-terminator-in-strings">2. Neglecting the
+Null Terminator in Strings</h4>
+<p>In C, strings are null-terminated byte sequences ending with
+<code>'\0'</code>. A buffer storing a string of length <span
+class="math inline">\(N\)</span> must have a capacity of at least <span
+class="math inline">\(N + 1\)</span>. Developers often calculate buffer
+size using <code>strlen()</code>, which returns the character count
+excluding the null terminator, leading to an off-by-one allocation or
+write:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">char</span> source<span class="op">[]</span> <span class="op">=</span> <span class="st">&quot;example&quot;</span><span class="op">;</span> <span class="co">// Length is 7, requires 8 bytes including &#39;\0&#39;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">char</span> destination<span class="op">[</span><span class="dv">7</span><span class="op">];</span>       <span class="co">// Insufficient space</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Error: Strncpy does not null-terminate if the bound is reached,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co">// or writing &#39;\0&#39; at index 7 overflows destination.</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>strncpy<span class="op">(</span>destination<span class="op">,</span> source<span class="op">,</span> <span class="kw">sizeof</span><span class="op">(</span>destination<span class="op">));</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>destination<span class="op">[</span><span class="dv">7</span><span class="op">]</span> <span class="op">=</span> <span class="ch">&#39;</span><span class="sc">\0</span><span class="ch">&#39;</span><span class="op">;</span> <span class="co">// Write off-by-one error</span></span></code></pre></div>
+<h4 id="3-fencepost-counting-errors">3. Fencepost Counting Errors</h4>
+<p>Fencepost errors occur when calculating sizes or intervals. For
+example, calculating the number of elements between index <code>a</code>
+and index <code>b</code> as <code>b - a</code> rather than
+<code>(b - a) + 1</code> can lead to allocating one element too few.
+When the program later attempts to populate the entire range inclusive
+of both ends, the final write falls outside the buffer.</p>
+<h3 id="consequences-and-impact">Consequences and Impact</h3>
+<p>Off-by-one errors in C lead to defined types of undefined
+behavior:</p>
+<ul>
+<li><strong>Stack Smashing and Memory Corruption:</strong> Overwriting
+an adjacent byte on the stack can corrupt adjacent local variables,
+frame pointers, or function return addresses.</li>
+<li><strong>Denial of Service (Crashes):</strong> Reading or writing to
+an invalid page boundary often triggers a segmentation fault
+(<code>SIGSEGV</code>), causing the application to terminate
+immediately.</li>
+<li><strong>Security Vulnerabilities:</strong> Even a single-byte
+overflow (often called a "poison byte" vulnerability) can allow an
+attacker to alter execution flow, bypass security checks, or execute
+arbitrary code by overwriting least-significant bytes of memory
+pointers.</li>
+</ul>
+<h3 id="prevention">Prevention</h3>
+<p>Mitigating off-by-one errors requires disciplined boundary
+verification:</p>
+<ul>
+<li>Use standard idioms for array traversals:
+<code>for (size_t i = 0; i &lt; size; ++i)</code>.</li>
+<li>Always allocate <code>strlen(str) + 1</code> bytes for strings that
+require a null terminator.</li>
+<li>Compile with compiler warnings enabled (<code>-Wall</code>,
+<code>-Wextra</code>) and utilize AddressSanitizer
+(<code>-fsanitize=address</code>) during development to catch boundary
+violations at runtime.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

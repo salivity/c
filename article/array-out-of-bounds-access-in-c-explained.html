@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Array Out-of-Bounds Access in C Explained - c</title>
+    <meta name="description" content="Accessing an array outside its allocated boundary in the C programming language leads to undefined behavior. Because C lacks built-in bounds checking, the runtime will attempt to read or modify arbitrary memory addresses based on pointer arithmetic. This">
+    <link rel="canonical" href="https://salivity.github.io/c/article/array-out-of-bounds-access-in-c-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Array Out-of-Bounds Access in C Explained - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/array-out-of-bounds-access-in-c-explained" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Accessing an array outside its allocated boundary in the C programming language leads to undefined behavior. Because C lacks built-in bounds checking, the runtime will attempt to read or modify arbitrary memory addresses based on pointer arithmetic. This" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="array-out-of-bounds-access-in-c-explained">Array Out-of-Bounds
+Access in C Explained</h1>
+<p>Accessing an array outside its allocated boundary in the C
+programming language leads to undefined behavior. Because C lacks
+built-in bounds checking, the runtime will attempt to read or modify
+arbitrary memory addresses based on pointer arithmetic. This article
+examines why C handles arrays this way, the immediate technical
+consequences—ranging from silent data corruption to segmentation
+faults—and the security vulnerabilities that arise from these
+errors.</p>
+<h3 id="the-mechanism-pointer-arithmetic-without-guards">The Mechanism:
+Pointer Arithmetic Without Guards</h3>
+<p>In C, array indexing is merely syntactic sugar for pointer
+arithmetic. The expression <code>array[i]</code> translates directly to
+<code>*(array + i)</code>. When you define an array of a specific size,
+the compiler allocates a contiguous block of memory to store those
+elements.</p>
+<p>When you pass an index that is less than zero or greater than or
+equal to the array size:</p>
+<ol type="1">
+<li>The compiler calculates the target address:
+<code>base_address + (index * sizeof(element_type))</code>.</li>
+<li>The program directly attempts to read or write the byte sequence at
+that calculated address.</li>
+<li>The C standard imposes no requirement on the runtime environment to
+verify that this calculated address lies within the original array's
+boundaries.</li>
+</ol>
+<p>Because there is no runtime check, the operation enters the realm of
+<strong>undefined behavior</strong>. The C standard does not specify or
+guarantee any particular outcome.</p>
+<h3 id="potential-consequences">Potential Consequences</h3>
+<p>When undefined behavior occurs due to out-of-bounds access, several
+distinct outcomes are possible depending on the operating system, the
+compiler, and the memory layout:</p>
+<h4 id="1-segmentation-fault-crash">1. Segmentation Fault (Crash)</h4>
+<p>If the calculated address points outside the process's allocated
+address space, or to a page marked with incompatible permissions (such
+as attempting to write to read-only code memory), the operating system's
+memory management unit (MMU) intervenes. The OS sends a signal—typically
+<code>SIGSEGV</code> on Unix-like systems—terminating the process
+immediately.</p>
+<h4 id="2-silent-memory-and-data-corruption">2. Silent Memory and Data
+Corruption</h4>
+<p>If the index points to memory belonging to the same process, the read
+or write will succeed without any immediate error:</p>
+<ul>
+<li><strong>Stack Variables:</strong> If the array is a local variable,
+indexing past its boundary can overwrite adjacent variables, loop
+counters, or function parameters located on the call stack.</li>
+<li><strong>Heap Data:</strong> If the array is dynamically allocated
+via <code>malloc</code>, out-of-bounds writes corrupt adjacent heap
+chunks, internal allocator metadata, or other dynamically allocated
+objects.</li>
+</ul>
+<p>This corruption often causes failures far removed from the actual
+bug, making tracking and debugging difficult.</p>
+<h4 id="3-security-vulnerabilities-buffer-overflows">3. Security
+Vulnerabilities (Buffer Overflows)</h4>
+<p>Out-of-bounds memory access is the foundational flaw behind buffer
+overflow exploits. An attacker can supply input designed to overflow a
+local buffer and overwrite the function's return address stored on the
+stack. When the function returns, execution diverts to code supplied or
+designated by the attacker, potentially leading to arbitrary code
+execution.</p>
+<h4 id="4-reading-garbage-data">4. Reading Garbage Data</h4>
+<p>If an out-of-bounds read accesses memory that happens to be mapped to
+the process, it returns whatever raw bytes reside at that location. This
+can leak sensitive internal data (such as cryptographic keys or
+passwords) and cause logical errors in calculations.</p>
+<h4 id="5-optimization-anomalies">5. Optimization Anomalies</h4>
+<p>Modern optimizing compilers assume that undefined behavior never
+occurs in valid C code. If a compiler analyzes an out-of-bounds access,
+it may optimize away surrounding loops, discard null checks, or
+eliminate code branches under the assumption that the code path is
+unreachable.</p>
+<h3 id="prevention-techniques">Prevention Techniques</h3>
+<p>To avoid out-of-bounds array access:</p>
+<ul>
+<li><strong>Track Array Bounds:</strong> Always pass the size of an
+array alongside the pointer when passing arrays to functions.</li>
+<li><strong>Use Static Analysis:</strong> Use linters and modern
+compiler warnings (<code>-Wall</code>, <code>-Wextra</code>,
+<code>-Warray-bounds</code>) to identify fixed-size boundary violations
+at compile time.</li>
+<li><strong>Employ Dynamic Analysis Tools:</strong> Compile code with
+AddressSanitizer (<code>-fsanitize=address</code>) or run the binary
+through tools like Valgrind to intercept out-of-bounds reads and writes
+during testing.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

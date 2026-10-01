@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Using Weak Symbols to Override Functions in C - c</title>
+    <meta name="description" content="In the C programming language, weak symbols provide a mechanism to define default function implementations that can be replaced at link time without triggering duplicate symbol errors. By annotating a function with compiler-specific attributes like GCC">
+    <link rel="canonical" href="https://salivity.github.io/c/article/using-weak-symbols-to-override-functions-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Using Weak Symbols to Override Functions in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/using-weak-symbols-to-override-functions-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, weak symbols provide a mechanism to define default function implementations that can be replaced at link time without triggering duplicate symbol errors. By annotating a function with compiler-specific attributes like GCC" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="using-weak-symbols-to-override-functions-in-c">Using Weak
+Symbols to Override Functions in C</h1>
+<p>In the C programming language, weak symbols provide a mechanism to
+define default function implementations that can be replaced at link
+time without triggering duplicate symbol errors. By annotating a
+function with compiler-specific attributes like GCC’s
+<code>__attribute__((weak))</code>, developers can designate a fallback
+routine. During the linking phase, the linker prioritizes normal,
+"strong" symbols over weak ones, allowing user code, hardware
+abstraction layers, or custom modules to override library-provided
+defaults seamlessly.</p>
+<h2 id="understanding-strong-vs-weak-symbols">Understanding Strong vs.
+Weak Symbols</h2>
+<p>In compiled C code, functions and global variables are converted into
+symbols within object files (<code>.o</code>). By default, all defined
+functions and initialized global variables are treated as <strong>strong
+symbols</strong>.</p>
+<p>The linker applies specific rules when resolving symbols across
+compilation units:</p>
+<ol type="1">
+<li><strong>Multiple Strong Symbols:</strong> If two translation units
+define the same strong symbol with identical names, the linker halts and
+throws a "multiple definition" error.</li>
+<li><strong>Strong and Weak Symbols:</strong> If a symbol exists as both
+strong and weak, the linker silently discards the weak symbol and binds
+all calls to the strong implementation.</li>
+<li><strong>Multiple Weak Symbols:</strong> If only weak symbols exist,
+the linker arbitrarily selects one of the weak definitions.</li>
+<li><strong>Undefined Weak Symbols:</strong> If a weak symbol is
+declared but has no definition, the linker resolves it to address
+<code>0</code> (null) rather than reporting an undefined reference.</li>
+</ol>
+<h2 id="declaring-and-defining-weak-symbols">Declaring and Defining Weak
+Symbols</h2>
+<p>In GCC and Clang, the weak attribute is specified using compiler
+extensions:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Declaring a weak function prototype</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> hardware_init<span class="op">(</span><span class="dt">void</span><span class="op">)</span> __attribute__<span class="op">((</span>weak<span class="op">));</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Defining a weak function with default behavior</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>__attribute__<span class="op">((</span>weak<span class="op">))</span> <span class="dt">void</span> hardware_init<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Default fallback initialization</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="how-overriding-works-at-link-time">How Overriding Works at Link
+Time</h2>
+<p>Consider a scenario involving a library and a user application.</p>
+<h3 id="1-the-default-implementation-library-side">1. The Default
+Implementation (Library Side)</h3>
+<p>The library provides a base behavior for an event hook:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">/* logger.c */</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>__attribute__<span class="op">((</span>weak<span class="op">))</span> <span class="dt">void</span> custom_logger<span class="op">(</span><span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>msg<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Default implementation: output to standard error</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    fprintf<span class="op">(</span>stderr<span class="op">,</span> <span class="st">&quot;[DEFAULT LOG]: </span><span class="sc">%s\n</span><span class="st">&quot;</span><span class="op">,</span> msg<span class="op">);</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process_data<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    custom_logger<span class="op">(</span><span class="st">&quot;Processing complete.&quot;</span><span class="op">);</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>If the program is compiled using only <code>logger.c</code>, calls to
+<code>custom_logger</code> invoke this default handler.</p>
+<h3 id="2-the-overriding-implementation-application-side">2. The
+Overriding Implementation (Application Side)</h3>
+<p>The application developer wants to redirect these log messages to a
+dedicated logging framework or file:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">/* main.c */</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process_data<span class="op">(</span><span class="dt">void</span><span class="op">);</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Strong definition: overrides the weak default in logger.c</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> custom_logger<span class="op">(</span><span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>msg<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;[CUSTOM LOG]: </span><span class="sc">%s\n</span><span class="st">&quot;</span><span class="op">,</span> msg<span class="op">);</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    process_data<span class="op">();</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="3-linker-resolution">3. Linker Resolution</h3>
+<p>When compiling both files together:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">gcc</span> <span class="at">-o</span> app main.c logger.c</span></code></pre></div>
+<p>The linker parses the symbol table of <code>logger.o</code>, marking
+<code>custom_logger</code> as weak. When inspecting <code>main.o</code>,
+it encounters <code>custom_logger</code> as a strong symbol. Following
+ELF linker rules, the strong definition in <code>main.o</code>
+supersedes the weak definition in <code>logger.o</code>. At runtime,
+<code>process_data()</code> calls the custom implementation,
+outputting:</p>
+<pre class="text"><code>[CUSTOM LOG]: Processing complete.</code></pre>
+<h2 id="common-applications">Common Applications</h2>
+<ul>
+<li><strong>Embedded Systems and Interrupt Service Routines
+(ISRs):</strong> Microcontroller startup files frequently define weak
+default interrupt handlers that simply loop indefinitely. Developers can
+then define a strong handler in their application code for specific
+interrupts (e.g., <code>USART1_IRQHandler</code>) without modifying the
+vendor startup files.</li>
+<li><strong>System Library Hooks:</strong> The GNU C Library
+(<code>glibc</code>) uses weak symbols for threading and memory
+functions (such as <code>malloc</code> or <code>pthread</code> stubs) to
+allow user-defined wrappers or alternative memory allocators to replace
+standard implementations.</li>
+<li><strong>Optional Features:</strong> Functions can be declared weak
+and checked against <code>NULL</code> prior to execution. If a
+supporting library containing the strong symbol is linked, the function
+runs; otherwise, the program bypasses it.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

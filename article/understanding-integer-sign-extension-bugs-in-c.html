@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding Integer Sign-Extension Bugs in C - c</title>
+    <meta name="description" content="An integer sign-extension bug occurs when a signed integer of a narrower type is promoted to a wider integer type, causing the sign bit to replicate across the higher-order bits and unintentionally altering the data's interpreted value in subsequent oper">
+    <link rel="canonical" href="https://salivity.github.io/c/article/understanding-integer-sign-extension-bugs-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding Integer Sign-Extension Bugs in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/understanding-integer-sign-extension-bugs-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="An integer sign-extension bug occurs when a signed integer of a narrower type is promoted to a wider integer type, causing the sign bit to replicate across the higher-order bits and unintentionally altering the data's interpreted value in subsequent oper" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="understanding-integer-sign-extension-bugs-in-c">Understanding
+Integer Sign-Extension Bugs in C</h1>
+<p>An integer sign-extension bug occurs when a signed integer of a
+narrower type is promoted to a wider integer type, causing the sign bit
+to replicate across the higher-order bits and unintentionally altering
+the data's interpreted value in subsequent operations. In the C
+programming language, these flaws frequently arise from implicit type
+conversions and signed/unsigned mismatches. When developers use signed
+types for data sizes, lengths, or indices, sign-extension can transform
+small negative numbers into massive unsigned values, bypassing boundary
+checks and causing catastrophic security failures such as buffer
+overflows, arbitrary memory corruption, and remote code execution.</p>
+<h2 id="the-mechanics-of-sign-extension">The Mechanics of
+Sign-Extension</h2>
+<p>In modern computing architectures, signed integers are represented
+using two's complement notation. In this format, the most significant
+bit (MSB) serves as the sign bit: <code>0</code> indicates a positive
+value or zero, and <code>1</code> indicates a negative value.</p>
+<p>When the C runtime converts a narrower integer type (such as an 8-bit
+<code>signed char</code> or a 16-bit <code>short</code>) into a wider
+type (such as a 32-bit <code>int</code> or a 64-bit
+<code>size_t</code>), it must preserve the original mathematical value.
+To do this, it performs <strong>sign-extension</strong>:</p>
+<ul>
+<li>If the original number is positive (<code>MSB = 0</code>), all newly
+added high-order bits are set to <code>0</code> (zero-extension).</li>
+<li>If the original number is negative (<code>MSB = 1</code>), all newly
+added high-order bits are set to <code>1</code>.</li>
+</ul>
+<p>For example, consider the 16-bit signed value <code>0x8000</code>
+(which represents <code>-32,768</code>). When extended to a 32-bit
+signed integer, it becomes <code>0xFFFF8000</code>, retaining the
+decimal value <code>-32,768</code>. The vulnerability occurs when this
+sign-extended value is subsequently treated as an unsigned type.</p>
+<h2 id="how-sign-extension-becomes-a-security-flaw">How Sign-Extension
+Becomes a Security Flaw</h2>
+<p>C contains permissive integer promotion rules. Expressions involving
+types smaller than <code>int</code> are automatically promoted to
+<code>int</code> or <code>unsigned int</code>. Furthermore, standard C
+library functions dealing with memory management—such as
+<code>malloc()</code>, <code>memcpy()</code>, and
+<code>read()</code>—accept size arguments typed as <code>size_t</code>,
+an unsigned integer type.</p>
+<p>The security issue, classified as CWE-194 (Unexpected Sign Extension)
+and often paired with CWE-195 (Signed-to-Unsigned Conversion Error),
+manifests in the following pattern:</p>
+<ol type="1">
+<li><strong>Untrusted Input Ingestion:</strong> An application accepts
+an integer representing a length or count from an external source (e.g.,
+network packet, user input) into a signed variable.</li>
+<li><strong>Flawed Validation:</strong> The program checks if the value
+exceeds an upper bound (e.g., <code>if (length &gt; MAX_SIZE)</code>).
+If the input is negative (e.g., <code>-1</code>), it easily passes this
+check because <code>-1</code> is less than <code>MAX_SIZE</code>.</li>
+<li><strong>Implicit Promotion to Unsigned:</strong> The application
+passes <code>length</code> to a function expecting <code>size_t</code>
+(like <code>memcpy</code>).</li>
+<li><strong>Value Distortion:</strong> The negative number is
+sign-extended and then cast to unsigned. On a 64-bit platform,
+<code>-1</code> (<code>0xFFFFFFFF</code> in a 32-bit signed int)
+sign-extends and converts to an unsigned value of
+<code>18,446,744,073,709,551,615</code>
+(<code>0xFFFFFFFFFFFFFFFF</code>).</li>
+</ol>
+<h3 id="vulnerable-code-example">Vulnerable Code Example</h3>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process_packet<span class="op">(</span><span class="dt">int</span> socket_fd<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">short</span> len<span class="op">;</span> <span class="co">// 16-bit signed integer</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> buffer<span class="op">[</span><span class="dv">256</span><span class="op">];</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Read the user-supplied length</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    read<span class="op">(</span>socket_fd<span class="op">,</span> <span class="op">&amp;</span>len<span class="op">,</span> <span class="kw">sizeof</span><span class="op">(</span>len<span class="op">));</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Flawed validation: fails to check if len is negative</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>len <span class="op">&gt;</span> <span class="dv">256</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span><span class="op">;</span> </span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Vulnerability: len is converted to size_t (unsigned 64-bit)</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// If len is -1 (0xFFFF), it sign-extends to 0xFFFFFFFFFFFFFFFF</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    memcpy<span class="op">(</span>buffer<span class="op">,</span> socket_fd<span class="op">,</span> len<span class="op">);</span> <span class="co">// Massive buffer overflow</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="security-consequences">Security Consequences</h2>
+<p>When sign-extension distorts numerical values, systems fail in
+several predictable ways:</p>
+<ul>
+<li><strong>Heap and Stack Buffer Overflows:</strong> When functions
+like <code>memcpy()</code>, <code>memmove()</code>, or
+<code>strncpy()</code> receive an astronomical <code>size_t</code>
+value, they attempt to read or write memory until they hit unmapped
+address space, typically triggering a segmentation fault or overwriting
+critical control data (like return addresses or function pointers).</li>
+<li><strong>Arbitrary Memory Read (Information Disclosure):</strong> If
+a negative index or offset is sign-extended and used in pointer
+arithmetic, an attacker can access sensitive memory regions located
+before or after the targeted buffer.</li>
+<li><strong>Heap Corruption via Failed Allocations:</strong> If a
+sign-extended negative value is passed to <code>malloc()</code>, the
+allocation will usually fail because the requested size exceeds
+available memory. However, if math operations wrap around prior to
+allocation, a small buffer might be allocated while a massive amount of
+data is subsequently copied into it.</li>
+</ul>
+<h2 id="prevention-and-mitigation">Prevention and Mitigation</h2>
+<p>Preventing sign-extension vulnerabilities requires disciplined typing
+and robust validation habits in C:</p>
+<ol type="1">
+<li><strong>Use Matching Types for Sizes:</strong> Always use
+<code>size_t</code> or matching unsigned types for variables
+representing sizes, counts, lengths, and indices.</li>
+<li><strong>Explicit Lower-Bound Checks:</strong> When signed integers
+must be used, validate that the input is non-negative before processing
+(e.g., <code>if (len &lt;= 0 || len &gt; MAX_SIZE)</code>).</li>
+<li><strong>Enable Compiler Warnings:</strong> Modern compilers detect
+many dangerous conversions. Use
+<code>-Wall -Wextra -Wconversion -Wsign-conversion</code> in GCC and
+Clang to identify dangerous implicit conversions at compile time.</li>
+<li><strong>Sanitizers:</strong> Compile with UndefinedBehaviorSanitizer
+(<code>-fsanitize=undefined</code>) and AddressSanitizer
+(<code>-fsanitize=address</code>) during development and testing to
+catch integer conversion bugs and out-of-bounds access dynamically.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

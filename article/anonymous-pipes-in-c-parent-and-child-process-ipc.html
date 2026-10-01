@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anonymous Pipes in C: Parent and Child Process IPC - c</title>
+    <meta name="description" content="This article explains how to create and use anonymous unidirectional pipes for inter-process communication (IPC) between a parent and child process in the C programming language. It details the mechanics of the pipe() and fork() system calls, illustrates">
+    <link rel="canonical" href="https://salivity.github.io/c/article/anonymous-pipes-in-c-parent-and-child-process-ipc">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Anonymous Pipes in C: Parent and Child Process IPC - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/anonymous-pipes-in-c-parent-and-child-process-ipc" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to create and use anonymous unidirectional pipes for inter-process communication (IPC) between a parent and child process in the C programming language. It details the mechanics of the pipe() and fork() system calls, illustrates" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="anonymous-pipes-in-c-parent-and-child-process-ipc">Anonymous
+Pipes in C: Parent and Child Process IPC</h1>
+<p>This article explains how to create and use anonymous unidirectional
+pipes for inter-process communication (IPC) between a parent and child
+process in the C programming language. It details the mechanics of the
+<code>pipe()</code> and <code>fork()</code> system calls, illustrates
+how file descriptors are inherited and managed to enforce one-way
+communication, and provides a concise code example demonstrating
+practical implementation.</p>
+<h2 id="understanding-the-pipe-system-call">Understanding the
+<code>pipe()</code> System Call</h2>
+<p>An anonymous pipe is a unidirectional data channel managed by the
+operating system kernel. In C (on POSIX-compliant systems), an anonymous
+pipe is created using the <code>pipe()</code> system call, defined in
+<code>&lt;unistd.h&gt;</code>.</p>
+<p>The function takes an array of two integers as an argument:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> pipe<span class="op">(</span><span class="dt">int</span> pipefd<span class="op">[</span><span class="dv">2</span><span class="op">]);</span></span></code></pre></div>
+<p>When successful, <code>pipe()</code> allocates two new file
+descriptors and populates the array:</p>
+<ul>
+<li><code>pipefd[0]</code> is opened for reading.</li>
+<li><code>pipefd[1]</code> is opened for writing.</li>
+</ul>
+<p>Data written to <code>pipefd[1]</code> is buffered by the kernel
+until it is read from <code>pipefd[0]</code>. The call returns
+<code>0</code> on success and <code>-1</code> on error.</p>
+<h2 id="inheriting-descriptors-with-fork">Inheriting Descriptors with
+<code>fork()</code></h2>
+<p>Because anonymous pipes lack names in the filesystem, they can only
+be shared between related processes. When a parent process calls
+<code>fork()</code>, the kernel creates a child process that receives
+duplicate copies of all the parent's open file descriptors, including
+<code>pipefd[0]</code> and <code>pipefd[1]</code>.</p>
+<p>To establish a pipe:</p>
+<ol type="1">
+<li>The parent must call <code>pipe()</code> <strong>before</strong>
+calling <code>fork()</code>.</li>
+<li>The parent calls <code>fork()</code>.</li>
+<li>Both processes now hold references to both ends of the pipe.</li>
+</ol>
+<h2 id="enforcing-unidirectional-flow">Enforcing Unidirectional
+Flow</h2>
+<p>Although both processes initially have read and write capabilities,
+standard anonymous pipes are designed for unidirectional communication.
+To enforce this and avoid undefined behavior or deadlocks:</p>
+<ol type="1">
+<li><strong>Decide the direction of communication:</strong> For example,
+parent (sender) to child (receiver).</li>
+<li><strong>Close unused ends in both processes:</strong>
+<ul>
+<li>The <strong>parent</strong> closes the read end
+(<code>pipefd[0]</code>) because it will only write.</li>
+<li>The <strong>child</strong> closes the write end
+(<code>pipefd[1]</code>) because it will only read.</li>
+</ul></li>
+</ol>
+<p>Closing the unused write end in the reading process is critical. A
+<code>read()</code> operation returns <code>0</code> (End-of-File) only
+when all open write descriptors for the pipe are closed. If the reader
+leaves its own write descriptor open, <code>read()</code> will block
+indefinitely waiting for further input.</p>
+<h2 id="implementation-example">Implementation Example</h2>
+<p>The following program demonstrates a parent process sending a text
+string to its child process through an anonymous pipe:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdlib.h&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string.h&gt;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;unistd.h&gt;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;sys/wait.h&gt;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="pp">#define BUFFER_SIZE </span><span class="dv">128</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> pipefd<span class="op">[</span><span class="dv">2</span><span class="op">];</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    pid_t pid<span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> message<span class="op">[]</span> <span class="op">=</span> <span class="st">&quot;Hello from the parent process!&quot;</span><span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> buffer<span class="op">[</span>BUFFER_SIZE<span class="op">];</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Create the pipe</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>pipe<span class="op">(</span>pipefd<span class="op">)</span> <span class="op">==</span> <span class="op">-</span><span class="dv">1</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        perror<span class="op">(</span><span class="st">&quot;pipe failed&quot;</span><span class="op">);</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>        exit<span class="op">(</span>EXIT_FAILURE<span class="op">);</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Fork the child process</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    pid <span class="op">=</span> fork<span class="op">();</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>pid <span class="op">&lt;</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>        perror<span class="op">(</span><span class="st">&quot;fork failed&quot;</span><span class="op">);</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>        exit<span class="op">(</span>EXIT_FAILURE<span class="op">);</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>pid <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Child process: reads from the pipe</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>        close<span class="op">(</span>pipefd<span class="op">[</span><span class="dv">1</span><span class="op">]);</span> <span class="co">// Close unused write end</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>        <span class="dt">ssize_t</span> bytes_read <span class="op">=</span> read<span class="op">(</span>pipefd<span class="op">[</span><span class="dv">0</span><span class="op">],</span> buffer<span class="op">,</span> <span class="kw">sizeof</span><span class="op">(</span>buffer<span class="op">)</span> <span class="op">-</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>bytes_read <span class="op">&gt;</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>            buffer<span class="op">[</span>bytes_read<span class="op">]</span> <span class="op">=</span> <span class="ch">&#39;</span><span class="sc">\0</span><span class="ch">&#39;</span><span class="op">;</span> <span class="co">// Null-terminate string</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>            printf<span class="op">(</span><span class="st">&quot;Child received: </span><span class="sc">%s\n</span><span class="st">&quot;</span><span class="op">,</span> buffer<span class="op">);</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>        close<span class="op">(</span>pipefd<span class="op">[</span><span class="dv">0</span><span class="op">]);</span> <span class="co">// Close read end after reading</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>        exit<span class="op">(</span>EXIT_SUCCESS<span class="op">);</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Parent process: writes to the pipe</span></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>        close<span class="op">(</span>pipefd<span class="op">[</span><span class="dv">0</span><span class="op">]);</span> <span class="co">// Close unused read end</span></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>        write<span class="op">(</span>pipefd<span class="op">[</span><span class="dv">1</span><span class="op">],</span> message<span class="op">,</span> strlen<span class="op">(</span>message<span class="op">));</span></span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>        close<span class="op">(</span>pipefd<span class="op">[</span><span class="dv">1</span><span class="op">]);</span> <span class="co">// Close write end to send EOF to child</span></span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>        wait<span class="op">(</span>NULL<span class="op">);</span>       <span class="co">// Wait for child to terminate</span></span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>        exit<span class="op">(</span>EXIT_SUCCESS<span class="op">);</span></span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="summary-of-operations">Summary of Operations</h2>
+<ol type="1">
+<li><code>pipe(pipefd)</code> creates read/write descriptors.</li>
+<li><code>fork()</code> duplicates those descriptors into a new child
+process.</li>
+<li>Each process immediately closes the descriptor it will not use.</li>
+<li>The sender uses <code>write()</code> to send byte streams into the
+pipe.</li>
+<li>The receiver uses <code>read()</code> to consume byte streams until
+<code>0</code> (EOF) is returned.</li>
+<li>Both processes close their active descriptors to free system
+resources.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

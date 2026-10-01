@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why C String Parsers Suffer From Off-by-One Bugs - c</title>
+    <meta name="description" content="Writing custom string parsers in C is notoriously susceptible to off-by-one boundary bugs due to the language’s lack of built-in bounds checking, manual memory management, zero-indexed arrays, and reliance on null-terminated byte sequences. This articl">
+    <link rel="canonical" href="https://salivity.github.io/c/article/why-c-string-parsers-suffer-from-off-by-one-bugs">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why C String Parsers Suffer From Off-by-One Bugs - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/why-c-string-parsers-suffer-from-off-by-one-bugs" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Writing custom string parsers in C is notoriously susceptible to off-by-one boundary bugs due to the language’s lack of built-in bounds checking, manual memory management, zero-indexed arrays, and reliance on null-terminated byte sequences. This articl" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-c-string-parsers-suffer-from-off-by-one-bugs">Why C String
+Parsers Suffer From Off-by-One Bugs</h1>
+<p>Writing custom string parsers in C is notoriously susceptible to
+off-by-one boundary bugs due to the language’s lack of built-in bounds
+checking, manual memory management, zero-indexed arrays, and reliance on
+null-terminated byte sequences. This article examines the mechanics of
+these errors, highlighting how subtle mismatches between buffer
+allocations, loop conditions, and pointer arithmetic frequently
+introduce vulnerabilities into custom C parsers.</p>
+<h3 id="the-null-terminator-disconnect">The Null Terminator
+Disconnect</h3>
+<p>In C, strings are not distinct data types with tracked lengths; they
+are contiguous arrays of characters terminated by a null byte
+(<code>'\0'</code>). This design creates a persistent mismatch between
+string length and memory footprint:</p>
+<ul>
+<li><code>strlen(s)</code> returns the number of visible characters,
+excluding <code>'\0'</code>.</li>
+<li><code>sizeof(s)</code> or the required allocation size must include
+the <code>'\0'</code>.</li>
+</ul>
+<p>Developers frequently allocate memory using
+<code>malloc(strlen(input))</code> instead of
+<code>malloc(strlen(input) + 1)</code>. When the parser subsequently
+writes the final null terminator to conclude the parsed token, it writes
+one byte past the allocated boundary, corrupting adjacent heap metadata
+or data.</p>
+<h3 id="the-fencepost-problem-in-loop-conditions">The Fencepost Problem
+in Loop Conditions</h3>
+<p>Parsing requires iterating through tokens, delimiters, and payloads.
+Translating iteration logic into loop bounds introduces the classic
+fencepost error, typically through the misuse of relational
+operators:</p>
+<ul>
+<li><strong>Using <code>&lt;=</code> instead of
+<code>&lt;</code>:</strong> Iterating over an array of size
+<code>N</code> from index <code>0</code> to <code>N</code> touches
+<code>N + 1</code> elements.</li>
+<li><strong>Pre-increment vs. Post-increment:</strong> Using
+<code>*ptr++</code> instead of <code>*++ptr</code> inside parser loops
+often advances the cursor before evaluating the termination condition,
+causing the pointer to read or write one byte beyond the valid
+region.</li>
+</ul>
+<p>Because C allows raw pointer arithmetic, stepping past the end of an
+array does not trigger a runtime panic. The pointer silently accesses
+adjacent memory until undefined behavior, segmentation faults, or data
+corruption occur.</p>
+<h3 id="lookahead-and-lookbehind-traps">Lookahead and Lookbehind
+Traps</h3>
+<p>Parsing structured text (like JSON, HTTP headers, or CSV) often
+requires peek operations to determine the next state. A parser might
+inspect <code>buffer[i + 1]</code> to check for escape sequences (e.g.,
+<code>\"</code>) or two-character operators (e.g., <code>==</code>).</p>
+<p>If the parser checks <code>buffer[i + 1]</code> without first
+verifying that <code>i</code> is strictly less than
+<code>length - 1</code>, the read operation accesses unallocated memory
+or the byte immediately following the null terminator. Even if this read
+succeeds without a crash, the parser incorporates arbitrary memory
+values into its control flow.</p>
+<h3 id="inconsistent-slicing-and-tokenization">Inconsistent Slicing and
+Tokenization</h3>
+<p>When extracting substrings, parsers compute offsets using
+calculations such as <code>end_index - start_index</code>. This leads to
+two common off-by-one pitfalls:</p>
+<ol type="1">
+<li><strong>Length vs. Distance:</strong> The distance between indices
+is <code>end - start</code>, but the number of elements in an inclusive
+range <code>[start, end]</code> is <code>(end - start) + 1</code>.
+Omitting the <code>+1</code> truncates tokens; adding it unconditionally
+when the range is half-open <code>[start, end)</code> causes
+out-of-bounds reads.</li>
+<li><strong>Buffer Overflows on Copy:</strong> When copying slices via
+<code>memcpy</code> or <code>strncpy</code>, developers must explicitly
+manage the destination's terminator. Failing to account for the extra
+space required for <code>'\0'</code> results in writing the terminator
+into the adjacent memory address.</li>
+</ol>
+<h3 id="security-implications">Security Implications</h3>
+<p>In C, an off-by-one bug is rarely just an off-by-one bug. Writing one
+byte beyond an allocated boundary on the stack can overwrite the saved
+frame pointer (off-by-one frame pointer overwrite), potentially altering
+execution flow and leading to arbitrary code execution. On the heap,
+off-by-one errors can corrupt chunk headers, turning a small parsing
+oversight into a critical security vulnerability.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analyzing Core Dumps in C Programming - c</title>
+    <meta name="description" content="When a C application crashes unexpectedly, it often leaves behind a core dump—a recorded state of the working memory at that exact moment of failure. This article covers what a core dump is, how operating systems produce them, how to configure your env">
+    <link rel="canonical" href="https://salivity.github.io/c/article/analyzing-core-dumps-in-c-programming">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Analyzing Core Dumps in C Programming - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/analyzing-core-dumps-in-c-programming" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="When a C application crashes unexpectedly, it often leaves behind a core dump—a recorded state of the working memory at that exact moment of failure. This article covers what a core dump is, how operating systems produce them, how to configure your env" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="analyzing-core-dumps-in-c-programming">Analyzing Core Dumps in C
+Programming</h1>
+<p>When a C application crashes unexpectedly, it often leaves behind a
+core dump—a recorded state of the working memory at that exact moment of
+failure. This article covers what a core dump is, how operating systems
+produce them, how to configure your environment to capture them, and the
+step-by-step process of using the GNU Debugger (GDB) to perform
+post-mortem analysis and locate the root cause of fatal bugs.</p>
+<h2 id="what-is-a-core-dump">What Is a Core Dump?</h2>
+<p>A core dump is a file containing an address space snapshot of a
+running process at the moment it terminated abnormally. In the C
+programming language, low-level memory mismanagement frequently causes
+the operating system to send terminating signals such as:</p>
+<ul>
+<li><strong>SIGSEGV (Segmentation Fault):</strong> Invalid memory
+reference, such as dereferencing a <code>NULL</code> or wild
+pointer.</li>
+<li><strong>SIGABRT (Abort):</strong> Triggered by an explicit call to
+<code>abort()</code> or an assertion failure
+(<code>assert()</code>).</li>
+<li><strong>SIGFPE (Floating Point Exception):</strong> Fatal arithmetic
+errors, such as integer division by zero.</li>
+<li><strong>SIGBUS (Bus Error):</strong> Memory access misalignment or
+non-existent physical address access.</li>
+</ul>
+<p>When these signals occur without a custom signal handler catching
+them, the kernel terminates the process and dumps its memory image,
+processor registers, program counter, and stack pointers into a
+file.</p>
+<h2 id="configuring-the-environment-to-capture-dumps">Configuring the
+Environment to Capture Dumps</h2>
+<p>Many Unix-like systems disable core dump generation by default to
+conserve disk space. To capture a crash, configure your environment
+using the following steps:</p>
+<ol type="1">
+<li><p><strong>Check and Increase Resource Limits:</strong> View the
+current core file size limit in your shell:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">ulimit</span> <span class="at">-c</span></span></code></pre></div>
+<p>If it returns <code>0</code>, enable unlimited core file sizes for
+the current session:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">ulimit</span> <span class="at">-c</span> unlimited</span></code></pre></div></li>
+<li><p><strong>Verify the Dump Location:</strong> On modern Linux
+distributions, the naming and storage location of core files are managed
+by the kernel. You can check the path pattern by reading:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span> /proc/sys/kernel/core_pattern</span></code></pre></div>
+<p>If <code>systemd-coredump</code> is active, core dumps are
+automatically managed by <code>systemd</code> and can be inspected via
+<code>coredumpctl</code>.</p></li>
+<li><p><strong>Compile with Debug Symbols:</strong> A core dump only
+provides useful line numbers and variable names if the executable
+contains debugging symbols. Always compile with the <code>-g</code>
+flag:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">gcc</span> <span class="at">-g</span> <span class="at">-O0</span> main.c <span class="at">-o</span> my_program</span></code></pre></div>
+<p>Disabling optimizations with <code>-O0</code> ensures the compiler
+does not optimize away variables or inline functions, making the call
+stack easier to read.</p></li>
+</ol>
+<h2 id="analyzing-the-crash-with-gdb">Analyzing the Crash with GDB</h2>
+<p>Once the application terminates and a core file is generated, you can
+conduct post-mortem analysis using GDB without having to recreate the
+runtime conditions.</p>
+<h3 id="1-launching-gdb-with-the-core-file">1. Launching GDB with the
+Core File</h3>
+<p>Invoke GDB by passing both the path to the executable and the core
+file:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">gdb</span> ./my_program core</span></code></pre></div>
+<p>If using <code>systemd-coredump</code>, run:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ex">coredumpctl</span> gdb <span class="op">&lt;</span>PID or executable name<span class="op">&gt;</span></span></code></pre></div>
+<p>GDB will load the program symbols, read the core file, and
+immediately display the signal that terminated the process along with
+the exact instruction or line of code where execution halted.</p>
+<h3 id="2-inspecting-the-call-stack">2. Inspecting the Call Stack</h3>
+<p>To see how the program reached the faulty state, print the call stack
+using the <code>backtrace</code> command:</p>
+<pre class="text"><code>(gdb) backtrace
+#0  0x0000555555555151 in process_node (node=0x0) at main.c:12
+#1  0x0000555555555198 in parse_list (head=0x5555555592a0) at main.c:24
+#2  0x00005555555551d5 in main () at main.c:35</code></pre>
+<p>The stack trace displays the chain of function calls. Frame
+<code>#0</code> is the function where the crash happened, frame
+<code>#1</code> is the caller, and so on.</p>
+<h3 id="3-navigating-frames-and-inspecting-variables">3. Navigating
+Frames and Inspecting Variables</h3>
+<p>Move through the call stack to examine local variables and pointers
+leading up to the crash:</p>
+<ul>
+<li><strong>Select a frame:</strong>
+<pre class="text"><code>(gdb) frame 0</code></pre></li>
+<li><strong>Print variable values:</strong>
+<pre class="text"><code>(gdb) print node
+$1 = (struct Node *) 0x0</code></pre></li>
+<li><strong>View local variables in the current scope:</strong>
+<pre class="text"><code>(gdb) info locals</code></pre></li>
+<li><strong>Inspect processor registers:</strong>
+<pre class="text"><code>(gdb) info registers</code></pre></li>
+</ul>
+<p>In this scenario, printing <code>node</code> confirms that the
+function attempted to dereference a <code>NULL</code> pointer, which
+directly caused the <code>SIGSEGV</code>.</p>
+<h2 id="summary">Summary</h2>
+<p>Post-mortem analysis using core dumps eliminates guesswork when
+debugging fatal errors in C. By compiling with debug flags
+(<code>-g</code>), ensuring the operating system is configured to save
+core files (<code>ulimit -c unlimited</code>), and inspecting the
+resulting dumps with GDB, developers can reliably trace segmentation
+faults and aborts back to the exact line of code and memory state
+responsible for the crash.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

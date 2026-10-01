@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preventing Stack Overflow in C with Iterative Parsing - c</title>
+    <meta name="description" content="Recursive parsing techniques in C are inherently susceptible to stack overflow vulnerabilities when processing deeply nested or adversarial data. This article explores how replacing implicit call-stack recursion with an iterative parsing model and an exp">
+    <link rel="canonical" href="https://salivity.github.io/c/article/preventing-stack-overflow-in-c-with-iterative-parsing">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Preventing Stack Overflow in C with Iterative Parsing - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/preventing-stack-overflow-in-c-with-iterative-parsing" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Recursive parsing techniques in C are inherently susceptible to stack overflow vulnerabilities when processing deeply nested or adversarial data. This article explores how replacing implicit call-stack recursion with an iterative parsing model and an exp" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="preventing-stack-overflow-in-c-with-iterative-parsing">Preventing
+Stack Overflow in C with Iterative Parsing</h1>
+<p>Recursive parsing techniques in C are inherently susceptible to stack
+overflow vulnerabilities when processing deeply nested or adversarial
+data. This article explores how replacing implicit call-stack recursion
+with an iterative parsing model and an explicitly managed heap stack
+mitigates these vulnerabilities. By shifting state tracking from the
+operating system's execution stack to dynamically allocated memory,
+developers can enforce strict depth constraints, handle allocation
+failures gracefully, and eliminate runtime crashes caused by thread
+stack exhaustion.</p>
+<h3 id="the-problem-call-stack-exhaustion-in-recursive-parsers">The
+Problem: Call Stack Exhaustion in Recursive Parsers</h3>
+<p>Traditional recursive descent parsers map grammar rules directly to
+function calls. When parsing nested structures—such as JSON arrays, XML
+elements, or abstract syntax trees (ASTs)—each nested layer invokes a
+new C function call, allocating a new stack frame on the call stack.</p>
+<p>In C, the call stack size for a thread is fixed and comparatively
+small, typically ranging from 1 MB to 8 MB depending on the operating
+system and compiler settings. Malicious actors exploit this
+architectural constraint by supplying deeply nested inputs (for example,
+thousands of consecutive opening brackets <code>[[[[...]]]]</code>).
+When the recursion depth exceeds the allocated thread stack boundaries,
+it triggers a stack overflow. In best-case scenarios, this causes an
+immediate segmentation fault (<code>SIGSEGV</code>) and
+denial-of-service (DoS). In worst-case scenarios, it can lead to
+stack-clash exploits or arbitrary code execution if stack-guard pages
+are circumvented.</p>
+<h3 id="the-solution-explicit-stack-allocation">The Solution: Explicit
+Stack Allocation</h3>
+<p>Iterative parsing decouples the grammar traversal from C’s execution
+call stack. Instead of relying on function calls to maintain parsing
+state, an iterative parser uses a single loop construct driven by an
+explicit stack data structure allocated in heap memory or an
+application-managed buffer.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">typedef</span> <span class="kw">struct</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> state<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> <span class="op">*</span>node_data<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> ParseFrame<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">typedef</span> <span class="kw">struct</span> <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    ParseFrame <span class="op">*</span>frames<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">size_t</span> capacity<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">size_t</span> top<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> ExplicitStack<span class="op">;</span></span></code></pre></div>
+<p>In this architecture, when the parser encounters an opening token or
+a nested grammar production, it pushes a <code>ParseFrame</code> onto
+the <code>ExplicitStack</code> rather than making a recursive call. When
+a production finishes, it pops the frame and updates the parent
+structure.</p>
+<h3 id="how-explicit-stacks-mitigate-vulnerabilities">How Explicit
+Stacks Mitigate Vulnerabilities</h3>
+<h4 id="1-transition-from-call-stack-to-heap-space">1. Transition from
+Call Stack to Heap Space</h4>
+<p>The thread execution stack is confined to a rigid, narrow memory
+segment. By allocating the parsing stack dynamically via
+<code>malloc</code>, <code>realloc</code>, or a memory arena, the parser
+accesses the much larger virtual memory space of the process. An input
+depth that immediately crashes a standard call stack can be seamlessly
+accommodated by the heap.</p>
+<h4 id="2-deterministic-error-handling">2. Deterministic Error
+Handling</h4>
+<p>A native call stack overflow in C cannot be caught at the language
+level; the operating system terminates the process via an uncatchable
+signal or exception. Conversely, an explicit stack uses standard
+allocation APIs. If the heap memory is exhausted, <code>malloc</code>
+returns <code>NULL</code>, allowing the parser to catch the condition,
+free partially parsed resources, and return a clean error code without
+crashing the host application.</p>
+<h4 id="3-trivial-depth-limiting">3. Trivial Depth Limiting</h4>
+<p>Iterative parsers simplify the implementation of hard security limits
+on nesting depth. Because the explicit stack tracks its own depth via an
+index (e.g., <code>stack-&gt;top</code>), the parser can compare the
+current depth against a defined security threshold
+(<code>MAX_PARSE_DEPTH</code>) on every push operation:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>stack<span class="op">-&gt;</span>top <span class="op">&gt;=</span> MAX_PARSE_DEPTH<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> PARSER_ERROR_DEPTH_EXCEEDED<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Enforcing this boundary in recursive descent requires passing depth
+counters through every function signature or relying on thread-local
+storage, both of which are error-prone and introduce maintenance
+overhead.</p>
+<h4 id="4-memory-isolation-via-region-based-allocation">4. Memory
+Isolation via Region-Based Allocation</h4>
+<p>Explicit stacks are frequently paired with arena (region-based)
+allocators. An arena pre-allocates a contiguous block of memory
+dedicated exclusively to the parsing lifecycle of a single payload. This
+guarantees that parsing operations cannot fragment system memory or
+exceed a predetermined memory quota, fully insulating the host process
+against memory-exhaustion vectors.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

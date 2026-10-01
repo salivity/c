@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why longjmp Clobbers Non-Volatile Variables in C - c</title>
+    <meta name="description" content="In the C programming language, invoking longjmp can restore or corrupt the values of local automatic variables that were modified after the corresponding setjmp call. This occurs because modern optimizing compilers cache local variables in CPU registers">
+    <link rel="canonical" href="https://salivity.github.io/c/article/why-longjmp-clobbers-non-volatile-variables-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why longjmp Clobbers Non-Volatile Variables in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/why-longjmp-clobbers-non-volatile-variables-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, invoking longjmp can restore or corrupt the values of local automatic variables that were modified after the corresponding setjmp call. This occurs because modern optimizing compilers cache local variables in CPU registers" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-longjmp-clobbers-non-volatile-variables-in-c">Why longjmp
+Clobbers Non-Volatile Variables in C</h1>
+<p>In the C programming language, invoking <code>longjmp</code> can
+restore or corrupt the values of local automatic variables that were
+modified after the corresponding <code>setjmp</code> call. This occurs
+because modern optimizing compilers cache local variables in CPU
+registers rather than keeping them synchronized in system memory. When
+<code>longjmp</code> executes, it restores the CPU registers to the
+exact snapshot captured during <code>setjmp</code>, overwriting any
+register-cached changes unless the variable is explicitly declared with
+the <code>volatile</code> type qualifier.</p>
+<h3 id="the-mechanics-of-setjmp-and-longjmp">The Mechanics of
+<code>setjmp</code> and <code>longjmp</code></h3>
+<p>The <code>setjmp</code> and <code>longjmp</code> functions provide a
+mechanism for non-local jumps, bypassing normal function call and return
+conventions.</p>
+<ol type="1">
+<li><strong><code>setjmp(jmp_buf env)</code></strong>: Saves the
+execution environment—primarily CPU control registers, including the
+stack pointer (<code>SP</code>), frame pointer (<code>FP</code>),
+instruction pointer (<code>IP</code>), and any callee-saved
+registers—into the <code>env</code> buffer.</li>
+<li><strong><code>longjmp(jmp_buf env, int val)</code></strong>:
+Restores the CPU registers from <code>env</code> and transfers control
+back to the point where <code>setjmp</code> was called, causing
+<code>setjmp</code> to return a second time with the value
+<code>val</code>.</li>
+</ol>
+<p>Critically, <code>longjmp</code> does not unwind the stack or track
+operations that occurred between the call to <code>setjmp</code> and the
+call to <code>longjmp</code>; it simply resets the CPU core state to the
+point of the snapshot.</p>
+<h3 id="compiler-register-allocation-and-clobbering">Compiler Register
+Allocation and Clobbering</h3>
+<p>Compilers optimize code performance by allocating frequently accessed
+automatic (local) variables to CPU registers rather than reading and
+writing them to the stack frame in RAM.</p>
+<p>When a local variable is modified after <code>setjmp</code>:</p>
+<ul>
+<li>If the compiler placed that variable into a register, the updated
+value exists only in that register.</li>
+<li>The original value of that register was already recorded in
+<code>jmp_buf</code> during the initial <code>setjmp</code>
+invocation.</li>
+<li>When <code>longjmp</code> executes, it overwrites the CPU registers
+with the values preserved in <code>jmp_buf</code>.</li>
+<li>As a result, the register holding your local variable is reverted to
+its pre-<code>setjmp</code> state, discarding any assignments made in
+the interim.</li>
+</ul>
+<p>If the compiler instead stored the variable on the stack frame (which
+remains in memory because the function containing <code>setjmp</code>
+has not returned), the variable might retain its modified value. Because
+register allocation depends entirely on optimization levels
+(<code>-O0</code>, <code>-O2</code>, etc.) and compiler heuristics, the
+variable's value becomes non-deterministic without proper
+qualification.</p>
+<h3 id="the-c-standard-rule">The C Standard Rule</h3>
+<p>To account for these architectural realities, the ISO C Standard
+(ISO/IEC 9899) explicitly defines this behavior. According to the
+standard, the values of automatic local variables in the function
+invoking <code>setjmp</code> become indeterminate after a
+<code>longjmp</code> if they meet all of the following conditions:</p>
+<ol type="1">
+<li>They are local to the function containing the <code>setjmp</code>
+invocation.</li>
+<li>They do not have the <code>volatile</code> qualifier.</li>
+<li>They are changed between the <code>setjmp</code> invocation and the
+<code>longjmp</code> call.</li>
+</ol>
+<p>Reading such a variable after <code>longjmp</code> returns yields
+undefined behavior.</p>
+<h3 id="preventing-clobbering-with-volatile">Preventing Clobbering with
+<code>volatile</code></h3>
+<p>Declaring a variable as <code>volatile</code> informs the compiler
+that the variable's value may change outside the normal compiler flow
+and must not be cached in a CPU register.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;setjmp.h&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>jmp_buf env<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> trigger_jump<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    longjmp<span class="op">(</span>env<span class="op">,</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> regular_var <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">volatile</span> <span class="dt">int</span> volatile_var <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>setjmp<span class="op">(</span>env<span class="op">)</span> <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>        regular_var <span class="op">=</span> <span class="dv">20</span><span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        volatile_var <span class="op">=</span> <span class="dv">20</span><span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>        trigger_jump<span class="op">();</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>        <span class="co">// regular_var is indeterminate; it may print 10 or 20 depending on optimization.</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>        <span class="co">// volatile_var is guaranteed to retain 20.</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>        printf<span class="op">(</span><span class="st">&quot;regular_var: </span><span class="sc">%d\n</span><span class="st">&quot;</span><span class="op">,</span> regular_var<span class="op">);</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>        printf<span class="op">(</span><span class="st">&quot;volatile_var: </span><span class="sc">%d\n</span><span class="st">&quot;</span><span class="op">,</span> volatile_var<span class="op">);</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Because <code>volatile_var</code> is forced to reside in memory on
+the stack, every write goes directly to RAM. When <code>longjmp</code>
+restores the CPU registers, the memory location on the stack remains
+untouched, allowing the program to safely read the updated value.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

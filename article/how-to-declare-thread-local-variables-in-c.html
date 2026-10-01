@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Declare Thread_local Variables in C - c</title>
+    <meta name="description" content="Thread-local storage allows concurrent threads to maintain separate, independent instances of a variable rather than sharing a single global or static memory location. Introduced in the C11 standard, the Threadlocal storage-class specifier provides nativ">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-to-declare-thread-local-variables-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Declare Thread_local Variables in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-to-declare-thread-local-variables-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Thread-local storage allows concurrent threads to maintain separate, independent instances of a variable rather than sharing a single global or static memory location. Introduced in the C11 standard, the Threadlocal storage-class specifier provides nativ" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-declare-thread_local-variables-in-c">How to Declare
+Thread_local Variables in C</h1>
+<p>Thread-local storage allows concurrent threads to maintain separate,
+independent instances of a variable rather than sharing a single global
+or static memory location. Introduced in the C11 standard, the
+<code>_Thread_local</code> storage-class specifier provides native
+language support for creating variables that are tied to the lifecycle
+of an individual thread. This article covers how to declare thread-local
+variables in C, the syntax requirements for different scopes, and best
+practices for safe implementation.</p>
+<h3 id="syntax-and-the-threadsh-header">Syntax and the
+<code>&lt;threads.h&gt;</code> Header</h3>
+<p>In standard C11 and later, thread-local storage is declared using the
+<code>_Thread_local</code> keyword. Alternatively, including the
+<code>&lt;threads.h&gt;</code> header defines a convenient macro,
+<code>thread_local</code>, which expands to
+<code>_Thread_local</code>.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;threads.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Using the macro from &lt;threads.h&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="dt">thread_local</span> <span class="dt">int</span> counter <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Using the raw keyword</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">_Thread_local</span> <span class="dt">int</span> raw_counter <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span></code></pre></div>
+<p>In C23, <code>thread_local</code> is recognized as a standard keyword
+without requiring <code>&lt;threads.h&gt;</code>.</p>
+<hr />
+<h3 id="scope-and-storage-rules">Scope and Storage Rules</h3>
+<p>The <code>_Thread_local</code> specifier can only be applied to
+variables with thread storage duration. It cannot be applied to
+functions or function parameters. The rules for applying
+<code>_Thread_local</code> depend on the scope in which the variable is
+declared:</p>
+<h4 id="1-file-scope-global-variables">1. File Scope (Global
+Variables)</h4>
+<p>At file scope (outside of any function), <code>_Thread_local</code>
+can be used alone, or combined with <code>static</code> or
+<code>extern</code>:</p>
+<ul>
+<li><strong>External linkage:</strong> Declaring
+<code>_Thread_local int global_var;</code> makes the variable visible
+across translation units, but each thread across the entire program
+receives its own separate instance.</li>
+<li><strong>Internal linkage:</strong> Combining it as
+<code>static _Thread_local int file_var;</code> restricts visibility to
+the current translation unit while maintaining a unique copy per
+thread.</li>
+</ul>
+<h4 id="2-block-scope-local-variables">2. Block Scope (Local
+Variables)</h4>
+<p>Inside a function or block, <code>_Thread_local</code>
+<strong>must</strong> be combined with either <code>static</code> or
+<code>extern</code>. Attempting to declare an automatic (ordinary local)
+variable as <code>_Thread_local</code> will result in a compiler
+error.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process_data<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Valid: static local variable with thread duration</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">static</span> <span class="kw">_Thread_local</span> <span class="dt">int</span> invocation_count <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Valid: refers to a thread-local variable defined elsewhere</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">extern</span> <span class="kw">_Thread_local</span> <span class="dt">int</span> global_status<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Invalid: causes a compilation error</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// _Thread_local int auto_var = 10; </span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<hr />
+<h3 id="lifecycle-and-initialization">Lifecycle and Initialization</h3>
+<ul>
+<li><strong>Initialization:</strong> A thread-local variable is
+initialized once per thread when the thread starts. If an explicit
+initializer is provided, it must be an expression that evaluates to a
+constant at compile time. Uninitialized thread-local variables are
+zero-initialized by default.</li>
+<li><strong>Destruction:</strong> The storage associated with a
+thread-local variable persists until the corresponding thread
+terminates. Once the thread exits, its local copies are automatically
+deallocated.</li>
+</ul>
+<hr />
+<h3 id="code-example">Code Example</h3>
+<p>Below is a complete example demonstrating distinct thread-local
+storage across two threads:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;threads.h&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="dt">thread_local</span> <span class="dt">int</span> thread_specific_id <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> worker<span class="op">(</span><span class="dt">void</span> <span class="op">*</span>arg<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> id <span class="op">=</span> <span class="op">*(</span><span class="dt">int</span> <span class="op">*)</span>arg<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    thread_specific_id <span class="op">=</span> id<span class="op">;</span> <span class="co">// Modifies only this thread&#39;s copy</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    thrd_sleep<span class="op">(&amp;(</span><span class="kw">struct</span> timespec<span class="op">){.</span>tv_nsec <span class="op">=</span> <span class="dv">100000000</span><span class="op">},</span> NULL<span class="op">);</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Worker Thread ID: </span><span class="sc">%d</span><span class="st"> (Stored Value: </span><span class="sc">%d</span><span class="st">)</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">,</span> id<span class="op">,</span> thread_specific_id<span class="op">);</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    thrd_t t1<span class="op">,</span> t2<span class="op">;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> id1 <span class="op">=</span> <span class="dv">1</span><span class="op">,</span> id2 <span class="op">=</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    thread_specific_id <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> <span class="co">// Main thread&#39;s copy</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    thrd_create<span class="op">(&amp;</span>t1<span class="op">,</span> worker<span class="op">,</span> <span class="op">&amp;</span>id1<span class="op">);</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>    thrd_create<span class="op">(&amp;</span>t2<span class="op">,</span> worker<span class="op">,</span> <span class="op">&amp;</span>id2<span class="op">);</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>    thrd_join<span class="op">(</span>t1<span class="op">,</span> NULL<span class="op">);</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>    thrd_join<span class="op">(</span>t2<span class="op">,</span> NULL<span class="op">);</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Main Thread Value: </span><span class="sc">%d\n</span><span class="st">&quot;</span><span class="op">,</span> thread_specific_id<span class="op">);</span> <span class="co">// Remains 0</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="key-considerations">Key Considerations</h3>
+<ul>
+<li><strong>Pointers to Thread-Local Data:</strong> You can take the
+address of a thread-local variable using the <code>&amp;</code> operator
+and pass it to another thread. However, the address remains valid only
+while the thread that owns the memory is alive. Accessing this pointer
+after the owning thread terminates results in undefined behavior.</li>
+<li><strong>Compatibility:</strong> Before C11, compilers provided
+non-standard extensions, such as <code>__thread</code> (GCC/Clang) and
+<code>__declspec(thread)</code> (MSVC). While still widely supported,
+<code>_Thread_local</code> and the C23 <code>thread_local</code> keyword
+are the standard, portable methods for C applications.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

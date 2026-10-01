@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preventing File Race Conditions with O_CREAT and O_EXCL - c</title>
+    <meta name="description" content="In C programming, concurrently creating files without proper synchronization can introduce dangerous race conditions, specifically Time-of-Check to Time-of-Use (TOCTOU) vulnerabilities. This article explains how the operating system handles atomic file c">
+    <link rel="canonical" href="https://salivity.github.io/c/article/preventing-file-race-conditions-with-o-creat-and-o-excl">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Preventing File Race Conditions with O_CREAT and O_EXCL - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/preventing-file-race-conditions-with-o-creat-and-o-excl" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C programming, concurrently creating files without proper synchronization can introduce dangerous race conditions, specifically Time-of-Check to Time-of-Use (TOCTOU) vulnerabilities. This article explains how the operating system handles atomic file c" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="preventing-file-race-conditions-with-o_creat-and-o_excl">Preventing
+File Race Conditions with O_CREAT and O_EXCL</h1>
+<p>In C programming, concurrently creating files without proper
+synchronization can introduce dangerous race conditions, specifically
+Time-of-Check to Time-of-Use (TOCTOU) vulnerabilities. This article
+explains how the operating system handles atomic file creation, why
+standard existence checks fail in multi-process environments, and how
+combining the <code>O_CREAT</code> and <code>O_EXCL</code> flags in the
+POSIX <code>open()</code> system call guarantees mutual exclusion and
+prevents race conditions.</p>
+<h3 id="the-file-creation-race-condition-toctou">The File Creation Race
+Condition (TOCTOU)</h3>
+<p>A common mistake in file handling is separating the existence check
+from the file creation step. For example, a developer might check if a
+file exists using <code>access()</code> or <code>stat()</code>, and if
+it does not exist, subsequently create it using <code>fopen()</code> or
+<code>open()</code> with <code>O_CREAT</code>:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Vulnerable non-atomic pattern</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>access<span class="op">(</span>filepath<span class="op">,</span> F_OK<span class="op">)</span> <span class="op">!=</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// A context switch can happen here</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> fd <span class="op">=</span> open<span class="op">(</span>filepath<span class="op">,</span> O_WRONLY <span class="op">|</span> O_CREAT<span class="op">,</span> <span class="bn">0644</span><span class="op">);</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Between the call to <code>access()</code> and the call to
+<code>open()</code>, the operating system scheduler may suspend the
+executing process. During this window, an attacker or another concurrent
+thread can create a file at that exact path or replace it with a
+symbolic link pointing to a critical system file. When the original
+process resumes, it inadvertently opens or overwrites a file it assumes
+it uniquely created.</p>
+<h3 id="how-o_creat-and-o_excl-enforce-atomicity">How O_CREAT and O_EXCL
+Enforce Atomicity</h3>
+<p>To eliminate this vulnerability, the POSIX <code>open()</code> system
+call provides the <code>O_CREAT</code> and <code>O_EXCL</code> flags,
+which must be combined using a bitwise OR (<code>|</code>).</p>
+<ul>
+<li><strong><code>O_CREAT</code></strong>: Instructs the kernel to
+create the file if it does not already exist. If used alone and the file
+already exists, <code>open()</code> simply opens the existing file.</li>
+<li><strong><code>O_EXCL</code></strong>: When used alongside
+<code>O_CREAT</code>, it specifies that the call must fail if the file
+already exists.</li>
+</ul>
+<p>When you specify <code>O_CREAT | O_EXCL</code>, the kernel performs
+the verification of existence and the creation of the file as an
+<strong>atomic operation</strong>. This means that within the kernel's
+virtual file system (VFS) and the underlying filesystem driver, the
+inode lookup and inode allocation occur in an uninterruptible sequence
+relative to other processes accessing the same directory.</p>
+<p>If the file exists, the call fails immediately, returns
+<code>-1</code>, and sets <code>errno</code> to <code>EEXIST</code>. No
+file is opened, no data is overwritten, and no race condition can
+occur.</p>
+<h3 id="correct-implementation-in-c">Correct Implementation in C</h3>
+<p>The following example demonstrates the secure, atomic pattern for
+creating a file that must not already exist:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;fcntl.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;unistd.h&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;errno.h&gt;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> create_unique_file<span class="op">(</span><span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>filename<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Open for writing, create only if it does not exist, set permissions</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> fd <span class="op">=</span> open<span class="op">(</span>filename<span class="op">,</span> O_WRONLY <span class="op">|</span> O_CREAT <span class="op">|</span> O_EXCL<span class="op">,</span> <span class="bn">0600</span><span class="op">);</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>fd <span class="op">==</span> <span class="op">-</span><span class="dv">1</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>errno <span class="op">==</span> EEXIST<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>            fprintf<span class="op">(</span>stderr<span class="op">,</span> <span class="st">&quot;Error: File already exists. Operation aborted.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">);</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>            perror<span class="op">(</span><span class="st">&quot;Error opening file&quot;</span><span class="op">);</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> fd<span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="key-considerations">Key Considerations</h3>
+<ol type="1">
+<li><strong>Permissions (<code>mode</code>)</strong>: When using
+<code>O_CREAT</code>, always provide the third argument to
+<code>open()</code> (the file permissions, such as <code>0600</code>),
+which is modified by the process's <code>umask</code>. Omitting it
+causes undefined behavior.</li>
+<li><strong>Symbolic Links</strong>: If <code>O_CREAT | O_EXCL</code> is
+used and the pathname is a dangling symbolic link, the call will fail
+with <code>EEXIST</code> rather than following the link and creating the
+target, mitigating symlink redirection exploits.</li>
+<li><strong>Network Filesystems (NFS)</strong>: On older NFS protocols
+(such as NFSv2), <code>O_EXCL</code> support was not guaranteed to be
+atomic across multiple clients. Modern Linux environments using NFSv3 or
+later support atomic creation via the <code>CREATE_EXCLUSIVE</code>
+remote procedure call.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

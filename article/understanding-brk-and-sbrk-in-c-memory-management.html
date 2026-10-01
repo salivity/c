@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding brk and sbrk in C Memory Management - c</title>
+    <meta name="description" content="Historically, the brk and sbrk system calls served as the foundational mechanisms for dynamic memory allocation in Unix-like operating systems. Before modern memory allocators relied heavily on alternatives like memory mapping, standard C library routine">
+    <link rel="canonical" href="https://salivity.github.io/c/article/understanding-brk-and-sbrk-in-c-memory-management">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding brk and sbrk in C Memory Management - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/understanding-brk-and-sbrk-in-c-memory-management" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Historically, the brk and sbrk system calls served as the foundational mechanisms for dynamic memory allocation in Unix-like operating systems. Before modern memory allocators relied heavily on alternatives like memory mapping, standard C library routine" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="understanding-brk-and-sbrk-in-c-memory-management">Understanding
+brk and sbrk in C Memory Management</h1>
+<p>Historically, the <code>brk</code> and <code>sbrk</code> system calls
+served as the foundational mechanisms for dynamic memory allocation in
+Unix-like operating systems. Before modern memory allocators relied
+heavily on alternatives like memory mapping, standard C library routines
+utilized <code>brk</code> and <code>sbrk</code> to manipulate the
+process's data segment boundary, commonly known as the "program break."
+This article examines how these system calls operate, their historical
+role in implementing functions like <code>malloc</code>, and why they
+have largely been superseded in modern systems.</p>
+<h3 id="the-program-break-and-the-heap">The Program Break and the
+Heap</h3>
+<p>In a traditional Unix process memory layout, virtual address space is
+organized into segments: the text segment (code), the initialized data
+segment, the uninitialized data segment (BSS), the heap, and the
+stack.</p>
+<p>The heap sits directly above the BSS segment and grows upward toward
+higher memory addresses. The exact boundary demarcating the end of the
+process's data segment is the <strong>program break</strong>. Any memory
+address below the program break is mapped to physical memory pages and
+accessible to the process, while addressing memory beyond this boundary
+triggers a segmentation fault (<code>SIGSEGV</code>).</p>
+<h3 id="the-function-of-brk">The Function of <code>brk()</code></h3>
+<p>The <code>brk()</code> system call sets the end of the data segment
+to a specific memory address:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> brk<span class="op">(</span><span class="dt">void</span> <span class="op">*</span>addr<span class="op">);</span></span></code></pre></div>
+<ul>
+<li><strong>Mechanism:</strong> When <code>brk()</code> is invoked, the
+operating system attempts to reset the program break to
+<code>addr</code>.</li>
+<li><strong>Return Value:</strong> On success, it returns
+<code>0</code>. On failure (such as running out of physical memory or
+exceeding the system's maximum data segment size), it returns
+<code>-1</code> and sets <code>errno</code> to <code>ENOMEM</code>.</li>
+</ul>
+<p>Because using <code>brk()</code> requires the calling program to know
+the exact target address, it is less common for routine allocations than
+its relative, <code>sbrk()</code>.</p>
+<h3 id="the-function-of-sbrk">The Function of <code>sbrk()</code></h3>
+<p>The <code>sbrk()</code> function provides a relative interface to
+adjust the program break:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> <span class="op">*</span>sbrk<span class="op">(</span><span class="dt">intptr_t</span> increment<span class="op">);</span></span></code></pre></div>
+<ul>
+<li><strong>Mechanism:</strong> Instead of setting an absolute address,
+<code>sbrk()</code> increments or decrements the program break by
+<code>increment</code> bytes.</li>
+<li><strong>Return Value:</strong> On success, <code>sbrk()</code>
+returns the <em>previous</em> program break address (which corresponds
+to the start of the newly allocated region). On error, it returns
+<code>(void *) -1</code>.</li>
+<li><strong>Querying Break Location:</strong> Calling
+<code>sbrk(0)</code> does not change the allocation size; instead, it
+simply returns the current address of the program break.</li>
+</ul>
+<h3 id="role-in-historical-malloc-implementations">Role in Historical
+<code>malloc()</code> Implementations</h3>
+<p>Application developers rarely called <code>brk</code> or
+<code>sbrk</code> directly in their code. Instead, standard C library
+allocators such as <code>malloc()</code>, <code>calloc()</code>, and
+<code>realloc()</code> managed these calls internally:</p>
+<ol type="1">
+<li><strong>Batch Requests:</strong> Requesting system calls for every
+tiny allocation introduces significant performance overhead.
+Consequently, <code>malloc()</code> would call <code>sbrk()</code> with
+a substantial byte count (e.g., several kilobytes or megabytes) to
+expand the heap in bulk.</li>
+<li><strong>Internal Tracking:</strong> The allocator maintained an
+internal linked list or binning structure within that acquired heap
+space to slice it into smaller blocks for user-level
+<code>malloc()</code> requests.</li>
+<li><strong>Deallocation Limitations:</strong> When <code>free()</code>
+was called, the memory block was marked as reusable within the
+allocator’s internal structures. However, memory could only be returned
+to the operating system using a negative <code>sbrk()</code> call if the
+deallocated block was positioned at the very top of the heap. If any
+allocated block remained above it, the heap could not shrink, leading to
+external fragmentation.</li>
+</ol>
+<h3 id="obsolescence-and-modern-alternatives">Obsolescence and Modern
+Alternatives</h3>
+<p>While still present for backward compatibility and specialized use
+cases, <code>brk</code> and <code>sbrk</code> have largely fallen out of
+favor for several reasons:</p>
+<ul>
+<li><strong>Contiguous Constraint:</strong> The heap must remain a
+single, contiguous region. Memory trapped between the base and the break
+cannot be unmapped independently.</li>
+<li><strong>Thread Safety:</strong> Because the program break is a
+single global attribute per process, concurrent allocations across
+multiple threads create contention and synchronization bottlenecks.</li>
+<li><strong>Address Space Layout Randomization (ASLR):</strong> Modern
+operating systems randomize memory segments for security, making rigid
+linear heap expansion impractical.</li>
+</ul>
+<p>Modern C libraries primarily use <code>mmap()</code> with the
+<code>MAP_ANONYMOUS</code> flag for large allocations.
+<code>mmap()</code> allows non-contiguous pages to be allocated and
+deallocated anywhere in the process's virtual address space, eliminating
+the structural limitations historically imposed by <code>brk</code> and
+<code>sbrk</code>.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

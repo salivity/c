@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding the Strict Aliasing Rule in C - c</title>
+    <meta name="description" content="The strict aliasing rule is a core semantic constraint in the C programming language that dictates how different pointer types access the same memory location. By establishing that two pointers of incompatible types cannot point to (or "alias") the same">
+    <link rel="canonical" href="https://salivity.github.io/c/article/understanding-the-strict-aliasing-rule-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding the Strict Aliasing Rule in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/understanding-the-strict-aliasing-rule-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The strict aliasing rule is a core semantic constraint in the C programming language that dictates how different pointer types access the same memory location. By establishing that two pointers of incompatible types cannot point to (or "alias") the same" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="understanding-the-strict-aliasing-rule-in-c">Understanding the
+Strict Aliasing Rule in C</h1>
+<p>The strict aliasing rule is a core semantic constraint in the C
+programming language that dictates how different pointer types access
+the same memory location. By establishing that two pointers of
+incompatible types cannot point to (or "alias") the same physical
+address, the rule allows modern compilers to employ Type-Based Alias
+Analysis (TBAA). This allows the compiler to make safe assumptions about
+memory independence, eliminating redundant read and write operations,
+reordering instructions, and keeping frequently accessed values cached
+inside CPU registers for significantly improved runtime performance.</p>
+<h2 id="the-concept-of-pointer-aliasing">The Concept of Pointer
+Aliasing</h2>
+<p>In C, aliasing occurs when two or more pointers refer to the exact
+same block of memory. When a value is modified through one pointer, any
+subsequent read through an aliased pointer must reflect that change.</p>
+<p>Consider this simple function:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> compute<span class="op">(</span><span class="dt">int</span> <span class="op">*</span>a<span class="op">,</span> <span class="dt">double</span> <span class="op">*</span>b<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>a <span class="op">=</span> <span class="dv">5</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>b <span class="op">=</span> <span class="fl">3.14</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">*</span>a<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>If the compiler had to consider the possibility that <code>a</code>
+and <code>b</code> pointed to the same byte address in RAM, it would be
+forced to write <code>5</code> to <code>*a</code>, write
+<code>3.14</code> to <code>*b</code>, and then reload the value of
+<code>*a</code> from memory to see if <code>*b</code> inadvertently
+modified it. This repeated memory access severely degrades execution
+speed.</p>
+<h2 id="how-the-strict-aliasing-rule-works">How the Strict Aliasing Rule
+Works</h2>
+<p>The C standard (specifically section 6.5, paragraph 7 of C99 and
+later) defines the strict aliasing rule to eliminate this performance
+bottleneck. It explicitly declares that an object's stored value may
+only be accessed by an lvalue expression of:</p>
+<ul>
+<li>An identical or compatible type.</li>
+<li>A qualified version of the type (such as <code>const</code> or
+<code>volatile</code>).</li>
+<li>A type that is the signed or unsigned equivalent of the type.</li>
+<li>An aggregate or union type that includes one of the aforementioned
+types among its members.</li>
+<li>A character type (<code>char</code>, <code>signed char</code>, or
+<code>unsigned char</code>).</li>
+</ul>
+<p>Because <code>int</code> and <code>double</code> are incompatible
+types and neither is a character type, the compiler relies on the C
+standard to assume that <code>a</code> and <code>b</code> can never
+overlap.</p>
+<h2 id="how-compilers-exploit-the-rule">How Compilers Exploit the
+Rule</h2>
+<p>When strict aliasing is assumed—often managed via compiler flags like
+<code>-O2</code> or <code>-fstrict-aliasing</code> in GCC and Clang—the
+optimizer runs Type-Based Alias Analysis (TBAA). The compiler
+categorizes memory references into distinct type sets:</p>
+<ol type="1">
+<li><strong>Eliminating Redundant Loads:</strong> Since the write to
+<code>*b</code> cannot logically alter the value stored at
+<code>*a</code>, the compiler does not issue an instruction to reload
+<code>*a</code> from memory. It simply returns the constant
+<code>5</code> directly from a register.</li>
+<li><strong>Instruction Scheduling and Reordering:</strong> The compiler
+is free to reorder the instructions—executing the floating-point store
+before or alongside the integer store—to better saturate hardware
+pipelines and minimize CPU pipeline stalls.</li>
+<li><strong>Dead Store Elimination:</strong> If a variable is updated,
+but an incompatible pointer writes to an arbitrary address afterward,
+the compiler knows the original variable was not touched and can
+eliminate dead or intermediate stores.</li>
+</ol>
+<h2 id="exceptions-to-the-rule">Exceptions to the Rule</h2>
+<p>The standard provides designated exceptions so developers can
+legitimately inspect raw memory:</p>
+<ul>
+<li><strong>Character Pointers:</strong> Pointers of type
+<code>char*</code>, <code>unsigned char*</code>, and
+<code>signed char*</code> are universally permitted to alias any other
+type. This allows standard memory operations (like <code>memcpy</code>
+and byte-by-byte inspection) to function correctly without breaking
+compiler assumptions.</li>
+<li><strong>Unions (Type Punning):</strong> While casting a pointer
+directly (e.g., <code>*(float*)&amp;my_int</code>) invokes undefined
+behavior under strict aliasing, reading from a different union member
+than the one last written to is explicitly permitted in modern C (C99
+and later) as a valid method for type punning.</li>
+</ul>
+<h2 id="undefined-behavior-and-miscompilation">Undefined Behavior and
+Miscompilation</h2>
+<p>Violating the strict aliasing rule by casting incompatible pointer
+types produces undefined behavior. Because the compiler assumes these
+types never overlap, it may reorder memory operations such that a read
+occurs before a write, resulting in stale data or memory corruption that
+often only appears when optimization flags are enabled. Safe cross-type
+conversions should always be handled using character copies, standard
+union constructs, or the <code>memcpy()</code> function, which compilers
+routinely optimize into native register loads.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

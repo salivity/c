@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How C Compilers Optimize Byte Swaps and Bit Rotations - c</title>
+    <meta name="description" content="Modern C compilers routinely translate verbose, multi-step bit manipulation patterns—such as bitwise rotations and byte swaps—into single, high-performance machine instructions. Because the C language historically omitted native operators for these l">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-c-compilers-optimize-byte-swaps-and-bit-rotations">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How C Compilers Optimize Byte Swaps and Bit Rotations - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-c-compilers-optimize-byte-swaps-and-bit-rotations" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Modern C compilers routinely translate verbose, multi-step bit manipulation patterns—such as bitwise rotations and byte swaps—into single, high-performance machine instructions. Because the C language historically omitted native operators for these l" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-c-compilers-optimize-byte-swaps-and-bit-rotations">How C
+Compilers Optimize Byte Swaps and Bit Rotations</h1>
+<p>Modern C compilers routinely translate verbose, multi-step bit
+manipulation patterns—such as bitwise rotations and byte swaps—into
+single, high-performance machine instructions. Because the C language
+historically omitted native operators for these low-level hardware
+operations, programmers express them using combinations of bit shifts,
+masks, and logical OR operations. Optimizing compilers like GCC, Clang
+(LLVM), and MSVC detect these standard idiomatic sequences using
+Intermediate Representation (IR) canonicalization, pattern matching, and
+target-specific instruction selection, ultimately emitting dedicated CPU
+instructions like <code>ROL</code>, <code>ROR</code>,
+<code>BSWAP</code>, or <code>REV</code>.</p>
+<h2 id="the-representation-challenge-in-c">The Representation Challenge
+in C</h2>
+<p>Standard C provides shift operators (<code>&lt;&lt;</code> and
+<code>&gt;&gt;</code>), but it lacks explicit operators for circular
+shifts (rotations) or endianness reversal (byte swapping). Consequently,
+a 32-bit left rotation by <code>n</code> bits is typically written
+as:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">uint32_t</span> rotate_left<span class="op">(</span><span class="dt">uint32_t</span> val<span class="op">,</span> <span class="dt">unsigned</span> <span class="dt">int</span> n<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">(</span>val <span class="op">&lt;&lt;</span> n<span class="op">)</span> <span class="op">|</span> <span class="op">(</span>val <span class="op">&gt;&gt;</span> <span class="op">(</span><span class="dv">32</span> <span class="op">-</span> n<span class="op">));</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Similarly, reversing the byte order of a 32-bit integer is commonly
+implemented using shifts and masks:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">uint32_t</span> swap32<span class="op">(</span><span class="dt">uint32_t</span> val<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">((</span>val <span class="op">&gt;&gt;</span> <span class="dv">24</span><span class="op">)</span> <span class="op">&amp;</span> <span class="bn">0x000000FF</span><span class="op">)</span> <span class="op">|</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>           <span class="op">((</span>val <span class="op">&gt;&gt;</span>  <span class="dv">8</span><span class="op">)</span> <span class="op">&amp;</span> <span class="bn">0x0000FF00</span><span class="op">)</span> <span class="op">|</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>           <span class="op">((</span>val <span class="op">&lt;&lt;</span>  <span class="dv">8</span><span class="op">)</span> <span class="op">&amp;</span> <span class="bn">0x00FF0000</span><span class="op">)</span> <span class="op">|</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>           <span class="op">((</span>val <span class="op">&lt;&lt;</span> <span class="dv">24</span><span class="op">)</span> <span class="op">&amp;</span> <span class="bn">0xFF000000</span><span class="op">);</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>While functional, executing these sequences literally would require
+multiple instructions: shifts, masks, registers, and bitwise OR
+operations. Modern instruction set architectures (ISAs) such as x86 and
+ARM provide single instructions to perform these operations in a single
+cycle. The compiler's goal is to recognize the programmer's intent and
+bridge this abstraction gap.</p>
+<h2
+id="abstract-syntax-trees-and-ssa-intermediate-representation">Abstract
+Syntax Trees and SSA Intermediate Representation</h2>
+<p>The optimization pipeline begins by parsing the C code into an
+Abstract Syntax Tree (AST), which is then lowered into an intermediate
+representation based on Static Single Assignment (SSA) form.</p>
+<p>In SSA form, every variable is assigned exactly once, and complex
+expressions are broken down into discrete binary operations. This
+decomposition decouples the programmer’s specific syntax (such as
+whether expressions were split across multiple statements or written as
+a single line) from the underlying data flow.</p>
+<h2 id="canonicalization">Canonicalization</h2>
+<p>Before attempting to match specific patterns, compilers canonicalize
+the IR. Canonicalization simplifies and standardizes expressions so that
+mathematically equivalent logic takes on an identical structural
+form:</p>
+<ol type="1">
+<li><strong>Operand Ordering:</strong> Because bitwise OR
+(<code>|</code>) and addition (<code>+</code>) are commutative, the
+compiler sorts operands into a deterministic order (e.g., constant
+values on the right, specific variable identities sorted by SSA
+index).</li>
+<li><strong>Identity Simplification:</strong> Redundant masks are
+removed. For instance, in <code>(val &gt;&gt; 24) &amp; 0xFF</code>, if
+<code>val</code> is a 32-bit unsigned integer, the shift ensures that
+bits 8–31 are already zero, making the <code>&amp; 0xFF</code> mask
+redundant.</li>
+<li><strong>Operator Normalization:</strong> Compilers normalize
+variations of expressions, such as transforming combinations of
+additions and shifts into unified bitwise operations when inputs are
+known to have non-overlapping bits.</li>
+</ol>
+<h2 id="pattern-matching-engines">Pattern Matching Engines</h2>
+<p>Compilers use rule-based pattern matching engines operating over the
+canonicalized SSA graph. In LLVM, this is primarily driven by the
+<code>InstCombine</code> pass; in GCC, it is managed by the
+<code>match.pd</code> system.</p>
+<h3 id="detecting-bit-rotations">Detecting Bit Rotations</h3>
+<p>To identify a rotation, the pattern matcher looks for a binary OR
+operation uniting two shift operations on the same base variable:</p>
+<ul>
+<li>One left shift (<code>&lt;&lt;</code>) and one logical right shift
+(<code>&gt;&gt;</code>).</li>
+<li>Shift amounts that sum to the bit-width of the target integer type
+(e.g., <code>n</code> and <code>32 - n</code>).</li>
+<li>Protection against undefined behavior: in C, shifting an integer by
+its total bit width or more yields undefined behavior (such as
+<code>n = 0</code>, where <code>32 - n = 32</code>). Robust pattern
+matchers detect variants that use modulo masking, such as
+<code>(val &lt;&lt; (n &amp; 31)) | (val &gt;&gt; ((-n) &amp; 31))</code>.</li>
+</ul>
+<p>Once the engine validates that the operation covers all bits of the
+integer without overlap or loss, it replaces the entire sub-tree with an
+internal representation for circular shifting, such as LLVM's
+<code>@llvm.fshl</code> (funnel shift left) intrinsic.</p>
+<h3 id="detecting-byte-swaps">Detecting Byte Swaps</h3>
+<p>Byte swap detection requires tracking the flow of specific byte lanes
+from the original value to the result:</p>
+<ul>
+<li>Compilers track the provenance of individual bytes using a symbolic
+representation often referred to as "byte-tracking" or
+"bit-tracking."</li>
+<li>The compiler inspects how individual byte offsets are repositioned
+by combinations of shifts, masks, and OR expressions.</li>
+<li>If the sequence results in byte indices <code>[0, 1, 2, 3]</code>
+being mapped strictly to <code>[3, 2, 1, 0]</code>, the compiler flags
+the expression as a byte swap.</li>
+</ul>
+<p>Once recognized, the subtree is folded into a target-agnostic
+intrinsic, such as LLVM’s <code>@llvm.bswap</code> or GCC's internal
+<code>BUILTIN_BSWAP</code>.</p>
+<h2 id="instruction-selection-and-target-lowering">Instruction Selection
+and Target Lowering</h2>
+<p>The final phase occurs in the compiler backend during instruction
+selection (such as LLVM's SelectionDAG or GlobalISel).</p>
+<ol type="1">
+<li><strong>DAG Matching:</strong> The backend receives the generic
+rotation or byte swap intrinsic and matches it against
+architecture-specific patterns defined in the compiler's machine
+description files.</li>
+<li><strong>Hardware Mapping:</strong>
+<ul>
+<li>On x86-64, an <code>@llvm.bswap.i32</code> node matches directly to
+the <code>bswap</code> instruction. A rotation node matches
+<code>rol</code> or <code>ror</code>.</li>
+<li>On ARM/AArch64, a byte swap maps to the <code>rev</code>
+instruction, and a rotation maps to <code>ror</code> (or an
+operand-shifted register directly folded into another instruction).</li>
+</ul></li>
+<li><strong>Fallback Lowering:</strong> If a target architecture lacks
+hardware support for an operation (such as an embedded microcontroller
+lacking a byte reversal instruction), the backend lowers the intrinsic
+back into an optimal sequence of shifts, adds, or lookup tables,
+ensuring code correctness without sacrificing portable performance.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

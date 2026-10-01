@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Excessive Recursion Causes Stack Overflow in C - c</title>
+    <meta name="description" content="In the C programming language, recursion occurs when a function calls itself to solve smaller instances of a problem. While this is a powerful algorithmic technique, every function call requires a dedicated segment of memory known as a stack frame. When">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-excessive-recursion-causes-stack-overflow-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Excessive Recursion Causes Stack Overflow in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-excessive-recursion-causes-stack-overflow-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, recursion occurs when a function calls itself to solve smaller instances of a problem. While this is a powerful algorithmic technique, every function call requires a dedicated segment of memory known as a stack frame. When" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-excessive-recursion-causes-stack-overflow-in-c">How
+Excessive Recursion Causes Stack Overflow in C</h1>
+<p>In the C programming language, recursion occurs when a function calls
+itself to solve smaller instances of a problem. While this is a powerful
+algorithmic technique, every function call requires a dedicated segment
+of memory known as a stack frame. When recursive calls are made
+excessively—either due to a missing base case or an excessively deep
+data set—the program continuously allocates stack frames without freeing
+previous ones. This inevitably exhausts the finite memory allocated for
+the call stack, triggering a stack overflow error and causing the
+operating system to terminate the program with a segmentation fault.</p>
+<h3 id="the-mechanism-of-the-call-stack">The Mechanism of the Call
+Stack</h3>
+<p>When a C program executes, its memory is divided into several
+segments: text (code), data, the heap, and the stack. The call stack
+operates on a Last-In, First-Out (LIFO) basis and manages active
+subroutines.</p>
+<p>Every time a function is invoked, the CPU pushes a new "stack frame"
+(or activation record) onto the stack. A standard stack frame
+contains:</p>
+<ul>
+<li>The return address (where execution should resume once the function
+finishes).</li>
+<li>Function arguments passed by the caller.</li>
+<li>Local variables declared within the function.</li>
+<li>Saved CPU register states.</li>
+</ul>
+<p>Under normal execution, once a function reaches a <code>return</code>
+statement or ends, its stack frame is popped off the stack, and its
+allocated memory is immediately reclaimed for future use.</p>
+<h3 id="why-recursion-accumulates-stack-memory">Why Recursion
+Accumulates Stack Memory</h3>
+<p>In a recursive function, an invocation cannot complete its execution
+until the inner recursive call it triggered has also completed. As a
+result, the parent function's stack frame must remain active in
+memory.</p>
+<p>If a recursive algorithm calls itself 1,000 times, there will be
+1,000 distinct stack frames sitting simultaneously in the call stack.
+Each frame consumes a specific amount of bytes determined by the
+function's parameters, local variables, and architecture-specific
+alignment requirements. Because none of the nested calls can resolve
+until the base condition is reached, no memory can be freed during the
+descent.</p>
+<h3 id="reaching-the-stack-limit">Reaching the Stack Limit</h3>
+<p>The call stack does not have infinite space. Unlike the heap, which
+can dynamically grow to consume large amounts of available system RAM,
+the stack is assigned a fixed, relatively small boundary by the
+operating system when the program starts. On modern operating systems
+like Linux and Windows, the default stack size for a thread is typically
+between 1 MB and 8 MB.</p>
+<p>When recursion goes too deep, the stack pointer moves beyond the
+pre-allocated physical and virtual memory bounds of the stack region.
+The program attempts to write into unmapped memory addresses or into
+adjacent protected memory (guard pages).</p>
+<h3 id="the-consequence-stack-overflow">The Consequence: Stack
+Overflow</h3>
+<p>When the stack pointer crosses into unauthorized memory, the
+operating system's memory management unit (MMU) detects an illegal
+memory access violation. Because the process is attempting to read or
+write to an address space it does not own:</p>
+<ol type="1">
+<li>The OS raises a hardware exception.</li>
+<li>The operating system delivers a signal to the program (typically
+<code>SIGSEGV</code> on Unix-like systems).</li>
+<li>The program immediately crashes and produces a "Segmentation Fault"
+or "Stack Overflow" error message.</li>
+</ol>
+<h3 id="common-causes-and-prevention">Common Causes and Prevention</h3>
+<p>Excessive recursion leading to a stack overflow in C usually stems
+from two issues:</p>
+<ul>
+<li><strong>Missing or Incorrect Base Case:</strong> The function lacks
+a termination condition, leading to infinite recursion.</li>
+<li><strong>Large Input Sizes:</strong> The algorithm logic is correct,
+but the depth of recursion (e.g., traversing a heavily unbalanced tree
+or traversing a very long linked list) exceeds the stack limit.</li>
+</ul>
+<p>To prevent this issue, developers can implement an iterative approach
+using standard loops (<code>while</code> or <code>for</code>), utilize
+dynamic memory allocation on the heap via <code>malloc</code> to manage
+an explicit stack data structure, or ensure the algorithm uses
+tail-recursion where compiler optimizations (such as <code>-O2</code> or
+<code>-O3</code> in GCC and Clang) can reuse the existing stack
+frame.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

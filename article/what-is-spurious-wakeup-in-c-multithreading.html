@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Is Spurious Wakeup in C Multithreading? - c</title>
+    <meta name="description" content="A spurious wakeup occurs when a sleeping thread waiting on a condition variable resumes execution without an explicit signal or broadcast, or before the condition it was waiting for has actually been satisfied. In multithreaded C programming—typically">
+    <link rel="canonical" href="https://salivity.github.io/c/article/what-is-spurious-wakeup-in-c-multithreading">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Is Spurious Wakeup in C Multithreading? - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/what-is-spurious-wakeup-in-c-multithreading" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="A spurious wakeup occurs when a sleeping thread waiting on a condition variable resumes execution without an explicit signal or broadcast, or before the condition it was waiting for has actually been satisfied. In multithreaded C programming—typically" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="what-is-spurious-wakeup-in-c-multithreading">What Is Spurious
+Wakeup in C Multithreading?</h1>
+<p>A spurious wakeup occurs when a sleeping thread waiting on a
+condition variable resumes execution without an explicit signal or
+broadcast, or before the condition it was waiting for has actually been
+satisfied. In multithreaded C programming—typically using POSIX threads
+(<code>pthreads</code>) or C11 threads—this phenomenon is an inherent
+design artifact of modern operating systems, hardware architectures, and
+synchronization primitives. Because condition variables do not guarantee
+that every wakeup corresponds to a genuine state change, programmers
+must handle these occurrences by enclosing the wait call inside a
+verification loop rather than a single conditional check.</p>
+<h3 id="understanding-condition-variables-and-wakeups">Understanding
+Condition Variables and Wakeups</h3>
+<p>In multithreaded C programming, condition variables allow threads to
+suspend execution until a specific shared state changes. A thread
+acquires a mutex, checks a condition, and calls
+<code>pthread_cond_wait()</code> if the condition is false. This
+function atomically releases the mutex and places the thread into a
+sleep state.</p>
+<p>Under ideal circumstances, the thread remains suspended until another
+thread updates the state and calls <code>pthread_cond_signal()</code> or
+<code>pthread_cond_broadcast()</code>. However, systems regularly wake
+the thread even when neither function was executed or when the condition
+remains unmet.</p>
+<h3 id="why-spurious-wakeups-occur">Why Spurious Wakeups Occur</h3>
+<p>Spurious wakeups exist primarily due to operating system design,
+hardware constraints, and performance optimizations.</p>
+<ol type="1">
+<li><p><strong>Kernel Interrupts and Signals</strong><br />
+At the operating system level, waiting on a condition variable usually
+maps to a system call such as <code>futex</code> on Linux. If the
+process receives an OS signal (like <code>SIGINT</code> or
+<code>SIGALRM</code>) while a thread is suspended, the system call may
+be interrupted. Rather than automatically restarting the wait, the
+kernel returns early to let the thread handle the signal, which results
+in the thread waking up.</p></li>
+<li><p><strong>Performance Trade-Offs in Kernel
+Implementation</strong><br />
+Completely eliminating spurious wakeups inside the kernel scheduler
+would require heavy synchronization barriers across CPU cores. To
+guarantee that a thread only wakes up if a matching signal occurred, the
+kernel would need to lock internal data structures extensively. Allowing
+occasional spurious wakeups significantly reduces synchronization
+overhead and increases the overall throughput of thread
+scheduling.</p></li>
+<li><p><strong>Stolen Signals (Race Conditions)</strong><br />
+Often perceived as a spurious wakeup, a "stolen signal" happens when a
+thread is genuinely signaled, but another thread intercepts the work.
+For example, Thread A signals that a task is available. Thread B and
+Thread C both wake up (or Thread C was already running). Thread C
+acquires the mutex first, consumes the task, and changes the state back.
+When Thread B finally acquires the mutex, the condition is no longer
+true, effectively behaving like a spurious wakeup.</p></li>
+<li><p><strong>Multiprocessor Architecture Artifacts</strong><br />
+On symmetric multiprocessing (SMP) systems, cache coherency protocols
+and memory reordering can cause temporary inconsistencies across CPU
+cores. Propagating a wake event reliably across all cores without false
+triggers introduces latency, so thread libraries permit rare false
+wakeups as a safe alternative.</p></li>
+</ol>
+<h3 id="how-to-prevent-bugs-from-spurious-wakeups">How to Prevent Bugs
+from Spurious Wakeups</h3>
+<p>Because spurious wakeups are permitted by the POSIX standard
+(<code>IEEE Std 1003.1</code>), software must be written defensively. A
+thread must never assume that returning from
+<code>pthread_cond_wait()</code> implies the condition has been met.</p>
+<p>The standard and correct approach in C is to evaluate the predicate
+inside a <code>while</code> loop rather than an <code>if</code>
+block:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">/* Incorrect: Vulnerable to spurious wakeups */</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>pthread_mutex_lock<span class="op">(&amp;</span>lock<span class="op">);</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(!</span>data_ready<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    pthread_cond_wait<span class="op">(&amp;</span>cond<span class="op">,</span> <span class="op">&amp;</span>lock<span class="op">);</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">/* Processing data here may fail if data_ready is still false */</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>pthread_mutex_unlock<span class="op">(&amp;</span>lock<span class="op">);</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co">/* Correct: Immune to spurious wakeups */</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>pthread_mutex_lock<span class="op">(&amp;</span>lock<span class="op">);</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="cf">while</span> <span class="op">(!</span>data_ready<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    pthread_cond_wait<span class="op">(&amp;</span>cond<span class="op">,</span> <span class="op">&amp;</span>lock<span class="op">);</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="co">/* Safe to process data; the condition is guaranteed to be true */</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>pthread_mutex_unlock<span class="op">(&amp;</span>lock<span class="op">);</span></span></code></pre></div>
+<p>Using the <code>while</code> loop ensures that if the thread wakes up
+spuriously or if another thread alters the condition before the mutex is
+reacquired, the predicate evaluates to false and forces the thread back
+into the waiting state.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

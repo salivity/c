@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why gets Is Vulnerable to Buffer Overflow in C - c</title>
+    <meta name="description" content="The standard C library function gets() is historically one of the most hazardous functions in software development due to its complete lack of bounds checking. This article examines the architectural flaws of gets(), demonstrates how it enables buffer ov">
+    <link rel="canonical" href="https://salivity.github.io/c/article/why-gets-is-vulnerable-to-buffer-overflow-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why gets Is Vulnerable to Buffer Overflow in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/why-gets-is-vulnerable-to-buffer-overflow-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The standard C library function gets() is historically one of the most hazardous functions in software development due to its complete lack of bounds checking. This article examines the architectural flaws of gets(), demonstrates how it enables buffer ov" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-gets-is-vulnerable-to-buffer-overflow-in-c">Why gets Is
+Vulnerable to Buffer Overflow in C</h1>
+<p>The standard C library function <code>gets()</code> is historically
+one of the most hazardous functions in software development due to its
+complete lack of bounds checking. This article examines the
+architectural flaws of <code>gets()</code>, demonstrates how it enables
+buffer overflow attacks that can compromise program control flow, and
+highlights the secure alternatives that replaced it in modern C
+standards.</p>
+<h3 id="the-fundamental-design-flaw">The Fundamental Design Flaw</h3>
+<p>The signature of the function is defined as
+<code>char *gets(char *str);</code>. It accepts a single argument: a
+pointer to the character array where the input string should be
+stored.</p>
+<p>The fatal vulnerability lies in what the function signature omits: a
+parameter specifying the maximum size of the destination buffer. When
+invoked, <code>gets()</code> reads characters from standard input
+(<code>stdin</code>) until it encounters a newline character
+(<code>\n</code>) or an end-of-file (EOF) indicator, appending a null
+terminator (<code>\0</code>) at the end. Because the function is
+entirely unaware of the target buffer's allocated capacity, it will
+continuously write incoming bytes to adjacent memory addresses if the
+user input exceeds the size of the array.</p>
+<h3 id="how-buffer-overflow-occurs-on-the-stack">How Buffer Overflow
+Occurs on the Stack</h3>
+<p>In typical C execution environments, local variables are allocated on
+the call stack. A stack frame generally contains:</p>
+<ol type="1">
+<li>Local variables and arrays (such as the target buffer for
+<code>gets()</code>).</li>
+<li>The saved frame pointer (e.g., <code>EBP</code> or
+<code>RBP</code>).</li>
+<li>The return address pointing to the instruction that should execute
+once the current function completes.</li>
+</ol>
+<p>Because stack buffers grow toward higher memory addresses (toward the
+saved frame pointer and return address) on most standard architectures,
+writing past the end of an array immediately corrupts the surrounding
+stack frame.</p>
+<p>When an input string longer than the allocated space is supplied to
+<code>gets()</code>:</p>
+<ul>
+<li><strong>Memory Corruption:</strong> Excess bytes overwrite other
+local variables located after the buffer.</li>
+<li><strong>Denial of Service:</strong> Overwriting the return address
+with random or arbitrary data causes the program to jump to invalid
+memory upon returning, resulting in a segmentation fault and application
+crash.</li>
+<li><strong>Arbitrary Code Execution:</strong> An attacker can carefully
+craft an input payload containing machine code (shellcode) or
+Return-Oriented Programming (ROP) gadgets, precisely padding the string
+so that the function's return address is overwritten with the address of
+the malicious payload. When the function returns, the CPU executes the
+attacker's instructions with the privileges of the running process.</li>
+</ul>
+<h3 id="deprecation-and-removal">Deprecation and Removal</h3>
+<p>Because the vulnerability is inherent to its parameter list,
+<code>gets()</code> cannot be used safely under any circumstances where
+input length cannot be guaranteed at compile time.</p>
+<p>Due to these unfixable security implications, the ISO C standards
+committee formally deprecated <code>gets()</code> in the C99 standard
+and removed it entirely from the language in the C11 standard. Modern
+compilers will issue severe warnings or refuse to link programs that
+attempt to call it.</p>
+<h3 id="secure-alternatives">Secure Alternatives</h3>
+<p>Developers must use input functions that enforce explicit buffer
+boundaries:</p>
+<ul>
+<li><strong><code>fgets()</code>:</strong> The standard replacement for
+reading lines. It requires the developer to specify the maximum number
+of characters to copy, preventing overflow:
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">char</span> buffer<span class="op">[</span><span class="dv">64</span><span class="op">];</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>fgets<span class="op">(</span>buffer<span class="op">,</span> <span class="kw">sizeof</span><span class="op">(</span>buffer<span class="op">),</span> stdin<span class="op">)</span> <span class="op">!=</span> NULL<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Input is safely bounded to 63 characters plus the null terminator</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div></li>
+<li><strong><code>getline()</code>:</strong> A POSIX standard function
+that automatically resizes or allocates the target buffer dynamically to
+accommodate inputs of arbitrary length.</li>
+<li><strong><code>gets_s()</code>:</strong> Introduced in the optional
+Annex K of the C11 standard, this function requires a buffer size
+parameter and aborts execution if an overflow is attempted.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

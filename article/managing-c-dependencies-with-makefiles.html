@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Managing C Dependencies with Makefiles - c</title>
+    <meta name="description" content="Modern build workflows for the C programming language rely on Makefiles to transform source files into binaries efficiently through incremental compilation. By modeling programs as directed acyclic graphs of targets and prerequisites, GNU Make evaluates">
+    <link rel="canonical" href="https://salivity.github.io/c/article/managing-c-dependencies-with-makefiles">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Managing C Dependencies with Makefiles - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/managing-c-dependencies-with-makefiles" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Modern build workflows for the C programming language rely on Makefiles to transform source files into binaries efficiently through incremental compilation. By modeling programs as directed acyclic graphs of targets and prerequisites, GNU Make evaluates" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="managing-c-dependencies-with-makefiles">Managing C Dependencies
+with Makefiles</h1>
+<p>Modern build workflows for the C programming language rely on
+Makefiles to transform source files into binaries efficiently through
+incremental compilation. By modeling programs as directed acyclic graphs
+of targets and prerequisites, GNU Make evaluates file modification
+timestamps to recompile only the files affected by recent changes. This
+article explains how modern systems define compilation targets, utilize
+compiler-assisted automatic dependency generation, and structure pattern
+rules to maintain clean, scalable C projects.</p>
+<h3 id="the-target-prerequisite-mechanism">The Target-Prerequisite
+Mechanism</h3>
+<p>At its core, a Makefile coordinates builds using rules consisting of
+a target, its prerequisites, and a shell command recipe:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode makefile"><code class="sourceCode makefile"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dv">target:</span><span class="dt"> prerequisites</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="er">    </span>recipe</span></code></pre></div>
+<p>In C development, the final executable typically depends on a
+collection of object files (<code>.o</code>), and each object file
+depends on its corresponding source file (<code>.c</code>). When
+<code>make</code> is invoked, it checks the filesystem timestamps. If
+any prerequisite is newer than the target—or if the target does not
+exist—Make executes the recipe. If the prerequisites are up to date, the
+recipe is skipped, saving significant compilation time in large
+codebases.</p>
+<h3 id="the-header-dependency-challenge">The Header Dependency
+Challenge</h3>
+<p>A basic rule such as <code>main.o: main.c</code> fails when
+<code>main.c</code> includes a header file like <code>config.h</code>.
+If a developer modifies <code>config.h</code>, the timestamp of
+<code>main.c</code> remains unchanged. A naive Makefile will not trigger
+a recompile of <code>main.o</code>, leading to stale binaries or
+undefined runtime behavior.</p>
+<p>Manually listing all included headers as prerequisites for every
+object file is error-prone and unmaintainable. Modern systems solve this
+by delegating dependency discovery directly to the C compiler.</p>
+<h3 id="automatic-dependency-generation-with-gcc-and-clang">Automatic
+Dependency Generation with GCC and Clang</h3>
+<p>Modern compilers provide flags designed specifically to integrate
+with Make:</p>
+<ul>
+<li><code>-MMD</code>: Generates a dependency file (<code>.d</code>)
+containing rule prerequisites for user headers (omitting system
+headers).</li>
+<li><code>-MP</code>: Creates a phony target for each dependency other
+than the main file, preventing Make errors if a header file is deleted
+or renamed.</li>
+</ul>
+<p>When compiling an object file, these flags produce a companion
+<code>.d</code> file formatted as a valid Makefile snippet listing every
+header included by that source file.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode makefile"><code class="sourceCode makefile"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">CFLAGS</span> <span class="ch">?=</span><span class="st"> -Wall -Wextra -O2</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="dt">DEPFLAGS</span> <span class="ch">=</span><span class="st"> -MMD -MP</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="dv">%.o:</span><span class="dt"> %.c</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="er">    </span><span class="ch">$(</span><span class="dt">CC</span><span class="ch">)</span> <span class="ch">$(</span><span class="dt">CFLAGS</span><span class="ch">)</span> <span class="ch">$(</span><span class="dt">DEPFLAGS</span><span class="ch">)</span> -c <span class="ch">$&lt;</span> -o <span class="ch">$@</span></span></code></pre></div>
+<h3 id="incorporating-d-files-into-make">Incorporating <code>.d</code>
+Files into Make</h3>
+<p>Once generated, these dependency files are included back into the
+primary Makefile using the <code>-include</code> directive. The hyphen
+prefix instructs Make to silently ignore files that do not yet exist,
+which is normal during a clean build prior to the first compilation
+run.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode makefile"><code class="sourceCode makefile"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">CC</span> <span class="ch">?=</span><span class="st"> gcc</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">CFLAGS</span> <span class="ch">?=</span><span class="st"> -Wall -Wextra -O2</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="dt">DEPFLAGS</span> <span class="ch">=</span><span class="st"> -MMD -MP</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="dt">SRCS</span> <span class="ch">=</span><span class="st"> main.c utils.c network.c</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="dt">OBJS</span> <span class="ch">=</span><span class="st"> </span><span class="ch">$(</span><span class="dt">SRCS</span><span class="kw">:</span><span class="ss">.c</span><span class="kw">=</span><span class="ss">.o</span><span class="ch">)</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="dt">DEPS</span> <span class="ch">=</span><span class="st"> </span><span class="ch">$(</span><span class="dt">SRCS</span><span class="kw">:</span><span class="ss">.c</span><span class="kw">=</span><span class="ss">.d</span><span class="ch">)</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="dt">TARGET</span> <span class="ch">=</span><span class="st"> myprogram</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="dv">$(TARGET):</span><span class="dt"> </span><span class="ch">$(</span><span class="dt">OBJS</span><span class="ch">)</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="er">    </span><span class="ch">$(</span><span class="dt">CC</span><span class="ch">)</span> <span class="ch">$(</span><span class="dt">OBJS</span><span class="ch">)</span> -o <span class="ch">$@</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="dv">%.o:</span><span class="dt"> %.c</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="er">    </span><span class="ch">$(</span><span class="dt">CC</span><span class="ch">)</span> <span class="ch">$(</span><span class="dt">CFLAGS</span><span class="ch">)</span> <span class="ch">$(</span><span class="dt">DEPFLAGS</span><span class="ch">)</span> -c <span class="ch">$&lt;</span> -o <span class="ch">$@</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="kw">-include</span> <span class="ch">$(</span><span class="dt">DEPS</span><span class="ch">)</span></span></code></pre></div>
+<p>In this setup, running <code>make</code> for the first time compiles
+each <code>.c</code> file and generates <code>.o</code> and
+<code>.d</code> files. Subsequent executions read the <code>.d</code>
+files, automatically catching modifications to any local header.</p>
+<h3 id="standard-conventions-and-non-file-targets">Standard Conventions
+and Non-File Targets</h3>
+<p>Modern Makefiles standardly separate non-file actions from
+compilation targets using the <code>.PHONY</code> declaration. Common
+targets include <code>all</code> (the default target) and
+<code>clean</code> (for removing build artifacts). Declaring them as
+phony ensures that commands execute even if a file matching the target
+name exists in the directory:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode makefile"><code class="sourceCode makefile"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ot">.PHONY:</span><span class="dt"> all clean</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="dv">all:</span><span class="dt"> </span><span class="ch">$(</span><span class="dt">TARGET</span><span class="ch">)</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="dv">clean:</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="er">    </span>rm -f <span class="ch">$(</span><span class="dt">OBJS</span><span class="ch">)</span> <span class="ch">$(</span><span class="dt">DEPS</span><span class="ch">)</span> <span class="ch">$(</span><span class="dt">TARGET</span><span class="ch">)</span></span></code></pre></div>
+<p>By combining pattern rules (<code>%.o: %.c</code>), automatic
+variables (<code>$@</code> for target, <code>$&lt;</code> for the first
+prerequisite), and compiler-generated <code>.d</code> files, modern C
+builds achieve complete dependency accuracy without manual
+bookkeeping.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

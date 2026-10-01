@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Locking in C Using flock and fcntl - c</title>
+    <meta name="description" content="File locking is a mechanism used to coordinate concurrent file access across multiple processes or application instances to prevent race conditions and data corruption. In the C programming language on Unix-like systems, developers primarily use the floc">
+    <link rel="canonical" href="https://salivity.github.io/c/article/file-locking-in-c-using-flock-and-fcntl">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="File Locking in C Using flock and fcntl - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/file-locking-in-c-using-flock-and-fcntl" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="File locking is a mechanism used to coordinate concurrent file access across multiple processes or application instances to prevent race conditions and data corruption. In the C programming language on Unix-like systems, developers primarily use the floc" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="file-locking-in-c-using-flock-and-fcntl">File Locking in C Using
+flock and fcntl</h1>
+<p>File locking is a mechanism used to coordinate concurrent file access
+across multiple processes or application instances to prevent race
+conditions and data corruption. In the C programming language on
+Unix-like systems, developers primarily use the <code>flock</code> and
+<code>fcntl</code> system calls to establish shared or exclusive locks.
+This article explains how file locks function, details the
+implementation of both <code>flock</code> and <code>fcntl</code>, and
+compares their behavior in synchronizing file access.</p>
+<h2 id="understanding-file-locks">Understanding File Locks</h2>
+<p>A file lock restricts access to a file among multiple processes. On
+Unix-like operating systems, most file locks are
+<strong>advisory</strong>, meaning the kernel tracks the locks, but does
+not actively prevent processes from reading or writing if they ignore
+the lock. Processes must explicitly cooperatively query and respect the
+lock status before performing I/O operations.</p>
+<p>Locks generally fall into two categories:</p>
+<ul>
+<li><strong>Shared Lock (Read Lock):</strong> Multiple processes can
+hold a shared lock concurrently, provided none hold an exclusive lock.
+This is used when processes only need to read data.</li>
+<li><strong>Exclusive Lock (Write Lock):</strong> Only a single process
+can hold an exclusive lock at any given time. No other shared or
+exclusive locks can be granted until it is released. This is used for
+write operations to prevent inconsistent states.</li>
+</ul>
+<hr />
+<h2 id="file-synchronization-using-flock">File Synchronization Using
+<code>flock</code></h2>
+<p>The <code>flock</code> system call originates from BSD and operates
+on the entire file via an open file descriptor. It is straightforward
+and best suited for simple synchronization where byte-range locking is
+not required.</p>
+<h3 id="syntax-and-flags">Syntax and Flags</h3>
+<p>The function signature is defined in
+<code>&lt;sys/file.h&gt;</code>:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> flock<span class="op">(</span><span class="dt">int</span> fd<span class="op">,</span> <span class="dt">int</span> operation<span class="op">);</span></span></code></pre></div>
+<p>The <code>operation</code> argument accepts the following flags:</p>
+<ul>
+<li><code>LOCK_SH</code>: Place a shared lock.</li>
+<li><code>LOCK_EX</code>: Place an exclusive lock.</li>
+<li><code>LOCK_UN</code>: Release an existing lock.</li>
+<li><code>LOCK_NB</code>: Non-blocking request; returns immediately with
+an error (<code>EWOULDBLOCK</code>) if the lock cannot be acquired. Can
+be bitwise OR'd (e.g., <code>LOCK_EX | LOCK_NB</code>).</li>
+</ul>
+<h3 id="example-implementation">Example Implementation</h3>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdlib.h&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;sys/file.h&gt;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;unistd.h&gt;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> write_data<span class="op">(</span><span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>filename<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> fd <span class="op">=</span> open<span class="op">(</span>filename<span class="op">,</span> O_WRONLY <span class="op">|</span> O_CREAT<span class="op">,</span> <span class="bn">0666</span><span class="op">);</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>fd <span class="op">==</span> <span class="op">-</span><span class="dv">1</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        perror<span class="op">(</span><span class="st">&quot;open failed&quot;</span><span class="op">);</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Acquire an exclusive lock (blocking)</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>flock<span class="op">(</span>fd<span class="op">,</span> LOCK_EX<span class="op">)</span> <span class="op">==</span> <span class="op">-</span><span class="dv">1</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        perror<span class="op">(</span><span class="st">&quot;flock failed&quot;</span><span class="op">);</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        close<span class="op">(</span>fd<span class="op">);</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Critical section</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    dprintf<span class="op">(</span>fd<span class="op">,</span> <span class="st">&quot;Process </span><span class="sc">%d</span><span class="st"> writing</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">,</span> getpid<span class="op">());</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    sleep<span class="op">(</span><span class="dv">2</span><span class="op">);</span> <span class="co">// Simulate work</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Unlock and close</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    flock<span class="op">(</span>fd<span class="op">,</span> LOCK_UN<span class="op">);</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    close<span class="op">(</span>fd<span class="op">);</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Locks created via <code>flock</code> are associated with the open
+file table entry rather than the file descriptor itself. Consequently,
+duplicated descriptors (such as via <code>dup</code> or
+<code>fork</code>) reference the same lock.</p>
+<hr />
+<h2 id="file-synchronization-using-fcntl">File Synchronization Using
+<code>fcntl</code></h2>
+<p>The <code>fcntl</code> system call is standardized by POSIX and
+provides advanced locking features, notably <strong>record
+locking</strong> (also known as byte-range locking). This enables
+processes to lock specific segments of a file rather than the entire
+file, allowing concurrent writes to non-overlapping regions.</p>
+<h3 id="syntax-and-the-flock-structure">Syntax and the
+<code>flock</code> Structure</h3>
+<p>The function signature is defined in
+<code>&lt;fcntl.h&gt;</code>:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> fcntl<span class="op">(</span><span class="dt">int</span> fd<span class="op">,</span> <span class="dt">int</span> cmd<span class="op">,</span> <span class="kw">struct</span> flock <span class="op">*</span>lock<span class="op">);</span></span></code></pre></div>
+<p>Common commands (<code>cmd</code>) include:</p>
+<ul>
+<li><code>F_SETLK</code>: Acquire or release a lock. Returns
+<code>-1</code> (setting <code>errno</code> to <code>EACCES</code> or
+<code>EAGAIN</code>) if blocked.</li>
+<li><code>F_SETLKW</code>: Acquire a lock, blocking (waiting) until it
+is available.</li>
+<li><code>F_GETLK</code>: Determine whether another process holds a
+conflicting lock.</li>
+</ul>
+<p>The <code>struct flock</code> controls lock parameters:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> flock <span class="op">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">short</span> l_type<span class="op">;</span>   <span class="co">// F_RDLCK (shared), F_WRLCK (exclusive), F_UNLCK (release)</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">short</span> l_whence<span class="op">;</span> <span class="co">// SEEK_SET, SEEK_CUR, SEEK_</span><span class="re">END</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    off_t l_start<span class="op">;</span>  <span class="co">// Offset relative to l_whence</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    off_t l_len<span class="op">;</span>    <span class="co">// Number of bytes to lock (0 means to EOF)</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    pid_t l_pid<span class="op">;</span>    <span class="co">// Returned by F_GETLK: PID of process holding conflicting lock</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<h3 id="example-implementation-1">Example Implementation</h3>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdlib.h&gt;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;fcntl.h&gt;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;unistd.h&gt;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> update_record<span class="op">(</span><span class="dt">int</span> fd<span class="op">,</span> off_t offset<span class="op">,</span> <span class="dt">size_t</span> length<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> flock fl<span class="op">;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    fl<span class="op">.</span>l_type <span class="op">=</span> F_WRLCK<span class="op">;</span>     <span class="co">// Exclusive lock</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    fl<span class="op">.</span>l_whence <span class="op">=</span> SEEK_SET<span class="op">;</span>  <span class="co">// Absolute offset</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    fl<span class="op">.</span>l_start <span class="op">=</span> offset<span class="op">;</span>     <span class="co">// Start of record</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    fl<span class="op">.</span>l_len <span class="op">=</span> length<span class="op">;</span>       <span class="co">// Length of record</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Acquire lock, wait if necessary</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>fcntl<span class="op">(</span>fd<span class="op">,</span> F_SETLKW<span class="op">,</span> <span class="op">&amp;</span>fl<span class="op">)</span> <span class="op">==</span> <span class="op">-</span><span class="dv">1</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>        perror<span class="op">(</span><span class="st">&quot;fcntl lock failed&quot;</span><span class="op">);</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Critical section for specific byte range</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>    pwrite<span class="op">(</span>fd<span class="op">,</span> <span class="st">&quot;DATA&quot;</span><span class="op">,</span> <span class="dv">4</span><span class="op">,</span> offset<span class="op">);</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Release lock</span></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>    fl<span class="op">.</span>l_type <span class="op">=</span> F_UNLCK<span class="op">;</span></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>fcntl<span class="op">(</span>fd<span class="op">,</span> F_SETLK<span class="op">,</span> <span class="op">&amp;</span>fl<span class="op">)</span> <span class="op">==</span> <span class="op">-</span><span class="dv">1</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>        perror<span class="op">(</span><span class="st">&quot;fcntl unlock failed&quot;</span><span class="op">);</span></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<hr />
+<h2 id="key-differences-between-flock-and-fcntl">Key Differences Between
+<code>flock</code> and <code>fcntl</code></h2>
+<ol type="1">
+<li><strong>Granularity:</strong> <code>flock</code> locks entire files
+only. <code>fcntl</code> supports byte-range locking, allowing multiple
+instances to write to different sections of the same file
+concurrently.</li>
+<li><strong>Portability:</strong> <code>fcntl</code> is POSIX-compliant
+and universally supported across POSIX-conforming operating systems.
+<code>flock</code> originated in BSD and may have varying semantics
+across non-Linux systems or across NFS mounts.</li>
+<li><strong>Descriptor and Process Associations:</strong>
+<ul>
+<li><code>flock</code> locks are associated with the open file
+description. They are preserved across <code>fork</code> calls and can
+be shared among processes that inherit the descriptor.</li>
+<li><code>fcntl</code> locks are associated with the process and the
+underlying inode. If a process closes <em>any</em> file descriptor
+pointing to that file, all <code>fcntl</code> locks held by that process
+on that file are released, even if other descriptors for the file remain
+open.</li>
+</ul></li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

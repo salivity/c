@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Name Mangling and Predictable Dynamic Linking in C - c</title>
+    <meta name="description" content="Name mangling is a compiler mechanism used to encode function signatures into unique symbol names to support modern language features like function overloading and namespaces. In contrast, the C programming language does not use name mangling, preserving">
+    <link rel="canonical" href="https://salivity.github.io/c/article/name-mangling-and-predictable-dynamic-linking-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Name Mangling and Predictable Dynamic Linking in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/name-mangling-and-predictable-dynamic-linking-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Name mangling is a compiler mechanism used to encode function signatures into unique symbol names to support modern language features like function overloading and namespaces. In contrast, the C programming language does not use name mangling, preserving" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="name-mangling-and-predictable-dynamic-linking-in-c">Name
+Mangling and Predictable Dynamic Linking in C</h1>
+<p>Name mangling is a compiler mechanism used to encode function
+signatures into unique symbol names to support modern language features
+like function overloading and namespaces. In contrast, the C programming
+language does not use name mangling, preserving function identifiers
+verbatim in compiled binaries. This lack of mangling ensures a
+standardized, predictable Application Binary Interface (ABI), making
+runtime dynamic linking straightforward, reliable, and portable across
+diverse compilers and programming environments.</p>
+<h3 id="what-is-name-mangling">What Is Name Mangling?</h3>
+<p>Name mangling (or name decoration) is a technique employed by
+compilers in languages such as C++ and Rust to distinguish between
+functions that share the same name. Because these languages support
+features like function overloading, templates, and namespaces, multiple
+distinct functions can have the exact same identifier in source
+code.</p>
+<p>To resolve these ambiguities at the binary level, the compiler
+generates a unique linker symbol by combining the original function name
+with type signatures, parameter counts, and scope qualifiers. For
+instance, a C++ function declared as <code>void print(int)</code> might
+be transformed by the compiler into an internal symbol like
+<code>_Z5printi</code>, while <code>void print(double)</code> becomes
+<code>_Z5printd</code>. Because mangling algorithms are not universally
+standardized across different compilers or even compiler versions, GCC,
+Clang, and MSVC often generate different mangled symbols for the exact
+same source code.</p>
+<h3 id="why-c-avoids-name-mangling">Why C Avoids Name Mangling</h3>
+<p>The C programming language operates on a simpler model. C does not
+support:</p>
+<ul>
+<li>Function overloading</li>
+<li>Object-oriented classes or methods</li>
+<li>Namespaces</li>
+<li>Templates</li>
+</ul>
+<p>Because every function identifier in a given scope must be globally
+unique within the translation unit, the compiler has no need to
+disambiguate identical names based on parameter types. As a result, the
+C compiler produces an object file where the symbol name matches the
+source identifier directly (or with a minimal, standardized prefix like
+an underscore on certain platforms). A function declared as
+<code>int calculate_total(int x)</code> maps directly to the symbol
+<code>calculate_total</code> in the binary’s symbol table.</p>
+<h3
+id="why-the-absence-of-mangling-makes-dynamic-linking-predictable">Why
+the Absence of Mangling Makes Dynamic Linking Predictable</h3>
+<p>Dynamic linking relies on resolving symbols at runtime or load time
+using operating system loaders and APIs such as <code>dlsym</code> on
+POSIX systems or <code>GetProcAddress</code> on Windows. The absence of
+name mangling in C makes this process deterministic in several key
+ways:</p>
+<h4 id="1-exact-name-matching">1. Exact Name Matching</h4>
+<p>When a developer loads a shared library (such as a <code>.so</code>
+or <code>.dll</code> file) dynamically, they query the library for
+exported functions using string identifiers:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> <span class="op">(*</span>my_func<span class="op">)()</span> <span class="op">=</span> dlsym<span class="op">(</span>handle<span class="op">,</span> <span class="st">&quot;calculate_total&quot;</span><span class="op">);</span></span></code></pre></div>
+<p>Because C does not alter the identifier, the lookup string in code
+matches the source code name perfectly. In languages with name mangling,
+querying <code>dlsym(handle, "calculate_total")</code> would fail unless
+the developer knew the exact, mangled binary symbol produced by that
+specific compiler.</p>
+<h4 id="2-compiler-and-abi-interoperability">2. Compiler and ABI
+Interoperability</h4>
+<p>Because there is no vendor-specific mangling algorithm involved, C
+binaries exhibit a stable and predictable ABI. A shared library compiled
+with GCC can be seamlessly dynamically loaded by an executable compiled
+with Clang or MSVC. This uniformity eliminates binary incompatibilities
+that routinely occur when attempting to dynamically link mangled C++
+binaries produced by different compilers.</p>
+<h4 id="3-standard-foreign-function-interfaces-ffi">3. Standard Foreign
+Function Interfaces (FFI)</h4>
+<p>The predictability of C symbols makes C the universal lingua franca
+for inter-language communication. Higher-level languages like Python,
+Rust, Go, and Java use Foreign Function Interfaces to call native shared
+libraries. These runtimes can reliably locate and bind to C functions
+using simple, human-readable strings. Even languages with complex
+mangling schemes provide an <code>extern "C"</code> linkage directive to
+disable mangling, ensuring their functions can be exported with the same
+deterministic linking guarantees found in native C.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Restrict Unlocks Loop Vectorization in C - c</title>
+    <meta name="description" content="The restrict type qualifier in C informs the compiler that a given pointer provides exclusive access to the memory block it references for its lifetime. By guaranteeing that no other pointer within the same scope aliases—or overlaps with—the target m">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-restrict-unlocks-loop-vectorization-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Restrict Unlocks Loop Vectorization in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-restrict-unlocks-loop-vectorization-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The restrict type qualifier in C informs the compiler that a given pointer provides exclusive access to the memory block it references for its lifetime. By guaranteeing that no other pointer within the same scope aliases—or overlaps with—the target m" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-restrict-unlocks-loop-vectorization-in-c">How Restrict
+Unlocks Loop Vectorization in C</h1>
+<p>The <code>restrict</code> type qualifier in C informs the compiler
+that a given pointer provides exclusive access to the memory block it
+references for its lifetime. By guaranteeing that no other pointer
+within the same scope aliases—or overlaps with—the target memory,
+developers eliminate conservative data dependency assumptions. This
+optimization allows compilers to bypass runtime alias checks and safely
+emit high-throughput Single Instruction, Multiple Data (SIMD)
+instructions, unlocking aggressive loop vectorization and maximizing CPU
+throughput.</p>
+<h3 id="the-problem-of-pointer-aliasing">The Problem of Pointer
+Aliasing</h3>
+<p>In standard C, the compiler must assume that any two pointers of
+compatible types might refer to overlapping memory regions. Consider a
+simple vector addition loop:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> add_arrays<span class="op">(</span><span class="dt">float</span> <span class="op">*</span>a<span class="op">,</span> <span class="dt">float</span> <span class="op">*</span>b<span class="op">,</span> <span class="dt">float</span> <span class="op">*</span>c<span class="op">,</span> <span class="dt">int</span> n<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> n<span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>        c<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> a<span class="op">[</span>i<span class="op">]</span> <span class="op">+</span> b<span class="op">[</span>i<span class="op">];</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>If pointer <code>c</code> overlaps with pointer <code>a</code> or
+<code>b</code> (for example, <code>c</code> starts just one element
+ahead of <code>a</code>), a write to <code>c[i]</code> could overwrite
+the value needed for <code>a[i+1]</code> in the next iteration. Because
+the compiler must preserve sequential execution semantics, this
+potential loop-carried dependency prevents it from executing multiple
+iterations simultaneously.</p>
+<p>Without guarantees, the compiler must either:</p>
+<ol type="1">
+<li>Fall back to generating scalar instructions, processing one element
+per CPU cycle.</li>
+<li>Generate multi-versioned code with runtime checks that test pointer
+addresses before execution, introducing branch overhead and increasing
+binary size.</li>
+</ol>
+<h3 id="how-the-restrict-qualifier-intervenes">How the
+<code>restrict</code> Qualifier Intervenes</h3>
+<p>The <code>restrict</code> keyword, introduced in C99, acts as a
+contract between the programmer and the compiler. By qualifying pointer
+arguments with <code>restrict</code>, you assert that for the duration
+of the pointer's scope, the referenced object will only be accessed
+through that specific pointer (or another pointer directly derived from
+it).</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> add_arrays<span class="op">(</span><span class="dt">float</span> <span class="op">*</span><span class="dt">restrict</span> a<span class="op">,</span> <span class="dt">float</span> <span class="op">*</span><span class="dt">restrict</span> b<span class="op">,</span> <span class="dt">float</span> <span class="op">*</span><span class="dt">restrict</span> c<span class="op">,</span> <span class="dt">int</span> n<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> n<span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        c<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> a<span class="op">[</span>i<span class="op">]</span> <span class="op">+</span> b<span class="op">[</span>i<span class="op">];</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>When the compiler encounters <code>restrict</code>, it eliminates the
+possibility of memory aliasing between <code>a</code>, <code>b</code>,
+and <code>c</code>. The compiler now knows that writing to
+<code>c[i]</code> cannot alter any values in <code>a</code> or
+<code>b</code>.</p>
+<h3 id="unlocking-vectorization-and-simd-instructions">Unlocking
+Vectorization and SIMD Instructions</h3>
+<p>Once data independence is guaranteed, the optimizer can transform the
+loop aggressively:</p>
+<ul>
+<li><strong>Instruction Packing:</strong> The compiler packs sequential
+scalar memory loads into vector registers (such as x86 AVX-512 or ARM
+NEON). Instead of reading one 32-bit <code>float</code> at a time, it
+can load 8 or 16 floats in a single instruction.</li>
+<li><strong>Elimination of Runtime Guards:</strong> The compiler omits
+pointer-overlap conditional branches at the start of the function,
+producing cleaner, uninterrupted vectorized pipelines.</li>
+<li><strong>Aggressive Loop Unrolling:</strong> Independent iterations
+can be unrolled and interleaved to hide memory latency and fully
+saturate the processor's execution units.</li>
+<li><strong>Reordering and Fused Operations:</strong> Loads, stores, and
+arithmetic operations can be freely scheduled to avoid register pressure
+and take advantage of fused multiply-add (FMA) instructions where
+applicable.</li>
+</ul>
+<p>Applying <code>restrict</code> provides the static analysis
+guarantees required to transform defensive scalar loops into
+parallelized, hardware-accelerated vector pipelines.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

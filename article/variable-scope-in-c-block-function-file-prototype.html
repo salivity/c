@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Variable Scope in C: Block, Function, File, Prototype - c</title>
+    <meta name="description" content="Variable scope in C determines where a declared identifier can be accessed and modified within a program. The C standard recognizes four distinct categories of scope: block scope, function scope, file scope, and function prototype scope. Understanding th">
+    <link rel="canonical" href="https://salivity.github.io/c/article/variable-scope-in-c-block-function-file-prototype">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Variable Scope in C: Block, Function, File, Prototype - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/variable-scope-in-c-block-function-file-prototype" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Variable scope in C determines where a declared identifier can be accessed and modified within a program. The C standard recognizes four distinct categories of scope: block scope, function scope, file scope, and function prototype scope. Understanding th" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="variable-scope-in-c-block-function-file-prototype">Variable
+Scope in C: Block, Function, File, Prototype</h1>
+<p>Variable scope in C determines where a declared identifier can be
+accessed and modified within a program. The C standard recognizes four
+distinct categories of scope: block scope, function scope, file scope,
+and function prototype scope. Understanding these boundaries is critical
+for managing memory, preventing unintended variable shadowing, and
+controlling the visibility of data across translation units.</p>
+<h3 id="block-scope">Block Scope</h3>
+<p>Block scope, often referred to as local scope, applies to any
+identifier declared inside a pair of curly braces <code>{}</code>. This
+includes variables declared within functions, loop bodies, conditional
+statements, and standalone nested blocks, as well as the formal
+parameters of a function definition.</p>
+<p>A variable with block scope is visible only from the point of its
+declaration to the closing brace <code>}</code> of the enclosing block.
+If a variable is declared inside a nested block with the same name as a
+variable in an outer block, the inner variable shadows the outer one
+until the inner block terminates. Block-scoped variables without the
+<code>static</code> keyword have automatic storage duration, meaning
+their memory is allocated when entering the block and deallocated upon
+exit.</p>
+<h3 id="function-scope">Function Scope</h3>
+<p>Function scope applies exclusively to labels used with
+<code>goto</code> statements. Unlike ordinary variables, labels are the
+only identifiers in C that possess function scope.</p>
+<p>A label is visible throughout the entire body of the function in
+which it appears, regardless of how deeply nested within blocks it is
+placed. A <code>goto</code> statement can jump to a label declared
+anywhere inside the same function, even before the label's line of
+declaration. However, labels cannot be accessed or jumped to from
+outside their containing function.</p>
+<h3 id="file-scope">File Scope</h3>
+<p>File scope applies to any identifier declared outside of all blocks
+and parameter lists, commonly known as global variables.</p>
+<p>An identifier with file scope is accessible from the point of
+declaration down to the end of the translation unit (the source file
+along with all included header files). The visibility of file-scope
+variables across multiple files depends on their linkage:</p>
+<ul>
+<li><strong>Internal Linkage (<code>static</code>):</strong> Restricts
+the variable's accessibility exclusively to the source file where it is
+declared.</li>
+<li><strong>External Linkage (<code>extern</code> or default for
+globals):</strong> Allows the variable to be shared across multiple
+source files by declaring it with the <code>extern</code> keyword in
+other translation units.</li>
+</ul>
+<p>All file-scope variables possess static storage duration, meaning
+their memory persists for the entire lifetime of the program.</p>
+<h3 id="function-prototype-scope">Function Prototype Scope</h3>
+<p>Function prototype scope is the narrowest scope in C and applies
+specifically to parameter names listed inside a function declaration
+that is not a definition (a prototype).</p>
+<p>The scope of a parameter identifier in a prototype begins at its
+declaration and terminates at the closing parenthesis <code>)</code> of
+the function prototype. Because the scope ends immediately with the
+prototype, the names used for the parameters are purely informational
+and are ignored by the compiler. Consequently, parameter names in
+prototypes do not conflict with variable names in the surrounding code,
+and they can be omitted entirely without affecting the validity of the
+declaration.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ternary Conditional Operator and Precedence in C - c</title>
+    <meta name="description" content="This guide provides an overview of the ternary conditional operator in the C programming language, detailing its syntax, functional behavior, and evaluation rules. You will learn how the operator acts as an inline alternative to if-else branching, how it">
+    <link rel="canonical" href="https://salivity.github.io/c/article/ternary-conditional-operator-and-precedence-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Ternary Conditional Operator and Precedence in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/ternary-conditional-operator-and-precedence-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This guide provides an overview of the ternary conditional operator in the C programming language, detailing its syntax, functional behavior, and evaluation rules. You will learn how the operator acts as an inline alternative to if-else branching, how it" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="ternary-conditional-operator-and-precedence-in-c">Ternary
+Conditional Operator and Precedence in C</h1>
+<p>This guide provides an overview of the ternary conditional operator
+in the C programming language, detailing its syntax, functional
+behavior, and evaluation rules. You will learn how the operator acts as
+an inline alternative to <code>if-else</code> branching, how its
+relatively low precedence level interacts with other C operators, and
+how its right-to-left associativity governs nested expressions.</p>
+<h2 id="understanding-the-ternary-operator">Understanding the Ternary
+Operator</h2>
+<p>The ternary conditional operator (<code>?:</code>) is the only
+operator in C that takes three operands. It provides a compact way to
+evaluate a condition and return one of two values.</p>
+<p>Its basic syntax is:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>condition <span class="op">?</span> expression_if_true <span class="op">:</span> expression_if_false<span class="op">;</span></span></code></pre></div>
+<p>When this expression executes:</p>
+<ol type="1">
+<li>The <code>condition</code> is evaluated first.</li>
+<li>If the condition evaluates to true (any non-zero value),
+<code>expression_if_true</code> is evaluated and becomes the result of
+the entire expression.</li>
+<li>If the condition evaluates to false (<code>0</code>),
+<code>expression_if_false</code> is evaluated and becomes the
+result.</li>
+</ol>
+<p>The unused expression is completely ignored. This behavior guarantees
+short-circuit evaluation, meaning side effects in the unselected branch
+will not occur:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> a <span class="op">=</span> <span class="dv">5</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> b <span class="op">=</span> <span class="op">(</span>a <span class="op">&gt;</span> <span class="dv">0</span><span class="op">)</span> <span class="op">?</span> <span class="dv">10</span> <span class="op">:</span> <span class="op">(</span>a<span class="op">++);</span> <span class="co">// a++ is never executed</span></span></code></pre></div>
+<h2 id="operator-precedence-in-c">Operator Precedence in C</h2>
+<p>In C's operator precedence hierarchy, the conditional operator ranks
+very low. It sits just above the assignment operators (<code>=</code>,
+<code>+=</code>, etc.) and the comma operator (<code>,</code>), but
+below almost everything else, including:</p>
+<ul>
+<li>Arithmetic operators (<code>+</code>, <code>-</code>,
+<code>*</code>, <code>/</code>)</li>
+<li>Relational operators (<code>&lt;</code>, <code>&gt;</code>,
+<code>&lt;=</code>, <code>&gt;=</code>)</li>
+<li>Equality operators (<code>==</code>, <code>!=</code>)</li>
+<li>Logical operators (<code>&amp;&amp;</code>, <code>||</code>)</li>
+<li>Bitwise operators (<code>&amp;</code>, <code>^</code>,
+<code>|</code>)</li>
+</ul>
+<p>Because logical and relational operators have higher precedence than
+the conditional operator, you do not need parentheses around the
+condition in standard comparisons:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Valid without extra parentheses:</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> max <span class="op">=</span> a <span class="op">&gt;</span> b <span class="op">?</span> a <span class="op">:</span> b<span class="op">;</span> </span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Evaluated as:</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> max <span class="op">=</span> <span class="op">(</span>a <span class="op">&gt;</span> b<span class="op">)</span> <span class="op">?</span> a <span class="op">:</span> b<span class="op">;</span></span></code></pre></div>
+<p>Similarly, arithmetic operations in the return branches are resolved
+before the ternary operator takes effect:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> result <span class="op">=</span> condition <span class="op">?</span> x <span class="op">+</span> <span class="dv">5</span> <span class="op">:</span> y <span class="op">*</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Evaluated as:</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> result <span class="op">=</span> condition <span class="op">?</span> <span class="op">(</span>x <span class="op">+</span> <span class="dv">5</span><span class="op">)</span> <span class="op">:</span> <span class="op">(</span>y <span class="op">*</span> <span class="dv">2</span><span class="op">);</span></span></code></pre></div>
+<h3 id="precedence-with-assignment-operators">Precedence with Assignment
+Operators</h3>
+<p>Assignment operators have lower precedence than the conditional
+operator. Consequently, attempting to perform an assignment directly
+inside a branch without parentheses will lead to a compilation
+error:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Syntax Error:</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>x <span class="op">?</span> y <span class="op">=</span> <span class="dv">1</span> <span class="op">:</span> z <span class="op">=</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Correct usage:</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>x <span class="op">?</span> <span class="op">(</span>y <span class="op">=</span> <span class="dv">1</span><span class="op">)</span> <span class="op">:</span> <span class="op">(</span>z <span class="op">=</span> <span class="dv">2</span><span class="op">);</span></span></code></pre></div>
+<h2 id="associativity-right-to-left">Associativity (Right-to-Left)</h2>
+<p>Unlike most binary operators in C, which associate from left to
+right, the conditional operator groups from <strong>right to
+left</strong>.</p>
+<p>This property is critical when nesting multiple ternary operators.
+Consider the following expression:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> result <span class="op">=</span> cond1 <span class="op">?</span> val1 <span class="op">:</span> cond2 <span class="op">?</span> val2 <span class="op">:</span> val3<span class="op">;</span></span></code></pre></div>
+<p>Because of right-to-left associativity, the compiler groups the
+expression from the right side:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> result <span class="op">=</span> cond1 <span class="op">?</span> val1 <span class="op">:</span> <span class="op">(</span>cond2 <span class="op">?</span> val2 <span class="op">:</span> val3<span class="op">);</span></span></code></pre></div>
+<p>This naturally mirrors a standard
+<code>if ... else if ... else</code> structure:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>cond1<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> val1<span class="op">;</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="cf">else</span> <span class="cf">if</span> <span class="op">(</span>cond2<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> val2<span class="op">;</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> val3<span class="op">;</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="type-compatibility">Type Compatibility</h2>
+<p>The second and third operands must have compatible types. C applies
+the usual arithmetic conversions so that the entire expression evaluates
+to a single common type. If one branch evaluates to an <code>int</code>
+and the other to a <code>double</code>, the entire ternary expression
+evaluates to a <code>double</code>, regardless of which branch is
+selected:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> condition <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="dt">double</span> result <span class="op">=</span> condition <span class="op">?</span> <span class="dv">1</span> <span class="op">:</span> <span class="fl">2.5</span><span class="op">;</span> <span class="co">// Evaluates to (double)1.0</span></span></code></pre></div></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

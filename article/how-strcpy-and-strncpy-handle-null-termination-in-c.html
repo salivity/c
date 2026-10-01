@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How strcpy and strncpy Handle Null Termination in C - c</title>
+    <meta name="description" content="In C programming, strcpy and strncpy are standard library functions used to duplicate strings, but they differ fundamentally in how they enforce buffer boundaries and null-character (\0) termination. While strcpy unconditionally appends a null terminator">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-strcpy-and-strncpy-handle-null-termination-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How strcpy and strncpy Handle Null Termination in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-strcpy-and-strncpy-handle-null-termination-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C programming, strcpy and strncpy are standard library functions used to duplicate strings, but they differ fundamentally in how they enforce buffer boundaries and null-character (\0) termination. While strcpy unconditionally appends a null terminator" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-strcpy-and-strncpy-handle-null-termination-in-c">How strcpy
+and strncpy Handle Null Termination in C</h1>
+<p>In C programming, <code>strcpy</code> and <code>strncpy</code> are
+standard library functions used to duplicate strings, but they differ
+fundamentally in how they enforce buffer boundaries and null-character
+(<code>\0</code>) termination. While <code>strcpy</code> unconditionally
+appends a null terminator at the expense of buffer overflow protection,
+<code>strncpy</code> restricts writing to a maximum byte count <span
+class="math inline">\(n\)</span>, introducing nuances where strings may
+be left unterminated or padded excessively. Understanding these boundary
+behaviors is essential for writing safe, bug-free C code.</p>
+<h2 id="the-behavior-of-strcpy">The Behavior of strcpy</h2>
+<p>The <code>strcpy</code> function follows a simple contract: it copies
+characters from a source string (<code>src</code>) into a destination
+buffer (<code>dest</code>) until it encounters the source's terminating
+null byte (<code>\0</code>), which it also copies.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">char</span> <span class="op">*</span>strcpy<span class="op">(</span><span class="dt">char</span> <span class="op">*</span>dest<span class="op">,</span> <span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>src<span class="op">);</span></span></code></pre></div>
+<ul>
+<li><strong>Termination Guarantee:</strong> <code>strcpy</code> always
+null-terminates the destination string, provided the operation
+completes.</li>
+<li><strong>Boundary Handling:</strong> It completely ignores the
+allocated capacity of <code>dest</code>. If <code>src</code> contains
+more characters than <code>dest</code> can hold, <code>strcpy</code>
+writes past the end of the destination array. This results in undefined
+behavior, memory corruption, and severe security vulnerabilities such as
+buffer overflows.</li>
+</ul>
+<h2 id="the-behavior-of-strncpy">The Behavior of strncpy</h2>
+<p>To prevent buffer overruns, <code>strncpy</code> introduces a third
+parameter, <code>n</code>, which specifies the maximum number of bytes
+to write to the destination.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">char</span> <span class="op">*</span>strncpy<span class="op">(</span><span class="dt">char</span> <span class="op">*</span>dest<span class="op">,</span> <span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>src<span class="op">,</span> <span class="dt">size_t</span> n<span class="op">);</span></span></code></pre></div>
+<p>However, <code>strncpy</code> was originally designed for fixed-width
+directory entries in early Unix systems rather than general string
+safety, leading to two distinct termination boundary conditions:</p>
+<h3 id="1-truncation-leaves-the-buffer-unterminated">1. Truncation
+Leaves the Buffer Unterminated</h3>
+<p>If the length of <code>src</code> is equal to or greater than
+<code>n</code>, <code>strncpy</code> copies exactly <code>n</code> bytes
+and halts. It does not append a null terminator. As a result,
+<code>dest</code> contains a non-terminated character sequence. Passing
+this sequence to functions that expect standard C strings (such as
+<code>printf("%s", dest)</code> or <code>strlen(dest)</code>) will cause
+them to read past the buffer boundary until they encounter an arbitrary
+<code>\0</code> in memory.</p>
+<h3 id="2-excessive-zero-padding">2. Excessive Zero-Padding</h3>
+<p>If the length of <code>src</code> is strictly less than
+<code>n</code>, <code>strncpy</code> writes the string and its null
+terminator, and then continues writing <code>\0</code> bytes until the
+entire count of <code>n</code> bytes has been filled. While this ensures
+termination, writing zero-bytes across large buffers introduces an
+unnecessary performance overhead.</p>
+<h2 id="key-differences-at-a-glance">Key Differences at a Glance</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;"><code>strcpy</code></th>
+<th style="text-align: left;"><code>strncpy</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Bound Checking</strong></td>
+<td style="text-align: left;">None</td>
+<td style="text-align: left;">Limited to <span
+class="math inline">\(n\)</span> bytes</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Null Termination</strong></td>
+<td style="text-align: left;">Always appends <code>\0</code></td>
+<td style="text-align: left;">Only appends <code>\0</code> if
+<code>strlen(src) &lt; n</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Overflow Risk</strong></td>
+<td style="text-align: left;">High (unbounded write)</td>
+<td style="text-align: left;">Low (bounded by <span
+class="math inline">\(n\)</span>)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Unterminated String
+Risk</strong></td>
+<td style="text-align: left;">Low (provided memory allows)</td>
+<td style="text-align: left;">High (when
+<code>strlen(src) &gt;= n</code>)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Padding</strong></td>
+<td style="text-align: left;">None</td>
+<td style="text-align: left;">Pads unused bytes up to <span
+class="math inline">\(n\)</span> with <code>\0</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="ensuring-safe-string-termination">Ensuring Safe String
+Termination</h2>
+<p>To prevent unterminated buffers when using <code>strncpy</code>,
+developers must manually enforce termination at the boundary:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>strncpy<span class="op">(</span>dest<span class="op">,</span> src<span class="op">,</span> <span class="kw">sizeof</span><span class="op">(</span>dest<span class="op">)</span> <span class="op">-</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>dest<span class="op">[</span><span class="kw">sizeof</span><span class="op">(</span>dest<span class="op">)</span> <span class="op">-</span> <span class="dv">1</span><span class="op">]</span> <span class="op">=</span> <span class="ch">&#39;</span><span class="sc">\0</span><span class="ch">&#39;</span><span class="op">;</span></span></code></pre></div>
+<p>Alternatively, modern C development often avoids both functions in
+favor of safer alternatives such as <code>snprintf</code>, which
+guarantees null termination whenever the buffer size is greater than
+zero:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>snprintf<span class="op">(</span>dest<span class="op">,</span> <span class="kw">sizeof</span><span class="op">(</span>dest<span class="op">),</span> <span class="st">&quot;</span><span class="sc">%s</span><span class="st">&quot;</span><span class="op">,</span> src<span class="op">);</span></span></code></pre></div></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

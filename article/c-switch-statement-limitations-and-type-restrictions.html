@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C Switch Statement Limitations and Type Restrictions - c</title>
+    <meta name="description" content="The switch statement in C provides an efficient multi-way branch mechanism, but it operates under rigid constraints compared to general if-else ladders. This article details the specific data type restrictions governing switch control expressions, the st">
+    <link rel="canonical" href="https://salivity.github.io/c/article/c-switch-statement-limitations-and-type-restrictions">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C Switch Statement Limitations and Type Restrictions - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/c-switch-statement-limitations-and-type-restrictions" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The switch statement in C provides an efficient multi-way branch mechanism, but it operates under rigid constraints compared to general if-else ladders. This article details the specific data type restrictions governing switch control expressions, the st" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-switch-statement-limitations-and-type-restrictions">C Switch
+Statement Limitations and Type Restrictions</h1>
+<p>The <code>switch</code> statement in C provides an efficient
+multi-way branch mechanism, but it operates under rigid constraints
+compared to general <code>if-else</code> ladders. This article details
+the specific data type restrictions governing switch control
+expressions, the strict compile-time constant requirements for case
+labels, and structural limitations such as scope management,
+fall-through mechanics, and the lack of complex relational
+conditions.</p>
+<h3 id="permitted-data-types-and-type-restrictions">Permitted Data Types
+and Type Restrictions</h3>
+<p>The controlling expression of a <code>switch</code> statement, as
+well as the values assigned to each <code>case</code> label, must
+strictly evaluate to an integer type.</p>
+<ul>
+<li><strong>Permitted Types:</strong> Standard signed and unsigned
+integer types (<code>char</code>, <code>short</code>, <code>int</code>,
+<code>long</code>, <code>long long</code>) and enumerated types
+(<code>enum</code>).</li>
+<li><strong>Floating-Point Prohibited:</strong> Floating-point types
+(<code>float</code>, <code>double</code>, <code>long double</code>)
+cannot be used. Compilers reject them because exact binary equality
+checks on floating-point values are prone to precision issues.</li>
+<li><strong>Derived and Compound Types Prohibited:</strong> Pointers,
+arrays, <code>struct</code>, and <code>union</code> types cannot be
+passed directly into a switch statement.</li>
+<li><strong>Strings Prohibited:</strong> Unlike some modern high-level
+languages, C does not support string literals or character arrays in
+<code>case</code> labels. Strings must be compared sequentially using
+functions like <code>strcmp()</code> within <code>if-else</code>
+blocks.</li>
+</ul>
+<h3 id="compile-time-constant-requirements-for-case-labels">Compile-Time
+Constant Requirements for Case Labels</h3>
+<p>Every <code>case</code> label must be an integer constant expression
+evaluated at compile time.</p>
+<ul>
+<li><strong>No Variables in Case Labels:</strong> A <code>case</code>
+cannot evaluate runtime variables or function return values (e.g.,
+<code>case x:</code> or <code>case getValue():</code> are invalid).</li>
+<li><strong>The <code>const</code> Variable Limitation:</strong> In
+standard C, declaring a variable as <code>const int value = 5;</code>
+does not qualify it as an integer constant expression. Using
+<code>const</code> variables in a <code>case</code> label triggers a
+compilation error. Only literal numbers, preprocessor macros
+(<code>#define</code>), and enumeration constants are valid.</li>
+<li><strong>No Duplicate Values:</strong> Each <code>case</code>
+constant within the same switch block must be unique. Defining two
+identical values produces a compile error.</li>
+<li><strong>No Built-in Range Matching:</strong> Standard C does not
+support range expressions (such as <code>case 1 ... 5:</code>). While
+some compilers offer non-standard extensions, standard ISO C requires
+listing every matching value explicitly with its own <code>case</code>
+label.</li>
+</ul>
+<h3 id="structural-and-control-flow-limitations">Structural and
+Control-Flow Limitations</h3>
+<p>The underlying jump-table architecture of the <code>switch</code>
+statement imposes several control-flow and design constraints.</p>
+<ul>
+<li><strong>Equality-Only Evaluation:</strong> A <code>switch</code>
+statement can only test for strict equality (<code>==</code>). It cannot
+evaluate relational conditions like greater-than (<code>&gt;</code>),
+less-than (<code>&lt;</code>), or compound logical conditions
+(<code>&amp;&amp;</code>, <code>||</code>).</li>
+<li><strong>Implicit Fall-Through:</strong> Execution continues
+sequentially into subsequent cases unless explicitly stopped using a
+<code>break</code>, <code>return</code>, or <code>goto</code> statement.
+Omitting a <code>break</code> causes unintentional fall-through, which
+is a frequent source of logic bugs.</li>
+<li><strong>Scope and Variable Initialization Issues:</strong> Declaring
+and initializing a variable inside a switch body can cause compilation
+errors or undefined behavior if the jump skips the initialization. Any
+variable declared inside a <code>switch</code> block should be contained
+within an explicit compound statement using braces <code>{ ... }</code>
+to establish a distinct local scope.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

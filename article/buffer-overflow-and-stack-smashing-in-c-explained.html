@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buffer Overflow and Stack Smashing in C Explained - c</title>
+    <meta name="description" content="This article explores the mechanics of stack smashing, a classic security vulnerability stemming from buffer overflows in the C programming language. It details the architecture of the call stack, illustrates how unchecked memory boundaries allow input t">
+    <link rel="canonical" href="https://salivity.github.io/c/article/buffer-overflow-and-stack-smashing-in-c-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Buffer Overflow and Stack Smashing in C Explained - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/buffer-overflow-and-stack-smashing-in-c-explained" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the mechanics of stack smashing, a classic security vulnerability stemming from buffer overflows in the C programming language. It details the architecture of the call stack, illustrates how unchecked memory boundaries allow input t" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="buffer-overflow-and-stack-smashing-in-c-explained">Buffer
+Overflow and Stack Smashing in C Explained</h1>
+<p>This article explores the mechanics of stack smashing, a classic
+security vulnerability stemming from buffer overflows in the C
+programming language. It details the architecture of the call stack,
+illustrates how unchecked memory boundaries allow input to overwrite
+critical control flow data, explains the process of redirecting program
+execution to arbitrary code, and outlines the standard modern defenses
+developed to mitigate these attacks.</p>
+<h3 id="memory-layout-and-the-call-stack-in-c">Memory Layout and the
+Call Stack in C</h3>
+<p>The C programming language provides direct, low-level access to
+system memory without enforcing automatic boundary checks on data
+structures like arrays and strings. When a program executes a function,
+the operating system allocates a segment of memory called a stack frame
+within the call stack.</p>
+<p>A standard stack frame contains:</p>
+<ul>
+<li><strong>Function parameters</strong>: Inputs passed to the
+function.</li>
+<li><strong>Saved frame pointer (EBP/RBP)</strong>: The reference point
+for the caller's stack frame.</li>
+<li><strong>Saved return address (EIP/RIP)</strong>: The memory pointer
+indicating which instruction the CPU must execute once the current
+function completes.</li>
+<li><strong>Local variables</strong>: Buffers, arrays, and primitives
+declared within the function.</li>
+</ul>
+<p>In standard x86 and x86-64 architectures, the stack grows downward
+(from high memory addresses to low memory addresses), while buffers
+write upward (from low memory addresses to high memory addresses).
+Because local variables sit adjacent to control data, any data written
+past the boundary of a buffer travels directly toward the saved frame
+pointer and return address.</p>
+<h3 id="the-mechanism-of-a-buffer-overflow">The Mechanism of a Buffer
+Overflow</h3>
+<p>A buffer overflow occurs when a program attempts to store more data
+in a memory buffer than the buffer is sized to hold. In C, standard
+library functions like <code>strcpy</code>, <code>strcat</code>,
+<code>gets</code>, and <code>sprintf</code> read or write data until
+they encounter a null terminator (<code>\0</code>), completely oblivious
+to the allocated size of the destination array.</p>
+<p>Consider a simple example:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> vulnerable_function<span class="op">(</span><span class="dt">char</span> <span class="op">*</span>input<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> buffer<span class="op">[</span><span class="dv">64</span><span class="op">];</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    strcpy<span class="op">(</span>buffer<span class="op">,</span> input<span class="op">);</span> <span class="co">// No length check performed</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>If <code>input</code> contains 64 bytes or fewer (including the null
+byte), the operation succeeds safely. However, if <code>input</code>
+contains 100 bytes, <code>strcpy</code> will fill the 64 bytes allocated
+to <code>buffer</code> and continue writing the remaining 36 bytes into
+the memory space immediately following it on the stack.</p>
+<h3 id="how-stack-smashing-achieves-arbitrary-execution">How Stack
+Smashing Achieves Arbitrary Execution</h3>
+<p>"Stack smashing" refers explicitly to using a buffer overflow on the
+stack to overwrite control flow data. The primary objective of an
+attacker executing this attack is hijacking the saved return
+address.</p>
+<p>When the overflow occurs:</p>
+<ol type="1">
+<li><strong>Filling the Buffer</strong>: The input fills the target
+local array.</li>
+<li><strong>Overwriting Stack Metainformation</strong>: The overflow
+writes over any other adjacent local variables and the saved frame
+pointer.</li>
+<li><strong>Corrupting the Return Address</strong>: The payload reaches
+and replaces the saved return address with a value supplied by the
+attacker.</li>
+</ol>
+<p>When <code>vulnerable_function</code> finishes executing, the CPU
+runs the function epilogue (typically <code>leave</code> and
+<code>ret</code> instructions). The <code>ret</code> instruction pops
+the value located at the position of the saved return address off the
+stack and loads it directly into the instruction pointer (EIP/RIP).</p>
+<p>Because the attacker has rewritten this address, the CPU does not
+return to the caller function. Instead, it jumps to the memory address
+chosen by the attacker.</p>
+<h4 id="target-execution-payloads">Target Execution Payloads</h4>
+<p>Once control of the instruction pointer is obtained, arbitrary
+execution is achieved through several methods:</p>
+<ul>
+<li><strong>Shellcode Injection</strong>: In traditional
+implementations, the attacker places executable machine code (shellcode)
+directly inside the buffer or environment variables and points the
+return address back to the stack to run that code.</li>
+<li><strong>Return-to-libc (ret2libc)</strong>: Instead of injecting new
+code, the attacker sets the return address to point to an existing
+function in a shared library, such as <code>system()</code> in the
+standard C library (<code>libc</code>), passing arguments like
+<code>"/bin/sh"</code> to spawn a root shell.</li>
+<li><strong>Return-Oriented Programming (ROP)</strong>: When code
+execution on the stack is blocked, attackers chain together small
+sequences of existing machine instructions ending in <code>ret</code>
+(known as "gadgets") to construct arbitrary logic without injecting new
+executable instructions.</li>
+</ul>
+<h3 id="defenses-against-stack-smashing">Defenses Against Stack
+Smashing</h3>
+<p>Modern operating systems, compilers, and programming practices employ
+several overlapping layers of defense against buffer overflows:</p>
+<ul>
+<li><strong>Safe String Functions</strong>: Replacing unbounded
+functions with bounded alternatives, such as <code>strncpy</code>,
+<code>strncat</code>, <code>snprintf</code>, or safer abstractions.</li>
+<li><strong>Stack Canaries</strong>: Compilers (such as GCC with
+<code>-fstack-protector</code>) insert a random integer, known as a
+canary, directly before the return address. Before returning, the
+function verifies that the canary value is intact. If an overflow
+altered the canary, the program terminates immediately.</li>
+<li><strong>Non-Executable Stack (DEP/NX)</strong>: Memory regions
+marked for data storage (like the stack and the heap) are marked
+non-executable, preventing injected shellcode from executing
+directly.</li>
+<li><strong>Address Space Layout Randomization (ASLR)</strong>: The
+operating system randomizes the memory addresses of the stack, heap, and
+libraries on each program run, making it significantly harder to predict
+the addresses needed for ret2libc or ROP attacks.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

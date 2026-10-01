@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C printf Specifiers for Pointers and size_t - c</title>
+    <meta name="description" content="In the C programming language, outputting memory addresses and type sizes requires specific format specifiers to ensure portability and prevent undefined behavior. This guide details the correct specifiers used in the printf family of functions to displa">
+    <link rel="canonical" href="https://salivity.github.io/c/article/c-printf-specifiers-for-pointers-and-size-t">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C printf Specifiers for Pointers and size_t - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/c-printf-specifiers-for-pointers-and-size-t" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, outputting memory addresses and type sizes requires specific format specifiers to ensure portability and prevent undefined behavior. This guide details the correct specifiers used in the printf family of functions to displa" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-printf-specifiers-for-pointers-and-size_t">C printf Specifiers
+for Pointers and size_t</h1>
+<p>In the C programming language, outputting memory addresses and type
+sizes requires specific format specifiers to ensure portability and
+prevent undefined behavior. This guide details the correct specifiers
+used in the <code>printf</code> family of functions to display pointer
+addresses using <code>%p</code> and system size types—such as
+<code>size_t</code> and <code>ptrdiff_t</code>—using the
+<code>%zu</code> and <code>%td</code> length modifiers introduced in the
+C99 standard.</p>
+<h3 id="printing-pointer-addresses">Printing Pointer Addresses</h3>
+<p>The standard specifier for printing memory addresses of pointers is
+<code>%p</code>.</p>
+<p>According to the ISO C standard, <code>%p</code> expects an argument
+of type <code>void *</code>. If you are passing any other pointer type
+(such as an <code>int *</code> or <code>char *</code>), it should be
+explicitly cast to <code>(void *)</code> to guarantee standard-compliant
+and portable behavior across different architectures.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> value <span class="op">=</span> <span class="dv">42</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> <span class="op">*</span>ptr <span class="op">=</span> <span class="op">&amp;</span>value<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Pointer address: </span><span class="sc">%p\n</span><span class="st">&quot;</span><span class="op">,</span> <span class="op">(</span><span class="dt">void</span> <span class="op">*)</span>ptr<span class="op">);</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The output format of <code>%p</code> is implementation-defined, but
+most modern compilers format it as a hexadecimal value (e.g.,
+<code>0x7ffee4b29abc</code>).</p>
+<h3 id="printing-size-types-size_t">Printing Size Types
+(<code>size_t</code>)</h3>
+<p>The <code>size_t</code> type is an unsigned integer used to represent
+the sizes of objects in memory, such as the value returned by the
+<code>sizeof</code> operator.</p>
+<p>To print values of type <code>size_t</code>, use the specifier
+<code>%zu</code>:</p>
+<ul>
+<li><code>z</code> is the length modifier indicating that the following
+conversion specifier applies to a <code>size_t</code> argument.</li>
+<li><code>u</code> indicates that the value should be printed as an
+unsigned decimal integer.</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">size_t</span> array_size <span class="op">=</span> <span class="dv">100</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Array size: </span><span class="sc">%zu\n</span><span class="st">&quot;</span><span class="op">,</span> array_size<span class="op">);</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Size of int: </span><span class="sc">%zu</span><span class="st"> bytes</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">,</span> <span class="kw">sizeof</span><span class="op">(</span><span class="dt">int</span><span class="op">));</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="printing-signed-size-types-and-pointer-differences">Printing
+Signed Size Types and Pointer Differences</h3>
+<ul>
+<li><strong><code>ssize_t</code> (Signed Size):</strong> If using POSIX
+systems that utilize <code>ssize_t</code> for values that can represent
+a size or a negative error code (like <code>read()</code> system calls),
+use <code>%zd</code>.</li>
+<li><strong><code>ptrdiff_t</code> (Pointer Difference):</strong> When
+subtracting one pointer from another within the same array, the result
+is of type <code>ptrdiff_t</code>. The format specifier for signed
+pointer differences is <code>%td</code>.</li>
+</ul>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stddef.h&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> numbers<span class="op">[]</span> <span class="op">=</span> <span class="op">{</span><span class="dv">10</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> <span class="dv">30</span><span class="op">,</span> <span class="dv">40</span><span class="op">};</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">ptrdiff_t</span> diff <span class="op">=</span> <span class="op">&amp;</span>numbers<span class="op">[</span><span class="dv">3</span><span class="op">]</span> <span class="op">-</span> <span class="op">&amp;</span>numbers<span class="op">[</span><span class="dv">0</span><span class="op">];</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Element distance: </span><span class="sc">%td\n</span><span class="st">&quot;</span><span class="op">,</span> diff<span class="op">);</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

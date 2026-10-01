@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integer Data Types in C Programming - c</title>
+    <meta name="description" content="This article provides a comprehensive overview of the fundamental integer data types natively supported by the C programming language. It examines the primary types—char, short, int, long, and long long—along with their signed and unsigned variants,">
+    <link rel="canonical" href="https://salivity.github.io/c/article/integer-data-types-in-c-programming">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Integer Data Types in C Programming - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/integer-data-types-in-c-programming" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a comprehensive overview of the fundamental integer data types natively supported by the C programming language. It examines the primary types—char, short, int, long, and long long—along with their signed and unsigned variants," />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="integer-data-types-in-c-programming">Integer Data Types in C
+Programming</h1>
+<p>This article provides a comprehensive overview of the fundamental
+integer data types natively supported by the C programming language. It
+examines the primary types—<code>char</code>, <code>short</code>,
+<code>int</code>, <code>long</code>, and <code>long long</code>—along
+with their signed and unsigned variants, memory representations, and
+minimum range specifications defined by the C standard.</p>
+<p>The C programming language provides five primary integer data types.
+The actual memory size of these types can vary depending on the target
+architecture and compiler, but the C standard defines minimum bit-width
+requirements for each.</p>
+<h3 id="1-char">1. <code>char</code></h3>
+<p>Although commonly used to store text characters, <code>char</code> is
+fundamentally an integer type designed to hold a single byte.</p>
+<ul>
+<li><strong>Minimum Size:</strong> 8 bits (1 byte)</li>
+<li><strong>Signed Variant (<code>signed char</code>):</strong> Ranges
+from -128 to 127</li>
+<li><strong>Unsigned Variant (<code>unsigned char</code>):</strong>
+Ranges from 0 to 255</li>
+<li><strong>Note:</strong> Unlike other types, plain <code>char</code>
+may be signed or unsigned by default, depending on the compiler and
+architecture.</li>
+</ul>
+<h3 id="2-short-int-or-short">2. <code>short int</code> (or
+<code>short</code>)</h3>
+<p>The <code>short</code> data type is used when memory conservation is
+a priority and the stored numbers do not require large magnitudes.</p>
+<ul>
+<li><strong>Minimum Size:</strong> 16 bits (2 bytes)</li>
+<li><strong>Signed Variant (<code>short</code> or
+<code>signed short</code>):</strong> Ranges from -32,768 to 32,767</li>
+<li><strong>Unsigned Variant (<code>unsigned short</code>):</strong>
+Ranges from 0 to 65,535</li>
+</ul>
+<h3 id="3-int">3. <code>int</code></h3>
+<p>The standard <code>int</code> type represents the default integer
+size for the target processing architecture. It is the most commonly
+used integer type for general-purpose arithmetic and loop counting.</p>
+<ul>
+<li><strong>Minimum Size:</strong> 16 bits, though modern 32-bit and
+64-bit systems universally implement it as 32 bits (4 bytes)</li>
+<li><strong>Signed Variant (<code>int</code> or
+<code>signed int</code>):</strong> On 32-bit systems, ranges from
+-2,147,483,648 to 2,147,483,647</li>
+<li><strong>Unsigned Variant (<code>unsigned int</code>):</strong> On
+32-bit systems, ranges from 0 to 4,294,967,295</li>
+</ul>
+<h3 id="4-long-int-or-long">4. <code>long int</code> (or
+<code>long</code>)</h3>
+<p>The <code>long</code> type provides a larger range than the standard
+<code>int</code> on systems where standard integers are limited, or on
+64-bit Unix-like environments where a 64-bit integer is required.</p>
+<ul>
+<li><strong>Minimum Size:</strong> 32 bits (4 bytes); typically 64 bits
+(8 bytes) on 64-bit Linux/macOS and 32 bits on 64-bit Windows</li>
+<li><strong>Signed Variant (<code>long</code> or
+<code>signed long</code>):</strong> At 32 bits, ranges from
+-2,147,483,648 to 2,147,483,647; at 64 bits, ranges from
+-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807</li>
+<li><strong>Unsigned Variant (<code>unsigned long</code>):</strong> At
+32 bits, ranges from 0 to 4,294,967,295; at 64 bits, ranges from 0 to
+18,446,744,073,709,551,615</li>
+</ul>
+<h3 id="5-long-long-int-or-long-long">5. <code>long long int</code> (or
+<code>long long</code>)</h3>
+<p>Standardized in C99, <code>long long</code> guarantees high-capacity
+integer storage across all compliant compilers and architectures.</p>
+<ul>
+<li><strong>Minimum Size:</strong> 64 bits (8 bytes)</li>
+<li><strong>Signed Variant (<code>long long</code> or
+<code>signed long long</code>):</strong> Ranges from
+-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807</li>
+<li><strong>Unsigned Variant (<code>unsigned long long</code>):</strong>
+Ranges from 0 to 18,446,744,073,709,551,615</li>
+</ul>
+<h3 id="additional-native-types">Additional Native Types</h3>
+<p>C99 also introduced <code>_Bool</code> as a native integer type. It
+holds an unsigned integer value that can only represent 0 (false) or 1
+(true), requiring at least 1 bit of logical storage, typically allocated
+as 1 byte in memory.</p>
+<h3 id="size-hierarchy-rule">Size Hierarchy Rule</h3>
+<p>The C standard enforces a strict relative size hierarchy among these
+types:</p>
+<p><code>sizeof(char) &lt;= sizeof(short) &lt;= sizeof(int) &lt;= sizeof(long) &lt;= sizeof(long long)</code></p>
+<p>Where <code>sizeof(char)</code> is always strictly defined as 1.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

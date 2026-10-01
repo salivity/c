@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why pthread_cond_wait Requires a While Loop in C - c</title>
+    <meta name="description" content="In C multithreading with POSIX threads (pthreads), calling pthreadcondwait inside an if block instead of a while loop is a critical concurrency bug. A condition variable wait operation must always be wrapped in a while loop to repeatedly test the predica">
+    <link rel="canonical" href="https://salivity.github.io/c/article/why-pthread-cond-wait-requires-a-while-loop-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why pthread_cond_wait Requires a While Loop in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/why-pthread-cond-wait-requires-a-while-loop-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C multithreading with POSIX threads (pthreads), calling pthreadcondwait inside an if block instead of a while loop is a critical concurrency bug. A condition variable wait operation must always be wrapped in a while loop to repeatedly test the predica" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-pthread_cond_wait-requires-a-while-loop-in-c">Why
+pthread_cond_wait Requires a While Loop in C</h1>
+<p>In C multithreading with POSIX threads (pthreads), calling
+<code>pthread_cond_wait</code> inside an <code>if</code> block instead
+of a <code>while</code> loop is a critical concurrency bug. A condition
+variable wait operation must always be wrapped in a <code>while</code>
+loop to repeatedly test the predicate condition before proceeding. This
+pattern ensures that a thread does not execute critical code when the
+shared state is not ready, safeguarding the program against spurious
+wakeups, stolen signals, and race conditions in multi-threaded
+environments.</p>
+<h3 id="1-spurious-wakeups">1. Spurious Wakeups</h3>
+<p>The POSIX standard explicitly allows for "spurious wakeups." A
+waiting thread may unblock and return from
+<code>pthread_cond_wait</code> even if no thread explicitly called
+<code>pthread_cond_signal</code> or <code>pthread_cond_broadcast</code>.
+Spurious wakeups occur due to low-level kernel optimizations, context
+switches, or signal deliveries at the operating system level.</p>
+<p>If an <code>if</code> statement is used:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// DANGEROUS: Susceptible to spurious wakeups</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(!</span>data_is_ready<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    pthread_cond_wait<span class="op">(&amp;</span>cond<span class="op">,</span> <span class="op">&amp;</span>mutex<span class="op">);</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Proceed to consume data (may cause a crash or invalid state)</span></span></code></pre></div>
+<p>If a spurious wakeup occurs, the thread exits the <code>if</code>
+block and proceeds to access shared data even though
+<code>data_is_ready</code> remains false. A <code>while</code> loop
+forces the thread to re-evaluate <code>data_is_ready</code> immediately
+after unblocking, sending the thread back to sleep if the wakeup was
+spurious.</p>
+<h3 id="2-stolen-signals-mesa-monitor-semantics">2. Stolen Signals (Mesa
+Monitor Semantics)</h3>
+<p>Pthreads implement Mesa-style condition variables rather than
+Hoare-style condition variables. In Mesa semantics, when a thread
+signals a condition variable, the waiting thread is moved from the
+condition variable's wait queue to the mutex's lock queue, but it does
+not run immediately.</p>
+<p>Between the moment <code>pthread_cond_signal</code> is executed and
+the waiting thread actually re-acquires the mutex and runs, another
+thread may intervene:</p>
+<ol type="1">
+<li>Thread A signals that a resource is available.</li>
+<li>Thread B (which was not waiting on the condition variable) acquires
+the mutex first.</li>
+<li>Thread B consumes the resource and sets the condition back to
+false.</li>
+<li>Thread B releases the mutex.</li>
+<li>Thread A's signaled thread finally acquires the mutex.</li>
+</ol>
+<p>If Thread A evaluated the condition with an <code>if</code>
+statement, it would assume the resource is still available, leading to
+buffer underflows, null-pointer dereferences, or logical corruption. A
+<code>while</code> loop catches this state change and forces the thread
+to wait again.</p>
+<h3 id="3-broadcast-handling-pthread_cond_broadcast">3. Broadcast
+Handling (<code>pthread_cond_broadcast</code>)</h3>
+<p>When multiple threads are waiting on a single condition variable and
+a producer calls <code>pthread_cond_broadcast</code>, all waiting
+threads wake up and compete for the mutex.</p>
+<p>Only one thread will acquire the mutex first and consume the shared
+resource. By the time the remaining threads sequentially acquire the
+mutex, the resource is already exhausted. A <code>while</code> loop
+ensures that every subsequent thread checks the predicate and returns to
+a sleeping state if the resource has already been consumed by an earlier
+thread.</p>
+<h3 id="the-correct-implementation">The Correct Implementation</h3>
+<p>The canonical pattern for condition variable synchronization in C
+is:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>pthread_mutex_lock<span class="op">(&amp;</span>mutex<span class="op">);</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="cf">while</span> <span class="op">(!</span>predicate_condition<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    pthread_cond_wait<span class="op">(&amp;</span>cond<span class="op">,</span> <span class="op">&amp;</span>mutex<span class="op">);</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Safely perform work on shared data</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>pthread_mutex_unlock<span class="op">(&amp;</span>mutex<span class="op">);</span></span></code></pre></div>
+<p>Using <code>while</code> guarantees correctness regardless of how
+many threads wake up, how the scheduler prioritizes mutex acquisition,
+or whether the operating system triggers a spurious wakeup.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

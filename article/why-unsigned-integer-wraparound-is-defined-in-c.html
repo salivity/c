@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Unsigned Integer Wraparound Is Defined in C - c</title>
+    <meta name="description" content="In the C programming language, unsigned integer operations are guaranteed never to produce undefined behavior on overflow; instead, they follow strict modulo arithmetic. This behavior is intentionally defined by the ISO C standard to provide predictable">
+    <link rel="canonical" href="https://salivity.github.io/c/article/why-unsigned-integer-wraparound-is-defined-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Unsigned Integer Wraparound Is Defined in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/why-unsigned-integer-wraparound-is-defined-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, unsigned integer operations are guaranteed never to produce undefined behavior on overflow; instead, they follow strict modulo arithmetic. This behavior is intentionally defined by the ISO C standard to provide predictable" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-unsigned-integer-wraparound-is-defined-in-c">Why Unsigned
+Integer Wraparound Is Defined in C</h1>
+<p>In the C programming language, unsigned integer operations are
+guaranteed never to produce undefined behavior on overflow; instead,
+they follow strict modulo arithmetic. This behavior is intentionally
+defined by the ISO C standard to provide predictable low-level
+arithmetic, simplify hardware mapping, and support fundamental systems
+programming tasks such as cryptography, checksums, and bitwise
+manipulation. This article explains the standard's formal rules
+regarding unsigned wraparound, the architectural reasons behind this
+design choice, and how it fundamentally differs from signed integer
+overflow.</p>
+<h2 id="the-standard-rule-modulo-arithmetic">The Standard Rule: Modulo
+Arithmetic</h2>
+<p>According to the ISO C standard (such as ISO/IEC 9899:2018, section
+6.2.5), arithmetic involving unsigned integers can never overflow in the
+traditional mathematical sense. The specification dictates:</p>
+<blockquote>
+<p>"A computation involving unsigned operands can never overflow,
+because a result that cannot be represented by the resulting unsigned
+integer type is reduced modulo the number that is one greater than the
+largest value that can be represented by the resulting type."</p>
+</blockquote>
+<p>If an unsigned type has <span class="math inline">\(n\)</span> bits
+of precision, any operation that exceeds its maximum value wraps around
+modulo <span class="math inline">\(2^n\)</span>. For example, with a
+standard 32-bit unsigned integer (<code>uint32_t</code>), the maximum
+value is <span class="math inline">\(2^{32} - 1\)</span>
+(4,294,967,295). Adding 1 to this value yields <code>0</code>, and
+subtracting 1 from <code>0</code> yields 4,294,967,295. Because the
+standard formally mandates this behavior, it is fully defined, portable,
+and reliable across all conforming C implementations.</p>
+<h2 id="alignment-with-hardware-architecture">Alignment with Hardware
+Architecture</h2>
+<p>C was designed as a systems language with the goal of mapping
+efficiently to underlying processor architectures. Nearly all modern
+central processing units (CPUs) perform addition and subtraction on
+registers using fixed-width modular arithmetic.</p>
+<p>When a CPU adds two 32-bit values in hardware and the result exceeds
+32 bits, the carry bit is discarded or preserved in a status flag,
+leaving the lower 32 bits in the destination register. By defining
+unsigned wraparound as modulo <span class="math inline">\(2^n\)</span>,
+the C standard mirrors how hardware naturally operates. This allows
+compilers to generate native arithmetic assembly instructions
+directly—such as <code>ADD</code> or <code>SUB</code>—without inserting
+extra branch instructions or boundary checks to manage or prevent
+wraparound.</p>
+<h2 id="essential-use-cases-in-systems-programming">Essential Use Cases
+in Systems Programming</h2>
+<p>Unsigned types in C are not merely numbers without negative values;
+they are often used to represent bit patterns, raw memory addresses, and
+abstract mathematical rings. Defining wraparound makes unsigned integers
+suitable for several critical programming tasks:</p>
+<ul>
+<li><strong>Cryptographic Algorithms:</strong> Ciphers and hashing
+algorithms (such as SHA-256 and MD5) rely heavily on addition modulo
+<span class="math inline">\(2^{32}\)</span> or <span
+class="math inline">\(2^{64}\)</span>. If wraparound were undefined,
+implementing these algorithms would require cumbersome manual masking
+operations.</li>
+<li><strong>Counters and Timers:</strong> Hardware devices and operating
+systems frequently use wrapping counters to measure clock cycles or tick
+counts. Calculating elapsed time using unsigned differences (e.g.,
+<code>current_tick - start_tick</code>) works correctly even across a
+wraparound boundary.</li>
+<li><strong>Bit Manipulation and Masks:</strong> Unsigned integers are
+standard for flags and bitfields, where algebraic magnitude is
+irrelevant, but deterministic register-width containment is
+essential.</li>
+</ul>
+<h2 id="why-signed-integer-overflow-remains-undefined">Why Signed
+Integer Overflow Remains Undefined</h2>
+<p>To understand why unsigned wraparound is defined, it is helpful to
+look at why signed overflow is classified as Undefined Behavior
+(UB).</p>
+<p>Signed integer representations historically varied across hardware
+(two's complement, ones' complement, and sign-magnitude). While two's
+complement is now ubiquitous, keeping signed overflow undefined permits
+compilers to execute aggressive code optimizations. For instance, a
+compiler can assume that <code>x + 1 &gt; x</code> is always true for
+signed integers, allowing it to optimize or eliminate loop boundary
+conditions.</p>
+<p>Unsigned arithmetic forfeits these specific optimizations in exchange
+for predictability. The compiler cannot assume <code>x + 1 &gt; x</code>
+for unsigned integers because <code>UINT_MAX + 1</code> mathematically
+equals <code>0</code>. The C language maintains this duality
+deliberately: signed types prioritize algebraic optimization, while
+unsigned types prioritize deterministic, hardware-level modular
+behavior.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

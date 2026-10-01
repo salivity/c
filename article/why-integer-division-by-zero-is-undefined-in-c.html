@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Integer Division by Zero is Undefined in C - c</title>
+    <meta name="description" content="In the C programming language, dividing an integer by zero immediately triggers undefined behavior because the language prioritizes execution speed and hardware-level mapping over mandatory runtime safety checks. This article explains the architectural,">
+    <link rel="canonical" href="https://salivity.github.io/c/article/why-integer-division-by-zero-is-undefined-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Integer Division by Zero is Undefined in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/why-integer-division-by-zero-is-undefined-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, dividing an integer by zero immediately triggers undefined behavior because the language prioritizes execution speed and hardware-level mapping over mandatory runtime safety checks. This article explains the architectural," />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-integer-division-by-zero-is-undefined-in-c">Why Integer
+Division by Zero is Undefined in C</h1>
+<p>In the C programming language, dividing an integer by zero
+immediately triggers undefined behavior because the language prioritizes
+execution speed and hardware-level mapping over mandatory runtime safety
+checks. This article explains the architectural, operating system, and
+standard-driven reasons behind this design, exploring how CPU
+instruction traps, OS signal handling, and compiler optimizations
+combine to make integer division by zero fundamentally undefined rather
+than safely handled at runtime.</p>
+<h3 id="the-c-standard-and-philosophy">The C Standard and
+Philosophy</h3>
+<p>The ISO C Standard explicitly classifies division by zero as
+undefined behavior (UB). According to the standard, the behavior is
+undefined if the second operand of <code>/</code> or <code>%</code> is
+zero.</p>
+<p>C was designed as a low-level systems programming language with a
+core philosophy: trust the programmer and never introduce invisible
+performance overhead. If the standard mandated that a program safely
+throw an exception or return a specific error flag during a zero
+division, compilers would be forced to insert a conditional check (such
+as <code>if (denominator == 0)</code>) before <em>every single</em>
+division operation. On performance-critical applications, this repeated
+branching would impose a measurable performance penalty. By labeling it
+as undefined behavior, the C committee allows compilers to emit raw,
+native machine instructions without added overhead.</p>
+<h3 id="hardware-level-traps-and-interrupts">Hardware-Level Traps and
+Interrupts</h3>
+<p>At the silicon level, central processing units (CPUs) cannot
+calculate a mathematical quotient when dividing by zero. Most modern CPU
+architectures implement hardware instructions for integer division (such
+as <code>IDIV</code> on x86 processors).</p>
+<p>When a CPU encounters a zero divisor in an integer division
+instruction, the hardware cannot produce a valid register state. Instead
+of completing the calculation, the processor halts execution of the
+instruction and raises a hardware fault or interrupt (specifically, a
+<code>#DE</code> or Divide Error on x86 architectures).</p>
+<p>Because different architectures respond to this situation
+differently—some trigger an immediate hardware trap, while some older or
+embedded architectures might silently return all ones or zero—the C
+standard uses undefined behavior as an abstraction to avoid
+standardizing hardware-specific outcomes.</p>
+<h3 id="operating-system-signal-dispatch">Operating System Signal
+Dispatch</h3>
+<p>When the CPU hardware triggers a divide-by-zero fault, execution
+halts, and the processor transitions into kernel space. The operating
+system kernel must then handle the interrupt.</p>
+<p>On Unix-like systems (such as Linux and macOS), the kernel inspects
+the fault and sends a <code>SIGFPE</code> (Floating Point Exception)
+signal to the offending process. Despite the name, <code>SIGFPE</code>
+covers both floating-point and integer arithmetic faults. Because the
+default handler for <code>SIGFPE</code> terminates the process and dumps
+the core, the program usually crashes immediately. On Windows, the
+operating system converts the fault into a Structured Exception Handling
+(SEH) code: <code>STATUS_INTEGER_DIVIDE_BY_ZERO</code>.</p>
+<h3 id="compiler-optimizations-and-consequences-of-ub">Compiler
+Optimizations and Consequences of UB</h3>
+<p>Because integer division by zero is classified as undefined behavior,
+optimizing compilers (like GCC, Clang, and MSVC) assume that it will
+never occur in a well-formed program. This assumption gives the
+optimizer tremendous latitude:</p>
+<ol type="1">
+<li><strong>Dead Code Elimination:</strong> If a compiler determines
+that a specific variable path requires division by zero to reach, it may
+assume that execution branch is unreachable and eliminate it
+entirely.</li>
+<li><strong>Instruction Reordering:</strong> The compiler can reorder
+independent operations across division instructions, meaning subsequent
+instructions might execute out of order or produce unintended side
+effects if the processor halts unexpectedly.</li>
+<li><strong>Loop Invariant Removal:</strong> Compilers can optimize
+loops based on the assumption that divisors are non-zero, potentially
+generating infinite loops or skipping boundary conditions.</li>
+</ol>
+<p>Integer division by zero results in immediate undefined behavior
+because C intentionally delegates the consequence directly to the
+underlying hardware and operating system, favoring peak execution
+performance over defensive software guardrails.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

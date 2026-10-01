@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raw Data Persistence with fread and fwrite in C - c</title>
+    <meta name="description" content="In the C programming language, raw data persistence without text formatting is achieved through the standard library functions fread and fwrite. This article explores how these functions manage block-based binary input and output, examining their operati">
+    <link rel="canonical" href="https://salivity.github.io/c/article/raw-data-persistence-with-fread-and-fwrite-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Raw Data Persistence with fread and fwrite in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/raw-data-persistence-with-fread-and-fwrite-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, raw data persistence without text formatting is achieved through the standard library functions fread and fwrite. This article explores how these functions manage block-based binary input and output, examining their operati" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="raw-data-persistence-with-fread-and-fwrite-in-c">Raw Data
+Persistence with fread and fwrite in C</h1>
+<p>In the C programming language, raw data persistence without text
+formatting is achieved through the standard library functions
+<code>fread</code> and <code>fwrite</code>. This article explores how
+these functions manage block-based binary input and output, examining
+their operational mechanisms, parameters, internal buffering, and
+critical considerations like memory alignment and cross-platform
+compatibility.</p>
+<h3 id="function-signatures-and-block-architecture">Function Signatures
+and Block Architecture</h3>
+<p>The functions <code>fread</code> and <code>fwrite</code> are declared
+in <code>&lt;stdio.h&gt;</code> with the following signatures:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">size_t</span> fread<span class="op">(</span><span class="dt">void</span> <span class="op">*</span>ptr<span class="op">,</span> <span class="dt">size_t</span> size<span class="op">,</span> <span class="dt">size_t</span> count<span class="op">,</span> <span class="dt">FILE</span> <span class="op">*</span>stream<span class="op">);</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">size_t</span> fwrite<span class="op">(</span><span class="dt">const</span> <span class="dt">void</span> <span class="op">*</span>ptr<span class="op">,</span> <span class="dt">size_t</span> size<span class="op">,</span> <span class="dt">size_t</span> count<span class="op">,</span> <span class="dt">FILE</span> <span class="op">*</span>stream<span class="op">);</span></span></code></pre></div>
+<p>Both functions operate on block-based units defined by two
+parameters: <code>size</code> (the size of a single element in bytes)
+and <code>count</code> (the number of elements to process). The total
+volume of data transferred during a call is calculated as
+<code>size * count</code> bytes.</p>
+<p>Unlike formatted I/O functions such as <code>fprintf</code> or
+<code>fscanf</code>, which parse data into human-readable ASCII or UTF-8
+strings, <code>fread</code> and <code>fwrite</code> perform direct
+memory-to-stream byte copying. Memory addresses referenced by
+<code>ptr</code> are treated as opaque sequences of bytes.</p>
+<h3 id="how-fwrite-persists-data">How <code>fwrite</code> Persists
+Data</h3>
+<p>When persisting data to disk with <code>fwrite</code>, the function
+copies a contiguous sequence of bytes from the memory location starting
+at <code>ptr</code> to the specified file stream:</p>
+<ol type="1">
+<li><strong>Direct Memory Copy:</strong> The memory layout of the object
+(such as an array, struct, or primitive variable) is read exactly as it
+exists in RAM.</li>
+<li><strong>Stream Buffering:</strong> The bytes are transferred to the
+internal buffer associated with <code>FILE *stream</code>. Depending on
+the stream's buffering configuration (full, line, or unbuffered), the
+data is flushed to the operating system's file descriptor immediately or
+when the buffer fills.</li>
+<li><strong>Return Value:</strong> <code>fwrite</code> returns the total
+number of full items (not bytes) successfully written. If this number is
+less than <code>count</code>, an error occurred or the disk became
+full.</li>
+</ol>
+<p>To ensure byte integrity on platforms that distinguish between text
+and binary files (such as Windows), the stream must be opened using a
+binary mode flag like <code>"wb"</code>.</p>
+<h3 id="how-fread-restores-data">How <code>fread</code> Restores
+Data</h3>
+<p><code>fread</code> mirrors the persistence process by transferring
+raw bytes from the stream directly into the memory block pointed to by
+<code>ptr</code>:</p>
+<ol type="1">
+<li><strong>Raw Ingestion:</strong> The specified number of bytes
+(<code>size * count</code>) is pulled from the file stream's buffer or
+directly read from disk via operating system read calls.</li>
+<li><strong>Memory Overwrite:</strong> The ingested bytes are placed
+sequentially into the target buffer, reconstructing the in-memory state
+of the stored structure or array.</li>
+<li><strong>Return Value and EOF:</strong> <code>fread</code> returns
+the number of fully read elements. A return value lower than
+<code>count</code> signals either the end-of-file (EOF) or an I/O error,
+which can be distinguished using <code>feof(stream)</code> and
+<code>ferror(stream)</code>.</li>
+</ol>
+<h3 id="memory-layout-and-portability-considerations">Memory Layout and
+Portability Considerations</h3>
+<p>Because <code>fread</code> and <code>fwrite</code> dump and restore
+raw memory blocks, their use introduces several architectural
+dependencies:</p>
+<ul>
+<li><strong>Structure Padding:</strong> Compilers insert padding bytes
+into structures to align data members to word boundaries. Two compilers,
+or the same compiler with different optimization flags, may arrange
+structure padding differently, causing data corruption if reading across
+different builds.</li>
+<li><strong>Endianness:</strong> Raw data is stored according to the
+host system’s byte ordering. A 32-bit integer written on a little-endian
+machine (e.g., x86/ARM) will read with reversed byte values on a
+big-endian system.</li>
+<li><strong>Pointer Invalidation:</strong> Serializing structures
+containing pointer variables with <code>fwrite</code> only persists the
+memory address, not the underlying data. When reloaded with
+<code>fread</code>, those addresses are dangling pointers and will lead
+to undefined behavior if dereferenced.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

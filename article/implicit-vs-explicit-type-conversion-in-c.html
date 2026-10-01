@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Implicit vs Explicit Type Conversion in C - c</title>
+    <meta name="description" content="In the C programming language, type conversion is the process of changing a variable from one data type to another to ensure operations execute correctly. This article explores the core distinctions between implicit type conversion (automatic promotion p">
+    <link rel="canonical" href="https://salivity.github.io/c/article/implicit-vs-explicit-type-conversion-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Implicit vs Explicit Type Conversion in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/implicit-vs-explicit-type-conversion-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, type conversion is the process of changing a variable from one data type to another to ensure operations execute correctly. This article explores the core distinctions between implicit type conversion (automatic promotion p" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="implicit-vs-explicit-type-conversion-in-c">Implicit vs Explicit
+Type Conversion in C</h1>
+<p>In the C programming language, type conversion is the process of
+changing a variable from one data type to another to ensure operations
+execute correctly. This article explores the core distinctions between
+implicit type conversion (automatic promotion performed by the compiler)
+and explicit type casting (manual conversion instructed by the
+programmer). By understanding how both mechanisms handle data promotion,
+truncation, syntax, and memory representation, developers can write
+safer, more predictable C code.</p>
+<h3 id="what-is-implicit-type-conversion">What is Implicit Type
+Conversion?</h3>
+<p>Implicit type conversion, also known as type coercion, occurs
+automatically when the C compiler evaluates an expression containing
+mixed data types. The compiler applies predefined hierarchy rules, known
+as "usual arithmetic conversions," to elevate smaller data types to
+larger data types to prevent data loss.</p>
+<p>Common characteristics of implicit conversion:</p>
+<ul>
+<li><strong>Automatic Execution:</strong> The developer does not write
+any special syntax.</li>
+<li><strong>Type Promotion:</strong> Typically converts narrower types
+to wider types (e.g., <code>char</code> or <code>short</code> to
+<code>int</code>, or <code>int</code> to <code>float</code>).</li>
+<li><strong>Preservation of Value:</strong> Usually safe when moving
+from smaller to larger types, though implicit demotions (e.g., assigning
+a <code>float</code> to an <code>int</code>) will silently truncate
+data.</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> num <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">float</span> factor <span class="op">=</span> <span class="fl">2.5</span><span class="bu">f</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// num is implicitly converted to float before multiplication</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="dt">float</span> result <span class="op">=</span> num <span class="op">*</span> factor<span class="op">;</span> <span class="co">// result = 25.0f</span></span></code></pre></div>
+<h3 id="what-is-explicit-type-casting">What is Explicit Type
+Casting?</h3>
+<p>Explicit type casting is a manual operation where the programmer
+explicitly forces a value to be treated as a specific data type using
+the cast operator: <code>(type_name)expression</code>. This method
+grants direct control over the conversion process, bypassing the
+compiler's default promotion rules.</p>
+<p>Common characteristics of explicit casting:</p>
+<ul>
+<li><strong>Manual Execution:</strong> Requires explicit use of
+parentheses containing the target type.</li>
+<li><strong>Control and Overriding:</strong> Forces conversions that the
+compiler would not perform automatically, such as preventing integer
+truncation during division.</li>
+<li><strong>Increased Risk:</strong> The compiler assumes the developer
+understands the implications, meaning intentional truncation, sign
+conversion errors, or memory-misalignment risks will proceed without
+warning.</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> a <span class="op">=</span> <span class="dv">5</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> b <span class="op">=</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Without explicit cast, integer division yields 2.0</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co">// With explicit cast, &#39;a&#39; becomes a float, forcing float division</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="dt">float</span> result <span class="op">=</span> <span class="op">(</span><span class="dt">float</span><span class="op">)</span>a <span class="op">/</span> b<span class="op">;</span> <span class="co">// result = 2.5f</span></span></code></pre></div>
+<h3 id="key-differences-between-implicit-and-explicit-conversion">Key
+Differences Between Implicit and Explicit Conversion</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;">Implicit Type Conversion</th>
+<th style="text-align: left;">Explicit Type Casting</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Control</strong></td>
+<td style="text-align: left;">Handled automatically by the
+compiler.</td>
+<td style="text-align: left;">Dictated manually by the programmer.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Syntax</strong></td>
+<td style="text-align: left;">No syntax required.</td>
+<td style="text-align: left;">Uses the cast operator:
+<code>(type)value</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Direction</strong></td>
+<td style="text-align: left;">Generally upgrades types from lower to
+higher rank.</td>
+<td style="text-align: left;">Can convert in any direction (up, down, or
+between pointers).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Visibility</strong></td>
+<td style="text-align: left;">Hidden within the expression
+evaluation.</td>
+<td style="text-align: left;">Visible in the code, indicating clear
+programmer intent.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Use Case</strong></td>
+<td style="text-align: left;">Standard arithmetic operations and
+function parameter matching.</td>
+<td style="text-align: left;">Preventing truncation, pointer
+manipulation, and void pointer casting.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="summary">Summary</h3>
+<p>The fundamental difference lies in <strong>automation versus
+intent</strong>. Implicit type conversion minimizes code clutter by
+handling safe, routine widening operations behind the scenes. Explicit
+type casting gives developers precise control over data representation,
+which is critical for accurate calculations, hardware interactions, and
+memory management, but requires vigilance to avoid data loss or
+undefined behavior.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

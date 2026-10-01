@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intercepting C Library Calls with LD_PRELOAD - c</title>
+    <meta name="description" content="The LDPRELOAD environment variable is a mechanism provided by the dynamic linker on Unix-like operating systems that forces specified shared libraries to be loaded before any others, including the standard C library (libc). This behavior enables develope">
+    <link rel="canonical" href="https://salivity.github.io/c/article/intercepting-c-library-calls-with-ld-preload">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Intercepting C Library Calls with LD_PRELOAD - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/intercepting-c-library-calls-with-ld-preload" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The LDPRELOAD environment variable is a mechanism provided by the dynamic linker on Unix-like operating systems that forces specified shared libraries to be loaded before any others, including the standard C library (libc). This behavior enables develope" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="intercepting-c-library-calls-with-ld_preload">Intercepting C
+Library Calls with LD_PRELOAD</h1>
+<p>The <code>LD_PRELOAD</code> environment variable is a mechanism
+provided by the dynamic linker on Unix-like operating systems that
+forces specified shared libraries to be loaded before any others,
+including the standard C library (<code>libc</code>). This behavior
+enables developers to intercept and override functions—such as
+<code>malloc</code>, <code>read</code>, or <code>connect</code>—at
+runtime without modifying or recompiling the target executable. This
+technique, commonly known as function hooking or interposition, is
+widely used for profiling, debugging, monitoring system calls, and
+sandboxing applications.</p>
+<h2 id="how-the-dynamic-linker-resolves-symbols">How the Dynamic Linker
+Resolves Symbols</h2>
+<p>When a dynamically linked C program starts, the kernel executes the
+dynamic linker (typically <code>ld.so</code> or
+<code>ld-linux.so</code>). The program binary contains a list of
+undefined external symbols that must be resolved to specific memory
+addresses provided by shared objects.</p>
+<p>Under normal execution, the dynamic linker searches through libraries
+specified in the binary's <code>DT_NEEDED</code> dynamic section (such
+as <code>libc.so.6</code>). The linker uses a first-match-wins approach:
+as soon as it locates a symbol matching an unresolved name, it binds
+that symbol to the calling code and ignores subsequent definitions in
+other libraries.</p>
+<h2 id="the-role-of-ld_preload">The Role of LD_PRELOAD</h2>
+<p>The <code>LD_PRELOAD</code> environment variable modifies this search
+order. When set, the dynamic linker loads the shared libraries listed in
+<code>LD_PRELOAD</code> before any other standard dependencies. Because
+these preloaded libraries are placed at the very front of the symbol
+search scope, their exported symbols take precedence over identically
+named symbols in standard libraries.</p>
+<p>If a preloaded shared object defines a function named
+<code>open()</code>, any call to <code>open()</code> made by the
+application will bind to the custom implementation rather than the one
+located in the system's <code>libc</code>.</p>
+<h2 id="intercepting-and-forwarding-calls-with-dlsym">Intercepting and
+Forwarding Calls with dlsym</h2>
+<p>A practical interceptor usually needs to execute custom logic (such
+as logging or altering parameters) and then forward the call to the
+original standard library implementation. This is achieved using the
+<code>dlsym()</code> function with the special pseudo-handle
+<code>RTLD_NEXT</code>.</p>
+<ol type="1">
+<li><strong>Include headers</strong>: The code imports
+<code>&lt;dlfcn.h&gt;</code> to access dynamic linking functions.</li>
+<li><strong>Define the target signature</strong>: A function is defined
+with the exact signature and linkage of the target library
+function.</li>
+<li><strong>Obtain the original pointer</strong>: Using
+<code>dlsym(RTLD_NEXT, "function_name")</code>, the linker searches for
+the <em>next</em> occurrence of the symbol in the search order—bypassing
+the preloaded version and returning the address of the real
+<code>libc</code> implementation.</li>
+<li><strong>Execute custom logic</strong>: The wrapper performs its
+operations before or after invoking the real function pointer.</li>
+</ol>
+<p>For example, an interception wrapper for <code>puts</code> looks like
+this:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#define </span><span class="ot">_GNU_SOURCE</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;dlfcn.h&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> puts<span class="op">(</span><span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>str<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> <span class="op">(*</span>original_puts<span class="op">)(</span><span class="dt">const</span> <span class="dt">char</span> <span class="op">*);</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    original_puts <span class="op">=</span> dlsym<span class="op">(</span>RTLD_NEXT<span class="op">,</span> <span class="st">&quot;puts&quot;</span><span class="op">);</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Custom interception logic</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    original_puts<span class="op">(</span><span class="st">&quot;[INTERCEPTED]&quot;</span><span class="op">);</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Call the original function</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> original_puts<span class="op">(</span>str<span class="op">);</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="compilation-and-execution">Compilation and Execution</h2>
+<p>The interception code must be compiled into a position-independent
+shared library:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">gcc</span> <span class="at">-Wall</span> <span class="at">-fPIC</span> <span class="at">-shared</span> <span class="at">-o</span> libhook.so hook.c <span class="at">-ldl</span></span></code></pre></div>
+<p>Once compiled, the library is injected into the execution path of any
+dynamically linked binary by setting the variable in the shell
+environment:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="va">LD_PRELOAD</span><span class="op">=</span>./libhook.so <span class="ex">./target_program</span></span></code></pre></div>
+<h2 id="limitations-and-security-safeguards">Limitations and Security
+Safeguards</h2>
+<p>While <code>LD_PRELOAD</code> is powerful, the operating system
+imposes specific constraints:</p>
+<ul>
+<li><strong>Statically Linked Binaries</strong>: Statically compiled
+programs do not invoke the dynamic linker (<code>ld.so</code>),
+rendering <code>LD_PRELOAD</code> entirely ineffective.</li>
+<li><strong>Setuid and Setgid Programs</strong>: For security reasons,
+the dynamic linker disables <code>LD_PRELOAD</code> when executing
+setuid or setgid binaries unless the executing user is the superuser, or
+the preloaded library is installed in standard trusted library
+directories (e.g., <code>/etc/ld.so.preload</code> or secure system
+paths) and marked with secure permissions.</li>
+<li><strong>Internal Calls</strong>: Calls within <code>libc</code> that
+resolve internally through hidden symbol visibility or private aliases
+cannot be intercepted via <code>LD_PRELOAD</code>.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

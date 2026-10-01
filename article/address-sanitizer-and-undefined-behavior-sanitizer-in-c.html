@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AddressSanitizer and UndefinedBehaviorSanitizer in C - c</title>
+    <meta name="description" content="The C programming language provides developers with low-level memory access and high performance, but it lacks inherent runtime guardrails, often leading to subtle bugs and security vulnerabilities. AddressSanitizer (ASan) and UndefinedBehaviorSanitizer">
+    <link rel="canonical" href="https://salivity.github.io/c/article/address-sanitizer-and-undefined-behavior-sanitizer-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="AddressSanitizer and UndefinedBehaviorSanitizer in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/address-sanitizer-and-undefined-behavior-sanitizer-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The C programming language provides developers with low-level memory access and high performance, but it lacks inherent runtime guardrails, often leading to subtle bugs and security vulnerabilities. AddressSanitizer (ASan) and UndefinedBehaviorSanitizer" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="addresssanitizer-and-undefinedbehaviorsanitizer-in-c">AddressSanitizer
+and UndefinedBehaviorSanitizer in C</h1>
+<p>The C programming language provides developers with low-level memory
+access and high performance, but it lacks inherent runtime guardrails,
+often leading to subtle bugs and security vulnerabilities.
+AddressSanitizer (ASan) and UndefinedBehaviorSanitizer (UBSan) are
+compiler-based instrumentation tools that modernize C development by
+detecting critical memory corruption and undefined behaviors during
+runtime. This article examines the specific error-detection capabilities
+that both tools introduce to the C development lifecycle.</p>
+<h3 id="addresssanitizer-asan-runtime-detection">AddressSanitizer (ASan)
+Runtime Detection</h3>
+<p>AddressSanitizer is designed primarily to locate memory access
+violations. It works by instrumenting memory accesses and utilizing
+"shadow memory" to track the validity of every byte in application
+memory. When compiled with <code>-fsanitize=address</code>, ASan
+intercepts memory operations to detect the following errors:</p>
+<ul>
+<li><strong>Out-of-Bounds Accesses:</strong> Detects reads and writes
+outside the allocated boundaries of heap buffers, stack variables, and
+global arrays (buffer overflows and underflows).</li>
+<li><strong>Use-After-Free:</strong> Flags attempts to read or write
+memory that has already been deallocated using <code>free()</code>.</li>
+<li><strong>Use-After-Scope:</strong> Catches accesses to local
+variables after their containing lexical scope (such as a block or loop)
+has terminated.</li>
+<li><strong>Use-After-Return:</strong> Detects pointers referencing
+stack frames that have already returned.</li>
+<li><strong>Double Free and Invalid Free:</strong> Intercepts redundant
+calls to <code>free()</code> on the same pointer, as well as attempts to
+free pointers not allocated by <code>malloc()</code> or
+<code>calloc()</code>.</li>
+<li><strong>Memory Leaks:</strong> Through its integrated component,
+LeakSanitizer (LSan), it identifies allocated heap memory that remains
+unreachable at program termination.</li>
+</ul>
+<h3
+id="undefinedbehaviorsanitizer-ubsan-runtime-detection">UndefinedBehaviorSanitizer
+(UBSan) Runtime Detection</h3>
+<p>Undefined behavior in C can lead to unpredictable application states,
+security exploits, or compiler optimizations that eliminate critical
+logic. UndefinedBehaviorSanitizer inserts dynamic checks with minimal
+overhead when compiled with <code>-fsanitize=undefined</code>. UBSan
+identifies:</p>
+<ul>
+<li><strong>Signed Integer Overflow:</strong> Catches arithmetic
+calculations where the result exceeds the minimum or maximum
+representable value of a signed integer type.</li>
+<li><strong>Misaligned Pointer Dereference:</strong> Flags attempts to
+load or store data through pointers that do not satisfy the target
+architecture's alignment requirements.</li>
+<li><strong>Null Pointer Dereference:</strong> Intercepts operations
+that attempt to read or write through a <code>NULL</code> pointer, as
+well as passing null pointers into function arguments marked
+<code>nonnull</code>.</li>
+<li><strong>Invalid Bitwise Shifts:</strong> Detects bitwise shifts by
+negative amounts, shifts greater than or equal to the bit width of the
+value, and shifts that overflow signed integers.</li>
+<li><strong>Division by Zero:</strong> Catches integer or floating-point
+division and modulus operations where the divisor is zero.</li>
+<li><strong>Unreachable Code Execution:</strong> Alerts when execution
+enters code paths explicitly marked unreachable by the compiler (e.g.,
+<code>__builtin_unreachable()</code>).</li>
+<li><strong>Variable-Length Array (VLA) Bound Errors:</strong> Detects
+when a runtime-sized array is declared with a non-positive bound.</li>
+</ul>
+<h3 id="practical-impact-on-c-software">Practical Impact on C
+Software</h3>
+<p>Together, ASan and UBSan transform bug detection from static
+post-mortem analysis (like inspecting core dumps) into immediate,
+detailed error reporting. When a violation occurs, the sanitizers halt
+execution or log the incident, outputting a descriptive error message
+complete with a stack trace, file name, exact line number, and a
+breakdown of the involved memory regions. This immediate feedback
+substantially reduces debugging time and prevents common C
+vulnerabilities from reaching production systems.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

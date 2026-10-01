@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>While vs Do-While Loops in C: Condition Timing - c</title>
+    <meta name="description" content="In the C programming language, the primary distinction between a while loop and a do-while loop lies in the exact timing of condition evaluation. A while loop checks its condition prior to executing the loop body, meaning the code inside may never execut">
+    <link rel="canonical" href="https://salivity.github.io/c/article/while-vs-do-while-loops-in-c-condition-timing">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="While vs Do-While Loops in C: Condition Timing - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/while-vs-do-while-loops-in-c-condition-timing" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, the primary distinction between a while loop and a do-while loop lies in the exact timing of condition evaluation. A while loop checks its condition prior to executing the loop body, meaning the code inside may never execut" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="while-vs-do-while-loops-in-c-condition-timing">While vs Do-While
+Loops in C: Condition Timing</h1>
+<p>In the C programming language, the primary distinction between a
+<code>while</code> loop and a <code>do-while</code> loop lies in the
+exact timing of condition evaluation. A <code>while</code> loop checks
+its condition prior to executing the loop body, meaning the code inside
+may never execute if the condition is initially false. Conversely, a
+<code>do-while</code> loop checks its condition after running the loop
+body, guaranteeing that the code executes at least once regardless of
+whether the condition is true or false at the outset.</p>
+<h2 id="the-while-loop-pre-test-evaluation">The While Loop: Pre-Test
+Evaluation</h2>
+<p>A <code>while</code> loop is classified as an entry-controlled or
+pre-test loop. The condition expression is evaluated before any
+statement inside the loop block is executed.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="cf">while</span> <span class="op">(</span>condition<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Loop body executes only if condition evaluates to true (non-zero)</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Because evaluation occurs at the entry point:</p>
+<ul>
+<li>If the condition is <code>false</code> (0) initially, the loop body
+is completely bypassed.</li>
+<li>The minimum number of executions is <strong>zero</strong>.</li>
+<li>It is best suited for scenarios where processing should not occur
+unless a specific condition is already met, such as reading an empty
+file or traversing a null-terminated pointer.</li>
+</ul>
+<h2 id="the-do-while-loop-post-test-evaluation">The Do-While Loop:
+Post-Test Evaluation</h2>
+<p>A <code>do-while</code> loop is classified as an exit-controlled or
+post-test loop. The loop body executes first, and the conditional
+statement is tested only after reaching the closing bracket.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="cf">do</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Loop body executes at least once before the condition is checked</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="cf">while</span> <span class="op">(</span>condition<span class="op">);</span></span></code></pre></div>
+<p>Because evaluation occurs at the exit point:</p>
+<ul>
+<li>The loop body always runs on the first pass, regardless of the
+condition's initial state.</li>
+<li>The minimum number of executions is <strong>one</strong>.</li>
+<li>A terminating semicolon <code>;</code> is syntactically required
+after the condition.</li>
+<li>It is ideal for interactive programs, menu selections, and user
+input validation where input must be collected at least once before
+testing its validity.</li>
+</ul>
+<h2 id="key-differences-at-a-glance">Key Differences at a Glance</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;"><code>while</code> Loop</th>
+<th style="text-align: left;"><code>do-while</code> Loop</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Evaluation Timing</strong></td>
+<td style="text-align: left;">Before executing loop body</td>
+<td style="text-align: left;">After executing loop body</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Control Type</strong></td>
+<td style="text-align: left;">Entry-controlled (Pre-test)</td>
+<td style="text-align: left;">Exit-controlled (Post-test)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Minimum Executions</strong></td>
+<td style="text-align: left;">0</td>
+<td style="text-align: left;">1</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Syntax Requirement</strong></td>
+<td style="text-align: left;">No semicolon after condition</td>
+<td style="text-align: left;">Must end with a semicolon
+<code>;</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Primary Use Case</strong></td>
+<td style="text-align: left;">When zero iterations are acceptable</td>
+<td style="text-align: left;">When at least one pass is mandatory</td>
+</tr>
+</tbody>
+</table></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

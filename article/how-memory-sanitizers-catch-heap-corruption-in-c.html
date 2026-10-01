@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Memory Sanitizers Catch Heap Corruption in C - c</title>
+    <meta name="description" content="Memory sanitizers are dynamic analysis tools designed to detect memory safety violations—such as buffer overflows, use-after-free errors, and invalid frees—at runtime. This article explains the fundamentals of memory sanitization in the C programming">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-memory-sanitizers-catch-heap-corruption-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Memory Sanitizers Catch Heap Corruption in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-memory-sanitizers-catch-heap-corruption-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Memory sanitizers are dynamic analysis tools designed to detect memory safety violations—such as buffer overflows, use-after-free errors, and invalid frees—at runtime. This article explains the fundamentals of memory sanitization in the C programming" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-memory-sanitizers-catch-heap-corruption-in-c">How Memory
+Sanitizers Catch Heap Corruption in C</h1>
+<p>Memory sanitizers are dynamic analysis tools designed to detect
+memory safety violations—such as buffer overflows, use-after-free
+errors, and invalid frees—at runtime. This article explains the
+fundamentals of memory sanitization in the C programming language,
+focusing on AddressSanitizer (ASan). It details how sanitizers modify
+compiled code through compiler-level binary instrumentation, manage
+shadow memory, and intercept heap allocations to detect and report heap
+corruption immediately when it occurs.</p>
+<h2 id="what-are-memory-sanitizers">What Are Memory Sanitizers?</h2>
+<p>In standard C, memory management is manual. Functions like
+<code>malloc()</code>, <code>calloc()</code>, and <code>free()</code>
+allocate and release chunks on the heap, but the runtime provides no
+native bounds checking or lifecycle tracking. As a result, programming
+errors such as writing past the boundary of an allocated block (heap
+buffer overflow) or accessing memory that has already been deallocated
+(use-after-free) often go unnoticed until undefined behavior crashes the
+program or introduces a security vulnerability.</p>
+<p>Memory sanitizers bridge this gap. Rather than relying on purely
+static analysis, tools like AddressSanitizer combine compile-time
+instrumentation with a dedicated runtime library to actively monitor
+memory access patterns during execution, failing fast the moment illegal
+access occurs.</p>
+<h2 id="how-sanitizers-rewrite-code-and-binaries">How Sanitizers Rewrite
+Code and Binaries</h2>
+<p>Memory sanitizers do not typically disassemble and modify existing
+compiled machine code in a post-processing step; instead, they operate
+as optimization and transformation passes during compilation (such as
+inside LLVM/Clang or GCC). The compiler rewrites the program's
+Intermediate Representation (IR) before emitting machine code,
+fundamentally altering how heap operations and memory accesses are
+executed.</p>
+<p>This transformation relies on three core mechanisms:</p>
+<h3 id="1-shadow-memory-architecture">1. Shadow Memory Architecture</h3>
+<p>The sanitizer maps the entire virtual address space of the
+application to a dedicated region called "shadow memory." A fixed scale
+and offset are used to map every 8 bytes of regular application memory
+to 1 byte of shadow memory:</p>
+<p><span class="math display">\[\text{ShadowAddress} =
+(\text{AppAddress} \gg 3) + \text{Offset}\]</span></p>
+<p>The value stored in that single shadow byte indicates the state of
+the corresponding 8 application bytes:</p>
+<ul>
+<li><strong>0:</strong> All 8 bytes are unpoisoned (valid and
+addressable).</li>
+<li><strong><span class="math inline">\(k\)</span> (where <span
+class="math inline">\(1 \le k \le 7\)</span>):</strong> The first <span
+class="math inline">\(k\)</span> bytes are valid; the remaining <span
+class="math inline">\(8 - k\)</span> bytes are poisoned
+(inaccessible).</li>
+<li><strong>Negative value:</strong> All 8 bytes are poisoned due to a
+specific reason (e.g., heap redzone, freed memory, stack redzone).</li>
+</ul>
+<h3 id="2-redzones-and-heap-allocation-interception">2. Redzones and
+Heap Allocation Interception</h3>
+<p>The sanitizer's runtime library overrides the default standard C
+library allocators (<code>malloc</code>, <code>calloc</code>,
+<code>realloc</code>, <code>free</code>).</p>
+<p>When an application calls <code>malloc(size)</code>:</p>
+<ol type="1">
+<li>The custom allocator requests additional memory to surround the
+requested buffer with "redzones"—inaccessible padding placed immediately
+before and after the allocated block.</li>
+<li>The memory corresponding to the usable buffer is marked as
+unpoisoned in the shadow memory.</li>
+<li>The memory corresponding to the redzones is explicitly poisoned in
+the shadow memory.</li>
+<li>The allocator returns a pointer to the start of the valid buffer,
+hiding the redzones from the application logic.</li>
+</ol>
+<p>When the application calls <code>free(ptr)</code>:</p>
+<ol type="1">
+<li>The memory region is not immediately returned to the operating
+system or made available for reuse.</li>
+<li>The entire region is marked as poisoned (specifically tagged as
+"freed memory") in the shadow memory.</li>
+<li>The chunk is placed into a quarantine queue (a FIFO buffer),
+preventing immediate reallocation so that dangling pointers cannot
+inadvertently read newly assigned data.</li>
+</ol>
+<h3 id="3-memory-access-instrumentation">3. Memory Access
+Instrumentation</h3>
+<p>For every memory read (load) and write (store) instruction in the C
+source code, the compiler inserts an inline validation check prior to
+the access.</p>
+<p>For instance, an instruction like:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="op">*</span>address <span class="op">=</span> value<span class="op">;</span></span></code></pre></div>
+<p>is rewritten at the machine-instruction level to check the shadow
+memory first:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>byte <span class="op">*</span>shadow_address <span class="op">=</span> <span class="op">(</span>address <span class="op">&gt;&gt;</span> <span class="dv">3</span><span class="op">)</span> <span class="op">+</span> Offset<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(*</span>shadow_address <span class="op">!=</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>IsPoisoned<span class="op">(</span>shadow_address<span class="op">,</span> address<span class="op">))</span> <span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        ReportCrashAndTerminate<span class="op">(</span>address<span class="op">);</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="op">*</span>address <span class="op">=</span> value<span class="op">;</span></span></code></pre></div>
+<p>Because the address translation requires only a bit-shift and an
+addition, and the validation requires a single byte load and comparison,
+this inline check executes with minimal performance overhead relative to
+interpreted memory checkers.</p>
+<h2 id="catching-heap-corruption-in-practice">Catching Heap Corruption
+in Practice</h2>
+<p>With instrumentation and shadow memory in place, detecting heap
+corruption becomes deterministic:</p>
+<ul>
+<li><strong>Heap Buffer Overflow:</strong> If an array index exceeds its
+allocated bounds, the pointer increments into the post-allocation
+redzone. When the instrumented load/store executes, it checks the shadow
+byte corresponding to the redzone address. The check reveals the byte is
+poisoned, causing the runtime to intercept execution, print a detailed
+memory layout showing the overflow offset, and safely terminate the
+program.</li>
+<li><strong>Use-After-Free:</strong> If a pointer references memory that
+was passed to <code>free()</code>, the quarantined block's shadow bytes
+remain poisoned. Any subsequent read or write through the dangling
+pointer trips the instrumentation check, pinpointing the exact line
+where the stale reference was used, alongside stack traces for both the
+allocation and deallocation sites.</li>
+</ul>
+<p>Through this combination of compiler-driven instruction rewriting,
+poisoned boundary padding, and direct shadow-memory indexing, memory
+sanitizers turn subtle, delayed heap corruption bugs into immediate,
+reproducible, and debuggable events.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

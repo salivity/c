@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Prevent DLL Hijacking in C - c</title>
+    <meta name="description" content="Dynamic-link library (DLL) hijacking and library injection occur when an application loads a malicious DLL from an untrusted location instead of the intended system or application library. In C programming on Windows, preventing these vulnerabilities req">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-to-prevent-dll-hijacking-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Prevent DLL Hijacking in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-to-prevent-dll-hijacking-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Dynamic-link library (DLL) hijacking and library injection occur when an application loads a malicious DLL from an untrusted location instead of the intended system or application library. In C programming on Windows, preventing these vulnerabilities req" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-prevent-dll-hijacking-in-c">How to Prevent DLL Hijacking
+in C</h1>
+<p>Dynamic-link library (DLL) hijacking and library injection occur when
+an application loads a malicious DLL from an untrusted location instead
+of the intended system or application library. In C programming on
+Windows, preventing these vulnerabilities requires developers to bypass
+insecure default search orders, sanitize dynamic loading calls, and
+restrict the process-wide library search path. By enforcing absolute
+paths, utilizing secure API flags with <code>LoadLibraryEx</code>,
+stripping the current working directory from the search order, and
+validating digital signatures, C applications can effectively mitigate
+DLL hijacking risks.</p>
+<h3
+id="remove-the-current-working-directory-from-the-search-order">Remove
+the Current Working Directory from the Search Order</h3>
+<p>By default, Windows applications may include the current working
+directory (CWD) in the library search order. If an attacker places a
+malicious DLL in a directory containing documents that the application
+opens, the application might load the attacker's DLL.</p>
+<p>To eliminate the current working directory from the search path at
+runtime, call <code>SetDllDirectory</code> with an empty string during
+application startup:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;windows.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> SecureSearchPath<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Passing an empty string removes the current directory from the DLL search path</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(!</span>SetDllDirectoryA<span class="op">(</span><span class="st">&quot;&quot;</span><span class="op">))</span> <span class="op">{</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Handle error</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="enforce-modern-default-search-paths">Enforce Modern Default
+Search Paths</h3>
+<p>For Windows 8, Windows Server 2012, and newer systems (or older
+systems with KB2533623), the Windows API provides
+<code>SetDefaultDllDirectories</code>. This function sets a strict
+search order across the entire process:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;windows.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> SetStrictDllSearchOrder<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Restrict DLL lookups to System32, the application directory, and user-specified directories</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    DWORD flags <span class="op">=</span> LOAD_LIBRARY_SEARCH_SYSTEM32 <span class="op">|</span> LOAD_LIBRARY_SEARCH_APPLICATION_DIR<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(!</span>SetDefaultDllDirectories<span class="op">(</span>flags<span class="op">))</span> <span class="op">{</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Handle initialization failure</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>By setting these flags, the application ignores the current working
+directory and the system <code>PATH</code> environment variable unless
+explicitly allowed.</p>
+<h3 id="use-loadlibraryex-instead-of-loadlibrary">Use
+<code>LoadLibraryEx</code> Instead of <code>LoadLibrary</code></h3>
+<p>Avoid using standard <code>LoadLibrary</code> or
+<code>LoadLibraryA</code>/<code>LoadLibraryW</code> when dynamically
+loading libraries, as these functions rely on the legacy DLL search
+order. Instead, use <code>LoadLibraryEx</code> with specific
+search-order flags.</p>
+<h4 id="1-loading-system-libraries">1. Loading System Libraries</h4>
+<p>When loading built-in operating system libraries, force the loader to
+check only the Windows system directory:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;windows.h&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>HMODULE LoadSystemModule<span class="op">(</span>LPCWSTR dllName<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> LoadLibraryExW<span class="op">(</span>dllName<span class="op">,</span> NULL<span class="op">,</span> LOAD_LIBRARY_SEARCH_SYSTEM32<span class="op">);</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h4 id="2-using-fully-qualified-absolute-paths">2. Using Fully Qualified
+Absolute Paths</h4>
+<p>When loading custom application modules, compute the full, canonical
+path programmatically using the application's executable directory
+rather than relying on relative paths:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;windows.h&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;strsafe.h&gt;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>HMODULE LoadApplicationModule<span class="op">(</span>LPCWSTR dllRelativeName<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    WCHAR fullPath<span class="op">[</span>MAX_PATH<span class="op">];</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    DWORD length <span class="op">=</span> GetModuleFileNameW<span class="op">(</span>NULL<span class="op">,</span> fullPath<span class="op">,</span> MAX_PATH<span class="op">);</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>length <span class="op">==</span> <span class="dv">0</span> <span class="op">||</span> length <span class="op">&gt;=</span> MAX_PATH<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> NULL<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Strip the executable name to obtain the application directory</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    WCHAR <span class="op">*</span>lastBackslash <span class="op">=</span> wcsrchr<span class="op">(</span>fullPath<span class="op">,</span> <span class="ch">L&#39;</span><span class="sc">\\</span><span class="ch">&#39;</span><span class="op">);</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(!</span>lastBackslash<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> NULL<span class="op">;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">*(</span>lastBackslash <span class="op">+</span> <span class="dv">1</span><span class="op">)</span> <span class="op">=</span> <span class="ch">L&#39;</span><span class="sc">\0</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Append the DLL name</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>FAILED<span class="op">(</span>StringCchCatW<span class="op">(</span>fullPath<span class="op">,</span> MAX_PATH<span class="op">,</span> dllRelativeName<span class="op">)))</span> <span class="op">{</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> NULL<span class="op">;</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Load explicitly from the verified absolute path</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> LoadLibraryExW<span class="op">(</span>fullPath<span class="op">,</span> NULL<span class="op">,</span> LOAD_WITH_ALTERED_SEARCH_PATH<span class="op">);</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="secure-third-party-dependency-directories">Secure Third-Party
+Dependency Directories</h3>
+<p>If an application depends on libraries located in dedicated
+subdirectories, explicitly register those directories using
+<code>AddDllDirectory</code> instead of modifying the system
+<code>PATH</code>:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;windows.h&gt;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>DLL_DIRECTORY_COOKIE RegisterSecureDirectory<span class="op">(</span>PCWSTR dirPath<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Must be used after SetDefaultDllDirectories has been called</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> AddDllDirectory<span class="op">(</span>dirPath<span class="op">);</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="validate-digital-signatures-before-execution">Validate Digital
+Signatures Before Execution</h3>
+<p>For environments requiring high security, verify the authenticity of
+a dynamic library before calling <code>LoadLibraryEx</code>. Windows
+provides the <code>WinVerifyTrust</code> API to check whether a binary
+has been signed with a trusted certificate:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;windows.h&gt;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;softpub.h&gt;</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;wincrypt.h&gt;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;wintrust.h&gt;</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="pp">#pragma comment(lib, &quot;wintrust.lib&quot;)</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>BOOL VerifyEmbeddedSignature<span class="op">(</span>LPCWSTR filePath<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    WINTRUST_FILE_INFO fileData <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span> <span class="op">};</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>    fileData<span class="op">.</span>cbStruct <span class="op">=</span> <span class="kw">sizeof</span><span class="op">(</span>WINTRUST_FILE_INFO<span class="op">);</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>    fileData<span class="op">.</span>pcwszFilePath <span class="op">=</span> filePath<span class="op">;</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    WINTRUST_DATA trustData <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span> <span class="op">};</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>    trustData<span class="op">.</span>cbStruct <span class="op">=</span> <span class="kw">sizeof</span><span class="op">(</span>WINTRUST_DATA<span class="op">);</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>    trustData<span class="op">.</span>dwUIChoice <span class="op">=</span> WTD_UI_NONE<span class="op">;</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>    trustData<span class="op">.</span>fdwRevocationChecks <span class="op">=</span> WTD_REVOKE_WHOLECHAIN<span class="op">;</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>    trustData<span class="op">.</span>dwUnionChoice <span class="op">=</span> WTD_CHOICE_FILE<span class="op">;</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>    trustData<span class="op">.</span>pFile <span class="op">=</span> <span class="op">&amp;</span>fileData<span class="op">;</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>    trustData<span class="op">.</span>dwStateAction <span class="op">=</span> WTD_STATEACTION_VERIFY<span class="op">;</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>    GUID policyGuid <span class="op">=</span> WINTRUST_ACTION_GENERIC_VERIFY_V2<span class="op">;</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>    LONG status <span class="op">=</span> WinVerifyTrust<span class="op">(</span>NULL<span class="op">,</span> <span class="op">&amp;</span>policyGuid<span class="op">,</span> <span class="op">&amp;</span>trustData<span class="op">);</span></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Clean up state</span></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>    trustData<span class="op">.</span>dwStateAction <span class="op">=</span> WTD_STATEACTION_CLOSE<span class="op">;</span></span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a>    WinVerifyTrust<span class="op">(</span>NULL<span class="op">,</span> <span class="op">&amp;</span>policyGuid<span class="op">,</span> <span class="op">&amp;</span>trustData<span class="op">);</span></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">(</span>status <span class="op">==</span> ERROR_SUCCESS<span class="op">);</span></span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="summary-of-implementation-best-practices">Summary of
+Implementation Best Practices</h3>
+<ol type="1">
+<li>Invoke <code>SetDefaultDllDirectories</code> at the very beginning
+of the <code>main</code> or <code>WinMain</code> function.</li>
+<li>Replace all occurrences of <code>LoadLibrary</code> with
+<code>LoadLibraryEx</code> paired with
+<code>LOAD_LIBRARY_SEARCH_SYSTEM32</code> or absolute path
+controls.</li>
+<li>Avoid relative paths when referencing dependencies in runtime
+configurations.</li>
+<li>Ensure build manifests do not declare weak load dependencies.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

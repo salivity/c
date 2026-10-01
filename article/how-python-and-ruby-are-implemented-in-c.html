@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Python and Ruby Are Implemented in C - c</title>
+    <meta name="description" content="Python and Ruby are beloved for their human-friendly syntax and dynamic flexibility, yet their primary reference implementations—CPython and CRuby (MRI)—are built entirely in C. This article explores how these runtimes bridge the gap between dynamic">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-python-and-ruby-are-implemented-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Python and Ruby Are Implemented in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-python-and-ruby-are-implemented-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Python and Ruby are beloved for their human-friendly syntax and dynamic flexibility, yet their primary reference implementations—CPython and CRuby (MRI)—are built entirely in C. This article explores how these runtimes bridge the gap between dynamic" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-python-and-ruby-are-implemented-in-c">How Python and Ruby
+Are Implemented in C</h1>
+<p>Python and Ruby are beloved for their human-friendly syntax and
+dynamic flexibility, yet their primary reference implementations—CPython
+and CRuby (MRI)—are built entirely in C. This article explores how these
+runtimes bridge the gap between dynamic code and hardware execution by
+examining their virtual machine architectures, dynamic type systems,
+bytecode compilation pipelines, and underlying memory management
+models.</p>
+<h3 id="source-code-to-bytecode-compilation">Source Code to Bytecode
+Compilation</h3>
+<p>Neither Python nor Ruby executes raw source text directly. Instead,
+both runtimes use standard compiler pipelines implemented in C to
+transform high-level scripts into compact, intermediate instructions
+called bytecode.</p>
+<ol type="1">
+<li><strong>Tokenization and Parsing:</strong> The runtime reads the
+source file, converts characters into tokens using lexical analyzers,
+and builds an Abstract Syntax Tree (AST).</li>
+<li><strong>Bytecode Generation:</strong> A C-based compiler traverses
+the AST and translates it into an array of bytecode instructions
+designed specifically for the runtime’s internal virtual machine. In
+CPython, this produces <code>.pyc</code> files or in-memory code objects
+(<code>PyCodeObject</code>). In CRuby, this targets the YARV (Yet
+Another Ruby VM) instruction set.</li>
+</ol>
+<h3 id="the-virtual-machine-evaluation-loop">The Virtual Machine
+Evaluation Loop</h3>
+<p>At the heart of both CPython and CRuby lies a stack-based virtual
+machine written in C. The core engine is conceptually simple: a massive,
+highly optimized dispatch loop (traditionally an infinite loop
+containing a large <code>switch</code> statement or computed
+<code>goto</code> table).</p>
+<ul>
+<li><strong>CPython (<code>ceval.c</code>):</strong> The function
+<code>_PyEval_EvalFrameDefault</code> fetches bytecode opcodes one by
+one. If it encounters <code>BINARY_ADD</code>, the C code pops two
+operands off Python's value stack, calls the internal C addition logic,
+and pushes the result back onto the stack.</li>
+<li><strong>CRuby (<code>vm_eval.c</code> /
+<code>insns.def</code>):</strong> YARV operates similarly, reading
+dynamic instructions and dispatching tasks to dedicated C routines that
+manipulate local frames and call stacks.</li>
+</ul>
+<p>Because hardware processors cannot read Python or Ruby instructions
+directly, the C execution loop acts as an intermediary processor
+simulated entirely in software.</p>
+<h3 id="dynamic-typing-through-c-structs">Dynamic Typing Through C
+Structs</h3>
+<p>C is statically typed, but Python and Ruby are dynamically typed. To
+handle dynamic values, both runtimes represent every user-facing object
+using C structures and pointer tagging.</p>
+<ul>
+<li><strong>CPython's <code>PyObject</code>:</strong> Every Python
+object begins with a base C struct called <code>PyObject</code>. This
+struct contains two critical fields: a reference count (for memory
+management) and a pointer to a <code>PyTypeObject</code>. The type
+object holds function pointers to the appropriate behaviors for that
+type (such as how to add, stringify, or hash the object). When executing
+<code>a + b</code>, CPython checks the type descriptor in
+<code>a</code>'s C struct to invoke the corresponding C function.</li>
+<li><strong>Ruby's <code>VALUE</code> and <code>RBasic</code>:</strong>
+CRuby represents all objects as a single C type called
+<code>VALUE</code>, which is an integer pointer width. Small integers
+(Fixnums), <code>nil</code>, <code>true</code>, and symbols are stored
+immediately inside the pointer itself using bit-flagging (tagged
+pointers) to avoid heap allocation. Complex objects point to an
+<code>RBasic</code> struct that contains operational flags and a pointer
+to the object's class (<code>RClass</code>).</li>
+</ul>
+<h3 id="memory-management-and-garbage-collection">Memory Management and
+Garbage Collection</h3>
+<p>High-level developers do not manually manage memory via
+<code>malloc</code> and <code>free</code>; instead, the C runtimes
+manage heap allocations automatically.</p>
+<ul>
+<li><strong>Reference Counting and Cyclic GC (CPython):</strong> CPython
+primarily tracks object lifetimes using reference counts embedded in
+<code>PyObject</code>. When a reference count drops to zero, the runtime
+immediately calls C's <code>free()</code> (or its custom allocator,
+<code>PyObject_Free</code>). To detect reference cycles (e.g., Object A
+pointing to Object B and vice versa), a secondary cycle-detecting
+garbage collector periodically traverses object graphs in C.</li>
+<li><strong>Mark-and-Sweep (CRuby):</strong> CRuby relies on a tracing
+garbage collector. When memory needs to be reclaimed, the runtime halts
+execution to "mark" all live objects reachable from global tables, the C
+call stack, and local execution frames. Afterward, it sweeps through the
+object space, freeing memory occupied by unflagged objects.</li>
+</ul>
+<h3 id="native-system-access-and-c-extensions">Native System Access and
+C Extensions</h3>
+<p>Implementing runtimes in C grants high-level languages unrestricted
+access to operating system system calls (POSIX, Windows API) and
+hardware primitives. Both Python and Ruby expose this interface outward,
+allowing developers to write native extension modules in C. When
+performance bottlenecks arise, high-level code can seamlessly call
+compiled C functions directly, maintaining the rapid development speed
+of dynamic scripting with the execution performance of bare-metal C.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

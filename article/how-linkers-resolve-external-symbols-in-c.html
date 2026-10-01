@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Linkers Resolve External Symbols in C - c</title>
+    <meta name="description" content="When compiling a multi-file C program, each source file is translated independently into an object file containing machine code, data, and a symbol table. The linker's role is to merge these disjointed object files into a single, cohesive executable by m">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-linkers-resolve-external-symbols-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Linkers Resolve External Symbols in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-linkers-resolve-external-symbols-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="When compiling a multi-file C program, each source file is translated independently into an object file containing machine code, data, and a symbol table. The linker's role is to merge these disjointed object files into a single, cohesive executable by m" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-linkers-resolve-external-symbols-in-c">How Linkers Resolve
+External Symbols in C</h1>
+<p>When compiling a multi-file C program, each source file is translated
+independently into an object file containing machine code, data, and a
+symbol table. The linker's role is to merge these disjointed object
+files into a single, cohesive executable by matching references to
+functions and global variables with their actual definitions. This
+process, known as symbol resolution, relies on symbol tables, predefined
+precedence rules for strong and weak symbols, and an iterative matching
+algorithm that ensures every declared external reference corresponds to
+a single, valid memory address.</p>
+<h3 id="the-role-of-the-symbol-table">The Role of the Symbol Table</h3>
+<p>During the initial compilation phase, the compiler processes each
+translation unit (<code>.c</code> file) in isolation. When it encounters
+a function call or a variable declared with <code>extern</code> that is
+not defined within that file, it cannot determine the memory address.
+Instead of failing, the compiler creates a placeholder in the code and
+registers an entry in the object file's symbol table.</p>
+<p>Each symbol in the table is categorized based on its scope and
+linkage:</p>
+<ul>
+<li><strong>Defined Global Symbols:</strong> Functions and global
+variables initialized within the file that are accessible to other
+modules.</li>
+<li><strong>External (Undefined) Symbols:</strong> Functions and
+variables referenced in the current file but defined elsewhere.</li>
+<li><strong>Local Symbols:</strong> Static functions and variables with
+internal linkage, which the linker ignores during cross-file
+resolution.</li>
+</ul>
+<h3 id="strong-and-weak-symbols">Strong and Weak Symbols</h3>
+<p>To resolve naming conflicts across multiple files, linkers classify
+global symbols as either "strong" or "weak":</p>
+<ul>
+<li><strong>Strong Symbols:</strong> Function definitions and
+initialized global variables (e.g., <code>int count = 1;</code> or
+<code>void process() {}</code>).</li>
+<li><strong>Weak Symbols:</strong> Uninitialized global variables
+(tentative definitions like <code>int count;</code>) and symbols
+explicitly marked with compiler-specific weak attributes.</li>
+</ul>
+<p>The linker resolves conflicts using three standardized rules:</p>
+<ol type="1">
+<li><strong>Multiple strong symbols are prohibited:</strong> If two
+object files define the same strong symbol, the linker halts and outputs
+a "multiple definition" error.</li>
+<li><strong>A strong symbol overrides weak symbols:</strong> If a symbol
+has one strong definition and one or more weak definitions across
+different files, the linker assigns the symbol to the strong
+definition.</li>
+<li><strong>Arbitrary choice among weak symbols:</strong> If only
+multiple weak symbols exist for a given name, the linker picks one
+arbitrarily and discards the rest.</li>
+</ol>
+<h3 id="the-resolution-algorithm">The Resolution Algorithm</h3>
+<p>During static linking, the linker scans input files from left to
+right as specified on the command line. It maintains three dynamic
+sets:</p>
+<ul>
+<li><strong><span class="math inline">\(E\)</span> (Executable
+set):</strong> The collection of object files that will form the final
+binary.</li>
+<li><strong><span class="math inline">\(U\)</span> (Undefined
+set):</strong> The collection of unresolved external symbols that have
+been referenced but not yet matched with a definition.</li>
+<li><strong><span class="math inline">\(D\)</span> (Defined
+set):</strong> The collection of symbols that have been defined by files
+already added to <span class="math inline">\(E\)</span>.</li>
+</ul>
+<p>For each input file:</p>
+<ol type="1">
+<li>If the file is a relocatable object file (<code>.o</code>), the
+linker adds it to <span class="math inline">\(E\)</span>, adds its
+definitions to <span class="math inline">\(D\)</span> (checking for
+strong/weak conflicts), and adds its undefined references to <span
+class="math inline">\(U\)</span>. It then removes any symbols from <span
+class="math inline">\(U\)</span> that are now satisfied by <span
+class="math inline">\(D\)</span>.</li>
+<li>If the file is an archive or static library (<code>.a</code>), the
+linker scans the library's member object files. It only extracts and
+adds an object file to <span class="math inline">\(E\)</span> if that
+specific object file defines a symbol currently listed in <span
+class="math inline">\(U\)</span>. This step repeats until no more
+symbols in <span class="math inline">\(U\)</span> can be resolved by the
+library.</li>
+<li>Once all files are processed, if the set <span
+class="math inline">\(U\)</span> is not empty, the linker terminates
+with an "undefined reference" error.</li>
+</ol>
+<h3 id="relocation">Relocation</h3>
+<p>Resolving symbol names is only the first half of the linker's task.
+Once every external symbol in <span class="math inline">\(U\)</span> is
+paired with a definition in <span class="math inline">\(D\)</span>, the
+linker performs relocation. It merges matching sections (such as
+<code>.text</code> for code and <code>.data</code> for initialized
+variables) from all object files into continuous runtime memory
+segments. Finally, the linker revisits the temporary placeholders left
+by the compiler and patches them with the actual virtual memory
+addresses of the resolved symbols.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

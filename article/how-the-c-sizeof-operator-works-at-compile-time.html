@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How the C Sizeof Operator Works at Compile Time - c</title>
+    <meta name="description" content="In the C programming language, the sizeof operator is a fundamental tool that evaluates the memory footprint of types and expressions directly during the compilation phase. This article explores the internal mechanics of sizeof, explaining how the compil">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-the-c-sizeof-operator-works-at-compile-time">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How the C Sizeof Operator Works at Compile Time - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-the-c-sizeof-operator-works-at-compile-time" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, the sizeof operator is a fundamental tool that evaluates the memory footprint of types and expressions directly during the compilation phase. This article explores the internal mechanics of sizeof, explaining how the compil" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-the-c-sizeof-operator-works-at-compile-time">How the C
+Sizeof Operator Works at Compile Time</h1>
+<p>In the C programming language, the <code>sizeof</code> operator is a
+fundamental tool that evaluates the memory footprint of types and
+expressions directly during the compilation phase. This article explores
+the internal mechanics of <code>sizeof</code>, explaining how the
+compiler determines memory sizes using type metadata, platform-specific
+Application Binary Interfaces (ABIs), and struct padding rules without
+executing runtime code, along with the single exception involving
+variable-length arrays.</p>
+<h3 id="static-type-analysis">Static Type Analysis</h3>
+<p>The C compiler processes <code>sizeof</code> entirely during semantic
+analysis rather than at runtime. When the compiler encounters
+<code>sizeof(expression)</code> or <code>sizeof(type)</code>, it
+analyzes the type signature without emitting instructions to evaluate
+the expression itself. For example, in an expression like
+<code>sizeof(x++)</code>, the increment operation is never converted
+into executable machine code. The compiler checks the type of
+<code>x</code> in its symbol table, determines the number of bytes
+required by that type, and immediately substitutes the entire
+<code>sizeof</code> expression with an integer constant representing the
+byte count.</p>
+<h3 id="architecture-and-data-models">Architecture and Data Models</h3>
+<p>The numerical value returned by <code>sizeof</code> is determined by
+the target architecture's Data Model and ABI specifications. Because the
+C standard only guarantees minimum size relationships (such as
+<code>sizeof(char) &lt;= sizeof(short) &lt;= sizeof(int) &lt;= sizeof(long)</code>),
+the compiler relies on built-in configuration tables for the target
+platform. For instance:</p>
+<ul>
+<li><strong>ILP32 systems:</strong> Pointers, <code>int</code>, and
+<code>long</code> types are defined as 32 bits (4 bytes).</li>
+<li><strong>LP64 systems:</strong> <code>long</code> and pointer types
+are defined as 64 bits (8 bytes), while <code>int</code> remains 32 bits
+(4 bytes).</li>
+<li><strong>LLP64 systems:</strong> <code>long long</code> and pointer
+types are 64 bits (8 bytes), while <code>long</code> and
+<code>int</code> are 32 bits (4 bytes).</li>
+</ul>
+<p>Because the compilation target is defined prior to code generation,
+the compiler knows the exact widths of all primitive types and pointer
+addresses statically.</p>
+<h3 id="structure-layout-and-alignment-padding">Structure Layout and
+Alignment Padding</h3>
+<p>Calculating the footprint of aggregate types (<code>struct</code> and
+<code>union</code>) requires the compiler to calculate memory alignment
+constraints alongside raw member sizes. Hardware architectures read and
+write memory more efficiently when data addresses are aligned to
+multiples of the data size (e.g., a 4-byte integer aligned to a 4-byte
+boundary).</p>
+<p>When evaluating <code>sizeof(struct Example)</code>, the compiler
+performs the following steps:</p>
+<ol type="1">
+<li>Iterates sequentially through each member's declared type.</li>
+<li>Inserts invisible padding bytes before members that do not align
+naturally with their required offsets.</li>
+<li>Appends trailing padding bytes at the end of the structure so that
+in an array of structures, subsequent elements maintain proper
+alignment.</li>
+</ol>
+<p>For <code>union</code> types, the compiler calculates the footprint
+by identifying the largest individual member and adding trailing
+padding, if necessary, to ensure the union satisfies the strictest
+alignment requirement among its fields.</p>
+<h3 id="array-footprint-calculations">Array Footprint Calculations</h3>
+<p>For standard fixed-size arrays, the compiler computes the memory
+footprint using a direct mathematical formula: the declared number of
+elements multiplied by the size of the underlying type. Because both the
+array bound and the element type must be known at compile time,
+expressions like <code>sizeof(int[10])</code> resolve immediately to
+<code>10 * sizeof(int)</code>.</p>
+<h3 id="the-runtime-exception-variable-length-arrays">The Runtime
+Exception: Variable-Length Arrays</h3>
+<p>Introduced in C99, Variable-Length Arrays (VLAs) represent the only
+situation where <code>sizeof</code> does not resolve at compile time.
+When <code>sizeof</code> operates on an array whose bounds are defined
+by a runtime variable, such as <code>int arr[n]</code>, the compiler
+cannot determine the allocation size ahead of time. In this case, the
+compiler generates machine instructions that read the value of
+<code>n</code> at runtime, multiply it by <code>sizeof(int)</code>, and
+produce the result dynamically. In all other scenarios involving
+fixed-size types and variables, <code>sizeof</code> remains purely a
+compile-time constant.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

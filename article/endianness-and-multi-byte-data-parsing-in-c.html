@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Endianness and Multi-Byte Data Parsing in C - c</title>
+    <meta name="description" content="When transmitting multi-byte data across a network, differences in how computer architectures store binary data in memory can lead to data corruption. In the C programming language, writing portable network software requires understanding the distinction">
+    <link rel="canonical" href="https://salivity.github.io/c/article/endianness-and-multi-byte-data-parsing-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Endianness and Multi-Byte Data Parsing in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/endianness-and-multi-byte-data-parsing-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="When transmitting multi-byte data across a network, differences in how computer architectures store binary data in memory can lead to data corruption. In the C programming language, writing portable network software requires understanding the distinction" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="endianness-and-multi-byte-data-parsing-in-c">Endianness and
+Multi-Byte Data Parsing in C</h1>
+<p>When transmitting multi-byte data across a network, differences in
+how computer architectures store binary data in memory can lead to data
+corruption. In the C programming language, writing portable network
+software requires understanding the distinction between the host
+machine's native byte order and the standardized network byte order.
+Without explicit conversion during serialization and parsing, multi-byte
+values such as integers and floating-point numbers will be read
+backwards on systems with differing internal architectures, corrupting
+protocol headers and payload data.</p>
+<h2 id="understanding-endianness-and-network-byte-order">Understanding
+Endianness and Network Byte Order</h2>
+<p>Endianness defines the sequential order in which bytes of a
+multi-byte word are stored in computer memory. The two dominant formats
+are:</p>
+<ul>
+<li><strong>Little-Endian:</strong> The least significant byte (LSB) is
+stored at the lowest memory address. This is standard on modern x86,
+x64, and most ARM architectures.</li>
+<li><strong>Big-Endian:</strong> The most significant byte (MSB) is
+stored at the lowest memory address.</li>
+</ul>
+<p>The Internet Protocol suite mandates big-endian as the standard
+<strong>Network Byte Order</strong>. If a little-endian machine sends a
+32-bit integer (e.g., <code>0x12345678</code>) directly from memory to
+the wire, the bytes are transmitted in the sequence
+<code>78 56 34 12</code>. If a big-endian recipient reads this sequence
+without transformation, it interprets the value as
+<code>0x78563412</code>, resulting in an incorrect value.</p>
+<h2 id="the-risks-of-direct-buffer-casting">The Risks of Direct Buffer
+Casting</h2>
+<p>A common anti-pattern in C network programming involves casting a raw
+network receive buffer directly into a structured type:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Header <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint16_t</span> packet_id<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint32_t</span> payload_len<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Dangerous: Assumes host endianness matches wire format</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Header <span class="op">*</span>hdr <span class="op">=</span> <span class="op">(</span><span class="kw">struct</span> Header <span class="op">*)</span>network_buffer<span class="op">;</span></span></code></pre></div>
+<p>While convenient, this approach fails portability requirements for
+two reasons:</p>
+<ol type="1">
+<li><strong>Endian Mismatch:</strong> If the host is little-endian,
+multi-byte fields such as <code>packet_id</code> and
+<code>payload_len</code> are parsed in reverse order.</li>
+<li><strong>Memory Alignment:</strong> Different architectures enforce
+strict memory alignment rules. Casting unaligned byte buffers to
+multi-byte structures can trigger hardware alignment faults or
+performance penalties.</li>
+</ol>
+<h2 id="portable-parsing-techniques-in-c">Portable Parsing Techniques in
+C</h2>
+<p>To ensure portability across all CPU architectures, C developers
+utilize standard conversion utilities or explicit byte-shifting
+techniques.</p>
+<h3 id="1-using-standard-conversion-functions">1. Using Standard
+Conversion Functions</h3>
+<p>POSIX systems and the standard socket APIs provide conversion macros
+that translate data between Host Byte Order and Network Byte Order:</p>
+<ul>
+<li><code>ntohs()</code>: Network to Host Short (16-bit)</li>
+<li><code>htons()</code>: Host to Network Short (16-bit)</li>
+<li><code>ntohl()</code>: Network to Host Long (32-bit)</li>
+<li><code>htonl()</code>: Host to Network Long (32-bit)</li>
+</ul>
+<p>On big-endian systems, these functions evaluate to no-ops. On
+little-endian systems, they swap the byte order. For 64-bit integers,
+modern platforms provide non-standard or platform-specific extensions
+like <code>be64toh()</code> and <code>htobe64()</code> (found in
+<code>&lt;endian.h&gt;</code> on Linux).</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">uint16_t</span> raw_id<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="dt">uint32_t</span> raw_len<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>memcpy<span class="op">(&amp;</span>raw_id<span class="op">,</span> network_buffer<span class="op">,</span> <span class="kw">sizeof</span><span class="op">(</span>raw_id<span class="op">));</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>memcpy<span class="op">(&amp;</span>raw_len<span class="op">,</span> network_buffer <span class="op">+</span> <span class="dv">2</span><span class="op">,</span> <span class="kw">sizeof</span><span class="op">(</span>raw_len<span class="op">));</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="dt">uint16_t</span> packet_id <span class="op">=</span> ntohs<span class="op">(</span>raw_id<span class="op">);</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="dt">uint32_t</span> payload_len <span class="op">=</span> ntohl<span class="op">(</span>raw_len<span class="op">);</span></span></code></pre></div>
+<h3 id="2-manual-byte-shifting-endian-independent-parsing">2. Manual
+Byte Shifting (Endian-Independent Parsing)</h3>
+<p>The most robust and portable method to unpack binary streams in C is
+using bitwise operators. Bit-shift operations in C operate on logical
+values rather than physical memory layouts, making the code completely
+independent of host endianness:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Unpacking a 32-bit big-endian integer from a byte stream</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">uint32_t</span> parse_uint32_be<span class="op">(</span><span class="dt">const</span> <span class="dt">uint8_t</span> <span class="op">*</span>buf<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">((</span><span class="dt">uint32_t</span><span class="op">)</span>buf<span class="op">[</span><span class="dv">0</span><span class="op">]</span> <span class="op">&lt;&lt;</span> <span class="dv">24</span><span class="op">)</span> <span class="op">|</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>           <span class="op">((</span><span class="dt">uint32_t</span><span class="op">)</span>buf<span class="op">[</span><span class="dv">1</span><span class="op">]</span> <span class="op">&lt;&lt;</span> <span class="dv">16</span><span class="op">)</span> <span class="op">|</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>           <span class="op">((</span><span class="dt">uint32_t</span><span class="op">)</span>buf<span class="op">[</span><span class="dv">2</span><span class="op">]</span> <span class="op">&lt;&lt;</span> <span class="dv">8</span><span class="op">)</span>  <span class="op">|</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>           <span class="op">((</span><span class="dt">uint32_t</span><span class="op">)</span>buf<span class="op">[</span><span class="dv">3</span><span class="op">]);</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Packing a 32-bit integer into big-endian format</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> serialize_uint32_be<span class="op">(</span><span class="dt">uint8_t</span> <span class="op">*</span>buf<span class="op">,</span> <span class="dt">uint32_t</span> val<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    buf<span class="op">[</span><span class="dv">0</span><span class="op">]</span> <span class="op">=</span> <span class="op">(</span><span class="dt">uint8_t</span><span class="op">)(</span>val <span class="op">&gt;&gt;</span> <span class="dv">24</span><span class="op">);</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    buf<span class="op">[</span><span class="dv">1</span><span class="op">]</span> <span class="op">=</span> <span class="op">(</span><span class="dt">uint8_t</span><span class="op">)(</span>val <span class="op">&gt;&gt;</span> <span class="dv">16</span><span class="op">);</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    buf<span class="op">[</span><span class="dv">2</span><span class="op">]</span> <span class="op">=</span> <span class="op">(</span><span class="dt">uint8_t</span><span class="op">)(</span>val <span class="op">&gt;&gt;</span> <span class="dv">8</span><span class="op">);</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    buf<span class="op">[</span><span class="dv">3</span><span class="op">]</span> <span class="op">=</span> <span class="op">(</span><span class="dt">uint8_t</span><span class="op">)(</span>val<span class="op">);</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>This method eliminates endianness bugs entirely, bypasses structure
+padding issues, and avoids unaligned memory access errors across varied
+hardware platforms.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

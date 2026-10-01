@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How the Linux Kernel Implements OOP in C - c</title>
+    <meta name="description" content="The Linux kernel is written primarily in C, an imperative procedural language, yet it systematically applies core object-oriented programming (OOP) principles—encapsulation, polymorphism, and inheritance. By utilizing structured data types, function po">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-the-linux-kernel-implements-oop-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How the Linux Kernel Implements OOP in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-the-linux-kernel-implements-oop-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Linux kernel is written primarily in C, an imperative procedural language, yet it systematically applies core object-oriented programming (OOP) principles—encapsulation, polymorphism, and inheritance. By utilizing structured data types, function po" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-the-linux-kernel-implements-oop-in-c">How the Linux Kernel
+Implements OOP in C</h1>
+<p>The Linux kernel is written primarily in C, an imperative procedural
+language, yet it systematically applies core object-oriented programming
+(OOP) principles—encapsulation, polymorphism, and inheritance. By
+utilizing structured data types, function pointers, macro-driven type
+conversions, and strict API boundaries, kernel developers achieve
+modularity, code reuse, and clean abstractions. This approach delivers
+the architectural benefits of OOP without the runtime overhead, implicit
+behavior, or name mangling associated with languages like C++.</p>
+<h3 id="encapsulation-and-data-hiding">Encapsulation and Data
+Hiding</h3>
+<p>Encapsulation in the Linux kernel is achieved using standard C
+<code>struct</code> types combined with opaque pointers. The kernel
+separates public interfaces from private implementation details by
+declaring incomplete struct types in public header files and defining
+their internal fields exclusively within specific C source files.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">/* Public header: driver.h */</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> my_device<span class="op">;</span> <span class="co">/* Incomplete type declaration */</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> my_device <span class="op">*</span>my_device_create<span class="op">(</span><span class="dt">void</span><span class="op">);</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> my_device_process<span class="op">(</span><span class="kw">struct</span> my_device <span class="op">*</span>dev<span class="op">);</span></span></code></pre></div>
+<p>External subsystems can only hold and pass around pointers
+(<code>struct my_device *</code>) to this data, preventing direct
+manipulation of internal structure members. All state mutations must
+occur through the explicit functional interface provided by the owning
+subsystem, maintaining strict modular boundaries.</p>
+<h3 id="polymorphism-through-function-pointer-tables">Polymorphism
+Through Function Pointer Tables</h3>
+<p>Polymorphism—the ability to invoke generic interfaces that execute
+specific implementations at runtime—is the foundation of the Linux
+Virtual Filesystem (VFS) and device driver frameworks. The kernel
+achieves this by grouping function pointers into "operations"
+structures, effectively building custom virtual method tables
+(vtables).</p>
+<p>A classic example is <code>struct file_operations</code>:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> file_operations <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">ssize_t</span> <span class="op">(*</span>read<span class="op">)</span> <span class="op">(</span><span class="kw">struct</span> file <span class="op">*,</span> <span class="dt">char</span> __user <span class="op">*,</span> <span class="dt">size_t</span><span class="op">,</span> loff_t <span class="op">*);</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">ssize_t</span> <span class="op">(*</span>write<span class="op">)</span> <span class="op">(</span><span class="kw">struct</span> file <span class="op">*,</span> <span class="dt">const</span> <span class="dt">char</span> __user <span class="op">*,</span> <span class="dt">size_t</span><span class="op">,</span> loff_t <span class="op">*);</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> <span class="op">(*</span>open<span class="op">)</span> <span class="op">(</span><span class="kw">struct</span> inode <span class="op">*,</span> <span class="kw">struct</span> file <span class="op">*);</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> <span class="op">(*</span>release<span class="op">)</span> <span class="op">(</span><span class="kw">struct</span> inode <span class="op">*,</span> <span class="kw">struct</span> file <span class="op">*);</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">/* ... other operations */</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>When a user program issues a <code>read()</code> system call, the VFS
+does not know or care which physical hardware or filesystem holds the
+data. It simply delegates the call via the generic interface:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>file<span class="op">-&gt;</span>f_op<span class="op">-&gt;</span>read<span class="op">)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    ret <span class="op">=</span> file<span class="op">-&gt;</span>f_op<span class="op">-&gt;</span>read<span class="op">(</span>file<span class="op">,</span> buf<span class="op">,</span> count<span class="op">,</span> pos<span class="op">);</span></span></code></pre></div>
+<p>Each hardware driver or filesystem initializes this structure with
+its own specific functions, allowing distinct implementations to satisfy
+identical interfaces seamlessly.</p>
+<h3 id="inheritance-via-struct-embedding">Inheritance via Struct
+Embedding</h3>
+<p>Because C lacks native class extension keywords, the kernel relies on
+composition to model inheritance. Base classes are represented as
+standard structs and embedded directly inside derived structs.</p>
+<p>For instance, the Linux Unified Device Model represents base hardware
+abstractions with <code>struct device</code>. Specific subsystems embed
+this generic structure into specialized types:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">/* Base Class */</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> device <span class="op">{</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> kobject kobj<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> device <span class="op">*</span>parent<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> <span class="op">*</span>driver_data<span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">/* ... generic device attributes */</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="co">/* Derived Class */</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> pci_dev <span class="op">{</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> device dev<span class="op">;</span>       <span class="co">/* Embedded base object */</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">int</span> devfn<span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">short</span> vendor<span class="op">;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">short</span> device<span class="op">;</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">/* ... PCI-specific attributes */</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Because <code>struct device</code> is an embedded member of
+<code>struct pci_dev</code>, any function accepting a generic
+<code>struct device *</code> can operate on the base attributes of a PCI
+device.</p>
+<h3 id="type-recovery-and-downcasting-with-container_of">Type Recovery
+and Downcasting with <code>container_of()</code></h3>
+<p>Inheritance requires a mechanism to cast safely between a base type
+and its derived type. In standard C, casting between pointer types can
+be dangerous if structures are not aligned at offset zero. The Linux
+kernel solves this dynamically using the <code>container_of()</code>
+macro defined in <code>&lt;linux/kernel.h&gt;</code>.</p>
+<p>The macro uses the standard <code>offsetof()</code> macro to
+calculate the exact starting memory address of the enclosing (parent)
+structure based on the address of an internal member:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#define container_of</span><span class="op">(</span><span class="pp">ptr</span><span class="op">,</span><span class="pp"> type</span><span class="op">,</span><span class="pp"> member</span><span class="op">)</span><span class="pp"> </span><span class="op">({</span><span class="pp">                      </span><span class="op">\</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="pp">    </span><span class="dt">const</span><span class="pp"> </span><span class="kw">typeof</span><span class="op">(</span><span class="pp"> </span><span class="op">((</span><span class="pp">type </span><span class="op">*)</span><span class="dv">0</span><span class="op">)-&gt;</span><span class="pp">member </span><span class="op">)</span><span class="pp"> </span><span class="op">*</span><span class="pp">__mptr </span><span class="op">=</span><span class="pp"> </span><span class="op">(</span><span class="pp">ptr</span><span class="op">);</span><span class="pp">    </span><span class="op">\</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="pp">    </span><span class="op">(</span><span class="pp">type </span><span class="op">*)(</span><span class="pp"> </span><span class="op">(</span><span class="dt">char</span><span class="pp"> </span><span class="op">*)</span><span class="pp">__mptr </span><span class="op">-</span><span class="pp"> offsetof</span><span class="op">(</span><span class="pp">type</span><span class="op">,</span><span class="pp">member</span><span class="op">)</span><span class="pp"> </span><span class="op">);})</span></span></code></pre></div>
+<p>If a generic core function receives a pointer to
+<code>struct device *dev</code>, the underlying PCI driver can recover
+its enclosing derived type using:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> pci_dev <span class="op">*</span>pdev <span class="op">=</span> container_of<span class="op">(</span>dev<span class="op">,</span> <span class="kw">struct</span> pci_dev<span class="op">,</span> dev<span class="op">);</span></span></code></pre></div>
+<p>This pattern allows components to be embedded at any offset within a
+parent structure, eliminating memory layout restrictions and providing
+safe, explicit downcasting.</p>
+<h3 id="lifecycle-management-and-destructors">Lifecycle Management and
+Destructors</h3>
+<p>Object lifecycle management in the kernel is centralized around
+<code>struct kref</code> and <code>struct kobject</code>. These
+structures provide atomic reference counting to ensure objects are
+neither leaked nor freed prematurely.</p>
+<p>When an object's reference count drops to zero, a custom
+callback—acting as a virtual destructor—is invoked:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> my_device_release<span class="op">(</span><span class="kw">struct</span> kref <span class="op">*</span>kref<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> my_device <span class="op">*</span>dev <span class="op">=</span> container_of<span class="op">(</span>kref<span class="op">,</span> <span class="kw">struct</span> my_device<span class="op">,</span> ref<span class="op">);</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    kfree<span class="op">(</span>dev<span class="op">);</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="co">/* Decrement reference */</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>kref_put<span class="op">(&amp;</span>dev<span class="op">-&gt;</span>ref<span class="op">,</span> my_device_release<span class="op">);</span></span></code></pre></div>
+<p>Through these idioms—opaque pointers for encapsulation, operations
+tables for polymorphism, composition with <code>container_of()</code>
+for inheritance, and reference counters for deterministic
+destruction—the Linux kernel realizes an efficient, robust
+object-oriented architecture entirely within standard C syntax.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

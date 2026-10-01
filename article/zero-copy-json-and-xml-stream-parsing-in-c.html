@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zero-Copy JSON and XML Stream Parsing in C - c</title>
+    <meta name="description" content="Zero-copy stream parsing in C enables high-throughput processing of large JSON or XML datasets by eliminating redundant heap allocations and memory-copy operations. Instead of duplicating strings and building in-memory abstract syntax trees (ASTs), a zer">
+    <link rel="canonical" href="https://salivity.github.io/c/article/zero-copy-json-and-xml-stream-parsing-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Zero-Copy JSON and XML Stream Parsing in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/zero-copy-json-and-xml-stream-parsing-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Zero-copy stream parsing in C enables high-throughput processing of large JSON or XML datasets by eliminating redundant heap allocations and memory-copy operations. Instead of duplicating strings and building in-memory abstract syntax trees (ASTs), a zer" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="zero-copy-json-and-xml-stream-parsing-in-c">Zero-Copy JSON and
+XML Stream Parsing in C</h1>
+<p>Zero-copy stream parsing in C enables high-throughput processing of
+large JSON or XML datasets by eliminating redundant heap allocations and
+memory-copy operations. Instead of duplicating strings and building
+in-memory abstract syntax trees (ASTs), a zero-copy stream parser reads
+data into contiguous memory chunks and returns pointers directly
+referencing slices within the input buffer. This article details the
+core architectural techniques required to implement an efficient,
+zero-copy, event-driven parser in C, including ring buffer management,
+handling tokens that cross buffer boundaries, in-place string mutation,
+and state machine design.</p>
+<h3
+id="architectural-fundamentals-reference-slices-vs-allocations">Architectural
+Fundamentals: Reference Slices vs. Allocations</h3>
+<p>Traditional parsers allocate separate memory blocks for every parsed
+string, key, and value using functions like <code>malloc()</code> or
+<code>strdup()</code>. Zero-copy parsers avoid this overhead by
+representing text segments via a lightweight slice structure containing
+a pointer to the original buffer and a length counter:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">typedef</span> <span class="kw">struct</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>data<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">size_t</span> length<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> StringSlice<span class="op">;</span></span></code></pre></div>
+<p>When parsing an XML attribute or a JSON string value, the engine
+points <code>data</code> directly to the start byte inside the input
+stream. This approach reduces memory bandwidth consumption, keeps the
+CPU cache warm, and completely removes allocator contention.</p>
+<h3 id="managing-stream-boundaries-with-sliding-windows">Managing Stream
+Boundaries with Sliding Windows</h3>
+<p>Streaming network sockets or disk files deliver data in discrete
+chunks. The primary challenge in zero-copy stream parsing is handling
+tokens that are split across read boundaries (e.g., a long JSON string
+or an XML tag split between two consecutive <code>read()</code>
+calls).</p>
+<p>To maintain zero-copy semantics across chunks, use a sliding window
+or a circular ring buffer:</p>
+<ol type="1">
+<li><strong>Active Region Maintenance</strong>: Read incoming chunks
+into a pre-allocated buffer.</li>
+<li><strong>Shift on Boundary Split</strong>: When a token begins near
+the end of the buffer and reaches the end of the chunk without
+terminating, copy only the incomplete fragment to the start of the
+buffer.</li>
+<li><strong>Refill and Continue</strong>: Read the subsequent chunk
+immediately following the preserved fragment. This ensures that the
+token becomes contiguous in memory, allowing client code to reference it
+using a single pointer and length without allocating intermediate heap
+storage.</li>
+</ol>
+<h3 id="designing-the-push-vs-pull-state-machine">Designing the Push vs.
+Pull State Machine</h3>
+<p>Zero-copy parsers generally avoid Document Object Model (DOM)
+representations in favor of streaming interfaces:</p>
+<ul>
+<li><strong>Push Parsers (SAX-style)</strong>: The parser drives the
+execution loop, emitting callbacks with <code>StringSlice</code>
+parameters whenever tokens (such as element starts, keys, or text nodes)
+are encountered.</li>
+<li><strong>Pull Parsers (StAX-style)</strong>: The consumer calls a
+<code>next_token()</code> function that drives a non-blocking Finite
+State Machine (FSM).</li>
+</ul>
+<p>A pull-based state machine is often preferred in C because it avoids
+function call overhead and integrates naturally into asynchronous event
+loops (e.g., <code>epoll</code> or <code>io_uring</code>). The state
+machine tracks structural nesting using a shallow stack of enumeration
+tags rather than storing full object trees.</p>
+<h3 id="in-place-string-mutation-and-unescaping">In-Place String
+Mutation and Unescaping</h3>
+<p>JSON and XML frequently encode escaped characters, such as
+<code>\n</code>, <code>\"</code>, <code>\uXXXX</code> in JSON or
+<code>&amp;amp;</code>, <code>&amp;lt;</code> in XML. Transforming these
+sequences into their raw byte representations typically requires
+creating a new string.</p>
+<p>Because an unescaped string is guaranteed to be equal to or shorter
+than its escaped representation, you can perform unescaping
+<strong>in-place</strong> directly within the read buffer:</p>
+<ul>
+<li>Maintain two pointers: a read pointer scanning the escaped
+characters and a write pointer updating the buffer in-place.</li>
+<li>Once unescaped, terminate or bound the slice at the final write
+position.</li>
+<li>Note that in-place mutation alters the underlying buffer. If the raw
+input must be retained untouched, store both the original slice and an
+auxiliary decoded slice only when escape sequences are detected.</li>
+</ul>
+<h3 id="leveraging-simd-for-structural-indexing">Leveraging SIMD for
+Structural Indexing</h3>
+<p>State-of-the-art parsers maximize throughput by using SIMD (Single
+Instruction, Multiple Data) vector intrinsics (such as AVX2, AVX-512, or
+ARM NEON) to scan input buffers for structural characters in 32- or
+64-byte blocks.</p>
+<ul>
+<li>In JSON, SIMD masks can locate quotes (<code>"</code>), colons
+(<code>:</code>), commas (<code>,</code>), and braces (<code>{}</code>,
+<code>[]</code>) simultaneously.</li>
+<li>In XML, SIMD searches can rapidly identify opening brackets
+(<code>&lt;</code>), closing brackets (<code>&gt;</code>), and
+whitespace.</li>
+</ul>
+<p>By processing structural delimiters in parallel, the parser skips
+bulk payload text at memory-bus speeds and invokes the state machine
+only when a structural transition occurs.</p>
+<h3 id="pointer-lifetimes-and-memory-safety">Pointer Lifetimes and
+Memory Safety</h3>
+<p>Because string slices point directly to internal I/O buffers,
+consumer code must process or consume each token before the next
+<code>read()</code> operation overwrites the underlying memory. If a
+consumer needs to retain a value beyond the lifetime of the current
+buffer window, it becomes the consumer's explicit responsibility to
+allocate memory and copy the data. Documenting and strictly enforcing
+these buffer lifetimes guarantees high performance without risking
+dangling pointer dereferences.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

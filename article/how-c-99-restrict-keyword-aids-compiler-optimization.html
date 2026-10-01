@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How C99 restrict Keyword Aids Compiler Optimization - c</title>
+    <meta name="description" content="The restrict keyword, introduced in the C99 standard, is a pointer qualifier that informs the compiler that a given pointer is the sole reference to a specific memory block within its scope. By explicitly guaranteeing that no other pointer will access or">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-c-99-restrict-keyword-aids-compiler-optimization">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How C99 restrict Keyword Aids Compiler Optimization - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-c-99-restrict-keyword-aids-compiler-optimization" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The restrict keyword, introduced in the C99 standard, is a pointer qualifier that informs the compiler that a given pointer is the sole reference to a specific memory block within its scope. By explicitly guaranteeing that no other pointer will access or" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-c99-restrict-keyword-aids-compiler-optimization">How C99
+restrict Keyword Aids Compiler Optimization</h1>
+<p>The <code>restrict</code> keyword, introduced in the C99 standard, is
+a pointer qualifier that informs the compiler that a given pointer is
+the sole reference to a specific memory block within its scope. By
+explicitly guaranteeing that no other pointer will access or modify the
+same memory location during the pointer's lifetime, developers eliminate
+the issue of pointer aliasing. This guarantee allows the compiler to
+perform aggressive optimizations—such as caching values in CPU
+registers, reordering memory operations, and vectorizing loops—that
+would otherwise be unsafe.</p>
+<h2 id="the-problem-of-pointer-aliasing">The Problem of Pointer
+Aliasing</h2>
+<p>In standard C, the compiler must assume that any two pointers of the
+same type might point to the exact same location in memory—a situation
+known as pointer aliasing. Because of this possibility, the compiler
+must adopt a conservative optimization strategy.</p>
+<p>Consider a simple function without <code>restrict</code>:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> update_values<span class="op">(</span><span class="dt">int</span> <span class="op">*</span>a<span class="op">,</span> <span class="dt">int</span> <span class="op">*</span>b<span class="op">,</span> <span class="dt">int</span> <span class="op">*</span>val<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>a <span class="op">+=</span> <span class="op">*</span>val<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>b <span class="op">+=</span> <span class="op">*</span>val<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In this scenario, the compiler cannot be certain whether
+<code>a</code> or <code>b</code> points to the same memory address as
+<code>val</code>. If <code>a</code> and <code>val</code> alias each
+other, the modification to <code>*a</code> also modifies
+<code>*val</code>. Consequently, the generated assembly must reload the
+value of <code>*val</code> from memory after modifying <code>*a</code>,
+resulting in redundant memory read operations and stalled execution
+pipelines.</p>
+<h2 id="how-the-restrict-keyword-solves-aliasing">How the
+<code>restrict</code> Keyword Solves Aliasing</h2>
+<p>Applying the <code>restrict</code> qualifier creates a formal
+contract between the developer and the compiler:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> update_values<span class="op">(</span><span class="dt">int</span> <span class="op">*</span><span class="dt">restrict</span> a<span class="op">,</span> <span class="dt">int</span> <span class="op">*</span><span class="dt">restrict</span> b<span class="op">,</span> <span class="dt">int</span> <span class="op">*</span><span class="dt">restrict</span> val<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>a <span class="op">+=</span> <span class="op">*</span>val<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>b <span class="op">+=</span> <span class="op">*</span>val<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>By marking these pointers with <code>restrict</code>, you guarantee
+that within the execution of <code>update_values</code>, the object
+referenced by <code>val</code> is not accessed through <code>a</code>,
+<code>b</code>, or any other pointer. The compiler now knows that
+modifying <code>*a</code> cannot alter <code>*val</code>.</p>
+<h2 id="key-compiler-optimizations-enabled-by-restrict">Key Compiler
+Optimizations Enabled by <code>restrict</code></h2>
+<p>Once the uncertainty of aliasing is removed, modern compilers (such
+as GCC, Clang, and MSVC) can unlock several performance
+enhancements:</p>
+<h3 id="1-load-elimination-and-register-caching">1. Load Elimination and
+Register Caching</h3>
+<p>Because the compiler knows <code>*val</code> will not change during
+the execution of the function, it loads the value of <code>*val</code>
+into a high-speed CPU register once. It can then reuse that register for
+both additions rather than fetching the value from memory multiple
+times.</p>
+<h3 id="2-instruction-scheduling-and-reordering">2. Instruction
+Scheduling and Reordering</h3>
+<p>Modern CPUs execute instructions out of order to maximize throughput.
+When pointers might alias, read and write operations must strictly
+maintain their program order to prevent stale reads. With
+<code>restrict</code>, the compiler is free to interleave, reorder, or
+group read and write instructions to best utilize the processor's
+execution units.</p>
+<h3 id="3-loop-vectorization-simd">3. Loop Vectorization (SIMD)</h3>
+<p>Loop vectorization allows a CPU to process multiple data points
+concurrently using Single Instruction, Multiple Data (SIMD) instructions
+(such as AVX or ARM NEON). If arrays passed into a loop might overlap,
+the compiler cannot safely vectorize the loop, as an operation in one
+iteration might overwrite data needed for a subsequent iteration.
+Declaring array pointers as <code>restrict</code> confirms that memory
+regions do not overlap, allowing auto-vectorization passes to execute
+successfully.</p>
+<h2 id="developer-responsibility-and-undefined-behavior">Developer
+Responsibility and Undefined Behavior</h2>
+<p>The <code>restrict</code> keyword does not alter the generated
+machine code directly; rather, it alters the compiler's assumptions. If
+a programmer applies <code>restrict</code> to pointers that actually
+overlap in memory, the code violates the contract, resulting in
+undefined behavior. The compiler may produce code that generates
+corrupted data or subtle logic bugs, making it critical to use the
+qualifier only when non-overlapping access is guaranteed.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

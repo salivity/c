@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How mmap Replaces sbrk in C Heap Allocation - c</title>
+    <meta name="description" content="Modern memory allocators in C, such as GNU libc's malloc, manage dynamic memory using a hybrid strategy that relies heavily on the mmap system call instead of the traditional sbrk. While sbrk expands a single contiguous heap by moving the process data se">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-mmap-replaces-sbrk-in-c-heap-allocation">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How mmap Replaces sbrk in C Heap Allocation - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-mmap-replaces-sbrk-in-c-heap-allocation" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Modern memory allocators in C, such as GNU libc's malloc, manage dynamic memory using a hybrid strategy that relies heavily on the mmap system call instead of the traditional sbrk. While sbrk expands a single contiguous heap by moving the process data se" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-mmap-replaces-sbrk-in-c-heap-allocation">How mmap Replaces
+sbrk in C Heap Allocation</h1>
+<p>Modern memory allocators in C, such as GNU libc's
+<code>malloc</code>, manage dynamic memory using a hybrid strategy that
+relies heavily on the <code>mmap</code> system call instead of the
+traditional <code>sbrk</code>. While <code>sbrk</code> expands a single
+contiguous heap by moving the process data segment pointer, it suffers
+from severe limitations, including irreversible heap fragmentation and
+poor multithreaded performance. For large memory allocations,
+<code>mmap</code> solves these problems by requesting independent,
+non-contiguous virtual memory mappings directly from the kernel,
+allowing memory to be allocated and deallocated in arbitrary order
+without trapping unreleased pages.</p>
+<h3 id="the-limitations-of-sbrk">The Limitations of sbrk</h3>
+<p>Historically, UNIX memory management relied on <code>brk()</code> and
+<code>sbrk()</code>. The <code>brk</code> system call sets the end of
+the process data segment (the "program break"), while <code>sbrk</code>
+increments or decrements this pointer. Calling <code>malloc()</code>
+internally invoked <code>sbrk()</code> to push the program break
+forward, creating a single, contiguous linear heap.</p>
+<p>This approach creates a fundamental architectural bottleneck known as
+heap pinning. Because <code>sbrk</code> only moves forward or backward
+linearly, memory at the top of the heap cannot be returned to the
+operating system if lower addresses remain in use. For example, if a
+program allocates a 100 MB buffer, allocates a 16-byte integer directly
+afterward, and then frees the 100 MB buffer, the 100 MB cannot be
+released via <code>sbrk</code>. The single active 16-byte object traps
+the program break, causing external memory fragmentation and
+artificially inflating the process's Resident Set Size (RSS).</p>
+<h3 id="how-mmap-handles-dynamic-pages">How mmap Handles Dynamic
+Pages</h3>
+<p>The <code>mmap</code> system call allocates memory by creating
+independent virtual memory regions. Rather than adjusting a global break
+pointer, an allocator calls <code>mmap</code> with flags such as
+<code>MAP_PRIVATE | MAP_ANONYMOUS</code>:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> <span class="op">*</span>ptr <span class="op">=</span> mmap<span class="op">(</span>NULL<span class="op">,</span> size<span class="op">,</span> PROT_READ <span class="op">|</span> PROT_WRITE<span class="op">,</span> MAP_PRIVATE <span class="op">|</span> MAP_ANONYMOUS<span class="op">,</span> <span class="op">-</span><span class="dv">1</span><span class="op">,</span> <span class="dv">0</span><span class="op">);</span></span></code></pre></div>
+<p>This requests the kernel to allocate page-aligned virtual memory
+anywhere in the process's address space. Because these pages are backed
+by anonymous memory (RAM and swap) rather than a file, they function
+identically to dynamic heap memory. When the program calls
+<code>free()</code> on this block, the allocator immediately invokes
+<code>munmap()</code>:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>munmap<span class="op">(</span>ptr<span class="op">,</span> size<span class="op">);</span></span></code></pre></div>
+<p>This returns the specific address range directly to the kernel,
+freeing physical pages immediately regardless of other active
+allocations in the process.</p>
+<h3 id="the-allocation-threshold">The Allocation Threshold</h3>
+<p>Modern allocators do not replace <code>sbrk</code> entirely with
+<code>mmap</code>; instead, they use a hybrid approach governed by a
+dynamic allocation threshold (traditionally <code>MMAP_THRESHOLD</code>
+in glibc, often starting around 128 KB).</p>
+<p>Small allocations incur high overhead if mapped directly with
+<code>mmap</code> because system calls require context switches to
+kernel space, and mappings are rounded up to the system page size
+(typically 4 KB). Consequently, small objects are handled inside
+contiguous memory pools or arenas. When a request exceeds the threshold,
+the allocator automatically redirects the request to <code>mmap</code>.
+Glibc can dynamically adjust this threshold based on allocation patterns
+to balance system call overhead against fragmentation risks.</p>
+<h3 id="core-advantages-of-mmap-over-sbrk">Core Advantages of mmap Over
+sbrk</h3>
+<ol type="1">
+<li><strong>Independent Lifecycle Management:</strong> Mapped memory
+regions are decoupled from each other. Releasing a large allocation
+instantly unmaps its virtual pages and frees physical memory,
+eliminating the pinning issue inherent to <code>sbrk</code>.</li>
+<li><strong>Concurrency and Multithreading:</strong> The program break
+is a single global process attribute. Expanding it requires
+synchronization, which creates thread contention. Modern allocators use
+<code>mmap</code> to create independent memory arenas per thread,
+enabling concurrent allocations without lock contention on a shared heap
+boundary.</li>
+<li><strong>Address Space Layout Randomization (ASLR):</strong> While
+the classic heap grows predictably upward from the data segment,
+<code>mmap</code> allocations can be placed at randomized locations
+throughout the virtual address space, providing an added layer of
+defense against heap-based exploitation techniques.</li>
+<li><strong>Demand Paging and Zero-Filling:</strong> Anonymous
+<code>mmap</code> mappings are lazily backed by the kernel. The
+operating system only maps physical frames when individual pages are
+touched, and these pages are guaranteed to be zero-initialized by the
+kernel, optimizing initialization costs for large data structures.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Arbitrary Pointer Casting Causes Architecture Faults in C - c</title>
+    <meta name="description" content="Casting arbitrary pointers back and forth is a common source of architecture-level faults in C because it bypasses the safety guarantees established by the underlying hardware and compiler. While C permits explicit pointer conversion, physical processor">
+    <link rel="canonical" href="https://salivity.github.io/c/article/why-arbitrary-pointer-casting-causes-architecture-faults-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Arbitrary Pointer Casting Causes Architecture Faults in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/why-arbitrary-pointer-casting-causes-architecture-faults-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Casting arbitrary pointers back and forth is a common source of architecture-level faults in C because it bypasses the safety guarantees established by the underlying hardware and compiler. While C permits explicit pointer conversion, physical processor" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="why-arbitrary-pointer-casting-causes-architecture-faults-in-c">Why
+Arbitrary Pointer Casting Causes Architecture Faults in C</h1>
+<p>Casting arbitrary pointers back and forth is a common source of
+architecture-level faults in C because it bypasses the safety guarantees
+established by the underlying hardware and compiler. While C permits
+explicit pointer conversion, physical processor architectures enforce
+rigid rules regarding how memory addresses are structured, aligned, and
+accessed. When code breaks these rules through arbitrary pointer casts,
+it frequently triggers hardware traps, processor-level bus errors, and
+unpredictable runtime failures resulting from compiler
+optimizations.</p>
+<h3 id="memory-alignment-requirements">Memory Alignment
+Requirements</h3>
+<p>The most frequent hardware fault triggered by pointer casting is the
+misalignment fault. Central Processing Units (CPUs) access memory in
+chunks of specific widths (such as 32-bit, 64-bit, or 128-bit words). To
+maximize performance and simplify hardware design, many processor
+architectures—including ARM, SPARC, and MIPS—require data types to be
+naturally aligned. This means an <span
+class="math inline">\(N\)</span>-byte integer or float must reside at a
+memory address that is a multiple of <span
+class="math inline">\(N\)</span>.</p>
+<p>When casting an arbitrary pointer, such as converting a byte-aligned
+pointer (<code>char*</code>) to an integer pointer
+(<code>uint32_t*</code>), the resulting address may not be divisible by
+the required alignment factor:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">char</span> buffer<span class="op">[</span><span class="dv">8</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span><span class="dv">0</span><span class="op">};</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="co">// If buffer + 1 is an odd address:</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="dt">uint32_t</span> <span class="op">*</span>bad_ptr <span class="op">=</span> <span class="op">(</span><span class="dt">uint32_t</span> <span class="op">*)(</span>buffer <span class="op">+</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="dt">uint32_t</span> value <span class="op">=</span> <span class="op">*</span>bad_ptr<span class="op">;</span> <span class="co">// Dereference triggers an architecture fault</span></span></code></pre></div>
+<p>On architectures with strict alignment requirements, the processor
+cannot execute this load instruction across word boundaries and raises
+an alignment trap at the hardware level, terminating the program with a
+bus error (<code>SIGBUS</code>). While standard x86 architectures often
+allow unaligned access at the cost of a performance penalty, enabling
+strict alignment checking or porting the same code to an embedded
+architecture will immediately cause hardware crashes.</p>
+<h3 id="strict-aliasing-violations">Strict Aliasing Violations</h3>
+<p>The C standard defines the "strict aliasing rule," which dictates
+that two pointers of different types cannot point to the same memory
+location, with narrow exceptions (such as <code>char*</code> and
+<code>void*</code>). Modern optimizing compilers rely heavily on this
+assumption to reorder instructions, cache values in CPU registers, and
+eliminate redundant memory reads.</p>
+<p>When an arbitrary cast is performed—such as casting a
+<code>float*</code> to a <code>uint32_t*</code> to inspect its raw
+bits—the compiler assumes the memory being accessed through the two
+pointers is entirely independent. Consequently, the compiler may:</p>
+<ul>
+<li>Reorder reads and writes, resulting in code executing out of
+sequence.</li>
+<li>Omit memory loads because it assumes a cached register value is
+still valid.</li>
+<li>Optimize away null-checks or boundary validations.</li>
+</ul>
+<p>These compiler assumptions lead directly to corrupted memory reads,
+invalid jumps, and segmentation faults (<code>SIGSEGV</code>) that do
+not exist when compiler optimizations are disabled.</p>
+<h3 id="differing-pointer-sizes-and-representations">Differing Pointer
+Sizes and Representations</h3>
+<p>The C standard does not guarantee that all pointer types have
+identical sizes or bit representations. While modern flat-memory systems
+typically use 64-bit addresses for all pointers, specialized, embedded,
+and legacy architectures do not:</p>
+<ul>
+<li><strong>Harvard Architectures:</strong> Digital Signal Processors
+(DSPs) and microcontrollers (such as AVR) maintain separate physical
+memory spaces for program code and runtime data. A function pointer
+points to flash memory, while a data pointer points to SRAM. Casting a
+function pointer to a <code>void*</code> or data pointer truncates or
+misinterprets the target bus, resulting in illegal instruction
+fetches.</li>
+<li><strong>Word-Addressed Architectures:</strong> Certain machines
+address memory in words rather than bytes. On these machines, a
+<code>char*</code> requires extra metadata or a larger representation to
+track sub-word byte offsets, whereas an <code>int*</code> is a direct
+machine address. Casting arbitrarily between these formats causes data
+truncation or pointer corruption.</li>
+</ul>
+<h3 id="safe-alternatives">Safe Alternatives</h3>
+<p>To safely manipulate raw memory without provoking architecture
+faults:</p>
+<ul>
+<li>Use <code>memcpy</code> to copy bytes into a properly aligned
+variable. Modern compilers recognize this pattern and optimize it into
+direct, aligned register loads.</li>
+<li>Restrict byte-level memory inspections to <code>char*</code>,
+<code>unsigned char*</code>, or <code>uint8_t*</code>, as these types
+are explicitly allowed by the C standard to alias any object.</li>
+<li>Avoid manual address arithmetic when working with structured data,
+relying instead on explicit padding and alignment attributes (such as
+C11's <code>_Alignas</code>).</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

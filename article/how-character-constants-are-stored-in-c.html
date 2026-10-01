@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Character Constants Are Stored in C - c</title>
+    <meta name="description" content="In the C programming language, character constants are enclosed in single quotes and are internally represented not as text, but as numerical integer values determined by the system's character set, typically ASCII. Although they appear to represent sing">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-character-constants-are-stored-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Character Constants Are Stored in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-character-constants-are-stored-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, character constants are enclosed in single quotes and are internally represented not as text, but as numerical integer values determined by the system's character set, typically ASCII. Although they appear to represent sing" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-character-constants-are-stored-in-c">How Character Constants
+Are Stored in C</h1>
+<p>In the C programming language, character constants are enclosed in
+single quotes and are internally represented not as text, but as
+numerical integer values determined by the system's character set,
+typically ASCII. Although they appear to represent single characters,
+the C standard treats character constants as having the <code>int</code>
+data type rather than <code>char</code>, meaning they occupy the memory
+space of a standard integer during evaluation. This article explains the
+internal encoding, type mechanics, memory storage, and handling of
+special character constants in C.</p>
+<h3 id="type-and-value-representation">Type and Value
+Representation</h3>
+<p>A character constant is a sequence of one or more characters enclosed
+in single quotes, such as <code>'A'</code> or <code>'\n'</code>. During
+compilation, the compiler translates the character into its
+corresponding numerical code from the execution character set. On modern
+systems, this is almost universally the ASCII encoding standard. For
+example, the character constant <code>'A'</code> is directly translated
+to the integer value <code>65</code>.</p>
+<p>A fundamental distinction in C—unlike C++—is that a character
+constant has the type <code>int</code>. Consequently, the expression
+<code>sizeof('A')</code> yields the size of an integer (typically 4
+bytes on modern 32-bit and 64-bit systems), not the size of a
+<code>char</code> (1 byte).</p>
+<h3 id="internal-storage-in-memory">Internal Storage in Memory</h3>
+<p>Because character constants are typed as integers, the compiler
+handles them internally as standard integer literals:</p>
+<ol type="1">
+<li><strong>In Expressions:</strong> When evaluated in expressions, the
+constant is loaded as a full-width integer. For example,
+<code>'A' + 1</code> evaluates internally as <code>65 + 1</code>,
+performing standard integer arithmetic.</li>
+<li><strong>Assignment to a <code>char</code>:</strong> When a character
+constant is assigned to a <code>char</code> variable (e.g.,
+<code>char c = 'A';</code>), the integer value undergoes an implicit
+conversion. The compiler truncates the 4-byte <code>int</code> value to
+fit into the 1-byte storage allocated for the <code>char</code>
+variable, storing the binary equivalent of <code>65</code>
+(<code>01000001</code>) in an 8-bit memory location.</li>
+</ol>
+<h3 id="escape-sequences">Escape Sequences</h3>
+<p>Non-printable characters, control codes, and reserved characters are
+represented using escape sequences that begin with a backslash
+(<code>\</code>). Internally, these resolve to specific integer values
+at compile time:</p>
+<ul>
+<li>Simple escape sequences represent specific control codes, such as
+<code>'\n'</code> (newline, ASCII value <code>10</code>) or
+<code>'\t'</code> (horizontal tab, ASCII value <code>9</code>).</li>
+<li>Octal escape sequences (e.g., <code>'\012'</code>) specify a
+character via a 1-to-3 digit octal number.</li>
+<li>Hexadecimal escape sequences (e.g., <code>'\x41'</code>) specify a
+character via hexadecimal digits, resolving directly to the indicated
+numerical byte value.</li>
+</ul>
+<p>Regardless of notation, the internal representation remains an
+integer matching the specified value.</p>
+<h3 id="multi-character-constants">Multi-Character Constants</h3>
+<p>C permits multi-character constants, where more than one character is
+placed inside single quotes, such as <code>'AB'</code>.</p>
+<p>The C standard specifies that the value of a multi-character constant
+is implementation-defined. Most compilers pack the individual character
+byte values into the bytes of an <code>int</code>. On a big-endian
+system, <code>'AB'</code> typically evaluates to
+<code>(65 &lt;&lt; 8) | 66</code> (which equals <code>16706</code>),
+whereas on a little-endian system, the byte order in registers may
+differ. Because their behavior is non-portable across different
+compilers and architectures, multi-character constants are rarely used
+in production code.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

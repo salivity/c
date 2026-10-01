@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Disable Assert in C Release Builds - c</title>
+    <meta name="description" content="In C programming, runtime assertions using the standard assert() macro are critical for catching logic bugs during development, but they introduce unwanted performance overhead and potential binary size increases in production. This article explains how">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-to-disable-assert-in-c-release-builds">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Disable Assert in C Release Builds - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-to-disable-assert-in-c-release-builds" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C programming, runtime assertions using the standard assert() macro are critical for catching logic bugs during development, but they introduce unwanted performance overhead and potential binary size increases in production. This article explains how" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-disable-assert-in-c-release-builds">How to Disable Assert
+in C Release Builds</h1>
+<p>In C programming, runtime assertions using the standard
+<code>assert()</code> macro are critical for catching logic bugs during
+development, but they introduce unwanted performance overhead and
+potential binary size increases in production. This article explains how
+to completely disable runtime assertion checking in C release builds
+using the standard <code>NDEBUG</code> preprocessor macro, how to apply
+it across major build systems, and important pitfalls to avoid when
+disabling assertions.</p>
+<h2 id="the-standard-mechanism-the-ndebug-macro">The Standard Mechanism:
+The <code>NDEBUG</code> Macro</h2>
+<p>The standard C library handles assertion control via the
+<code>NDEBUG</code> (No Debug) macro. According to the ISO C standard,
+if <code>NDEBUG</code> is defined at the point where
+<code>&lt;assert.h&gt;</code> is included, the <code>assert()</code>
+macro is defined as:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#define assert</span><span class="op">(</span><span class="pp">ignore</span><span class="op">)</span><span class="pp"> </span><span class="op">((</span><span class="dt">void</span><span class="op">)</span><span class="dv">0</span><span class="op">)</span></span></code></pre></div>
+<p>This transforms every <code>assert()</code> call into an empty
+statement, causing the compiler to emit no machine code for the
+assertion checks. Consequently, condition evaluation, string literals
+for error messages, and abort calls are entirely omitted from the
+compiled binary.</p>
+<h2 id="method-1-disabling-via-compiler-flags-recommended">Method 1:
+Disabling via Compiler Flags (Recommended)</h2>
+<p>The standard and most maintainable approach is to define
+<code>NDEBUG</code> globally in your build system for release
+configurations. This ensures every source file compiles with assertions
+disabled without modifying the source code.</p>
+<h3 id="gcc-and-clang">GCC and Clang</h3>
+<p>Pass the <code>-D</code> flag followed by <code>NDEBUG</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">gcc</span> <span class="at">-O3</span> <span class="at">-DNDEBUG</span> main.c <span class="at">-o</span> my_program</span></code></pre></div>
+<h3 id="msvc-microsoft-visual-c">MSVC (Microsoft Visual C++)</h3>
+<p>Pass the <code>/D</code> flag:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cmd"><code class="sourceCode dosbat"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>cl <span class="at">/O2</span> <span class="at">/DNDEBUG</span> main.c</span></code></pre></div>
+<h3 id="cmake">CMake</h3>
+<p>In a modern CMake configuration, <code>NDEBUG</code> is typically
+added automatically for <code>Release</code> and
+<code>RelWithDebInfo</code> build types. If setting flags manually,
+use:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cmake"><code class="sourceCode cmake"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">target_compile_definitions</span>(<span class="bn">my_target</span> <span class="ot">PRIVATE</span> <span class="ot">$&lt;$&lt;</span><span class="kw">CONFIG</span><span class="ot">:Release&gt;:NDEBUG&gt;</span>)</span></code></pre></div>
+<h2 id="method-2-disabling-via-source-code">Method 2: Disabling via
+Source Code</h2>
+<p>You can disable assertions directly inside a C source file by
+defining <code>NDEBUG</code> before including
+<code>&lt;assert.h&gt;</code>:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#define NDEBUG</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;assert.h&gt;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process_data<span class="op">(</span><span class="dt">int</span> <span class="op">*</span>ptr<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    assert<span class="op">(</span>ptr <span class="op">!=</span> NULL<span class="op">);</span> <span class="co">// This check will be completely ignored by the compiler</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ...</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p><em>Note: If <code>#include &lt;assert.h&gt;</code> appears before
+<code>#define NDEBUG</code>, assertions will remain active for that
+compilation unit unless <code>NDEBUG</code> is defined at the compiler
+level.</em></p>
+<h2 id="critical-warning-side-effects-in-assertions">Critical Warning:
+Side Effects in Assertions</h2>
+<p>When assertions are disabled, the expression inside
+<code>assert()</code> is never evaluated. A common bug occurs when
+expressions with side effects are placed inside an assertion:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">// </span><span class="al">BUG</span><span class="co">: perform_setup() will not execute in a release build</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>assert<span class="op">(</span>perform_setup<span class="op">()</span> <span class="op">==</span> <span class="dv">1</span><span class="op">);</span></span></code></pre></div>
+<p>To prevent this issue, separate the operation from the
+verification:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> status <span class="op">=</span> perform_setup<span class="op">();</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>assert<span class="op">(</span>status <span class="op">==</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="op">(</span><span class="dt">void</span><span class="op">)</span>status<span class="op">;</span> <span class="co">// Suppress unused-variable warnings in release builds</span></span></code></pre></div></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consequences of Violating Strict Aliasing in C - c</title>
+    <meta name="description" content="Violating the strict aliasing rule in the C programming language by casting pointers between incompatible types leads to undefined behavior, subtle bugs, and broken code. When developers attempt type-punning using pointer casts—such as casting a float">
+    <link rel="canonical" href="https://salivity.github.io/c/article/consequences-of-violating-strict-aliasing-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Consequences of Violating Strict Aliasing in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/consequences-of-violating-strict-aliasing-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Violating the strict aliasing rule in the C programming language by casting pointers between incompatible types leads to undefined behavior, subtle bugs, and broken code. When developers attempt type-punning using pointer casts—such as casting a float" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="consequences-of-violating-strict-aliasing-in-c">Consequences of
+Violating Strict Aliasing in C</h1>
+<p>Violating the strict aliasing rule in the C programming language by
+casting pointers between incompatible types leads to undefined behavior,
+subtle bugs, and broken code. When developers attempt type-punning using
+pointer casts—such as casting a <code>float*</code> to an
+<code>uint32_t*</code> to inspect its binary representation—they break
+the contract with the compiler. This article outlines the mechanical and
+practical consequences of violating strict aliasing, explains why
+compiler optimizations produce erratic runtime failures, and covers the
+architectural hazards associated with unaligned memory access.</p>
+<h3 id="the-mechanism-of-strict-aliasing">The Mechanism of Strict
+Aliasing</h3>
+<p>The C standard specifies that two pointers of different types
+generally cannot point to (or "alias") the same memory location, with
+narrow exceptions such as character pointer types (<code>char*</code>,
+<code>unsigned char*</code>). This assumption allows modern optimizing
+compilers (such as GCC and Clang) to make aggressive assumptions about
+data dependencies. If a function receives an <code>int*</code> and a
+<code>float*</code>, the compiler assumes that writing to the
+<code>int*</code> will never alter the value read through the
+<code>float*</code>.</p>
+<h3 id="broken-compiler-optimizations">Broken Compiler
+Optimizations</h3>
+<p>When strict aliasing is violated via pointer casting, the compiler's
+optimizer operates on false assumptions. Under optimization levels like
+<code>-O2</code> or <code>-O3</code>, the compiler aggressively caches
+values in CPU registers, reorders read and write instructions, and
+eliminates what it perceives to be redundant memory accesses.</p>
+<p>If code writes to memory using an aliased pointer of a different
+type, the compiler may not reload the value from memory when reading
+from the original pointer, assuming the underlying value remains
+unchanged. This leads to stale data being processed, skipped instruction
+sequences, or memory writes occurring in an order contrary to the source
+code logic.</p>
+<h3 id="undefined-behavior-and-optimization-dependent-bugs">Undefined
+Behavior and Optimization-Dependent Bugs</h3>
+<p>Violating strict aliasing invokes undefined behavior under ISO C. The
+most problematic consequence of this is inconsistent behavior across
+build configurations:</p>
+<ul>
+<li><strong>Heisenbugs Across Optimization Levels:</strong> Code that
+functions as expected under debug flags (<code>-O0</code>) frequently
+fails when compiled for release (<code>-O2</code> or <code>-O3</code>).
+At lower optimization levels, compilers write directly to and read from
+the stack, masking the alias violation. Once instruction pipelining and
+register allocation are enabled, the logical flow breaks.</li>
+<li><strong>Compiler Upgrades and Platform Shifts:</strong> Code
+violating strict aliasing may execute predictably on a specific version
+of a compiler, only to fail silently when upgraded to a newer version or
+compiled with different target flags.</li>
+</ul>
+<h3 id="hardware-faults-and-alignment-issues">Hardware Faults and
+Alignment Issues</h3>
+<p>Type-punning through pointer casts frequently violates hardware
+alignment requirements. Different data types have specific memory
+alignment constraints depending on the underlying CPU architecture:</p>
+<ul>
+<li>Casting a byte array or <code>char*</code> directly to a pointer of
+a wider type (such as <code>uint32_t*</code>, <code>uint64_t*</code>, or
+a pointer to a struct) risks creating an unaligned pointer.</li>
+<li>On architectures that strictly forbid unaligned access (such as
+older ARM, SPARC, or MIPS processors), dereferencing an unaligned
+pointer causes an unaligned access fault (a hardware trap or bus error),
+abruptly crashing the program.</li>
+<li>On architectures that tolerate unaligned access (such as x86 and
+modern x86-64), unaligned access incurs a performance penalty by
+requiring multiple memory bus cycles.</li>
+</ul>
+<h3 id="idiomatic-alternatives-to-pointer-cast-type-punning">Idiomatic
+Alternatives to Pointer-Cast Type-Punning</h3>
+<p>To achieve type-punning without violating the C standard or breaking
+compiler optimizations, two idiomatic approaches should be used:</p>
+<ol type="1">
+<li><strong><code>memcpy</code>:</strong> Copying raw bytes using the
+standard <code>memcpy</code> function is fully compliant with the C
+specification. Modern optimizing compilers recognize <code>memcpy</code>
+of small, fixed-size structures or primitives and eliminate the function
+call entirely, compiling it down to a single register move with zero
+runtime overhead.</li>
+<li><strong>C99 Union Type-Punning:</strong> Unlike C++, ISO C99 and
+later standards explicitly permit reading from a different union member
+than the one most recently written to. Wrapping the target types inside
+a <code>union</code> allows safe, defined type-punning across
+standard-compliant C compilers.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

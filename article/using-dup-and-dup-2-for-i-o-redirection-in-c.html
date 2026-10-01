@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Using dup and dup2 for I/O Redirection in C - c</title>
+    <meta name="description" content="In the C programming language, the dup and dup2 system calls are fundamental POSIX functions used to duplicate open file descriptors. This article provides a focused explanation of how these system calls work, their internal mechanisms within the operati">
+    <link rel="canonical" href="https://salivity.github.io/c/article/using-dup-and-dup-2-for-i-o-redirection-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Using dup and dup2 for I/O Redirection in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/using-dup-and-dup-2-for-i-o-redirection-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, the dup and dup2 system calls are fundamental POSIX functions used to duplicate open file descriptors. This article provides a focused explanation of how these system calls work, their internal mechanisms within the operati" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="using-dup-and-dup2-for-io-redirection-in-c">Using dup and dup2
+for I/O Redirection in C</h1>
+<p>In the C programming language, the <code>dup</code> and
+<code>dup2</code> system calls are fundamental POSIX functions used to
+duplicate open file descriptors. This article provides a focused
+explanation of how these system calls work, their internal mechanisms
+within the operating system's file descriptor table, and how they are
+practically applied to achieve standard input, output, and error
+redirection in programs such as command-line shells.</p>
+<h3 id="understanding-file-descriptors">Understanding File
+Descriptors</h3>
+<p>Every running process maintains a file descriptor table managed by
+the kernel. By convention, the first three slots are reserved for
+standard streams:</p>
+<ul>
+<li><code>0</code>: Standard Input (<code>stdin</code> /
+<code>STDIN_FILENO</code>)</li>
+<li><code>1</code>: Standard Output (<code>stdout</code> /
+<code>STDOUT_FILENO</code>)</li>
+<li><code>2</code>: Standard Error (<code>stderr</code> /
+<code>STDERR_FILENO</code>)</li>
+</ul>
+<p>System calls like <code>read</code>, <code>write</code>, and
+higher-level library functions like <code>printf</code> rely on these
+specific integer indices. Redirection works by pointing one of these
+fixed descriptors to a different file or pipeline.</p>
+<h3 id="the-dup-system-call">The <code>dup</code> System Call</h3>
+<p>The <code>dup</code> function creates a copy of an existing file
+descriptor using the lowest-numbered unused descriptor available:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> dup<span class="op">(</span><span class="dt">int</span> oldfd<span class="op">);</span></span></code></pre></div>
+<p>When <code>dup(oldfd)</code> succeeds, it returns a new file
+descriptor that refers to the exact same open file description (sharing
+file offsets, status flags, and access modes) as <code>oldfd</code>.</p>
+<p>To redirect standard output using <code>dup</code>, a program must
+manually close the target file descriptor first:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>close<span class="op">(</span>STDOUT_FILENO<span class="op">);</span> <span class="co">// Free up file descriptor 1</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>dup<span class="op">(</span>file_fd<span class="op">);</span>         <span class="co">// The lowest available descriptor is now 1</span></span></code></pre></div>
+<p>While functional, this approach is non-atomic and can create race
+conditions in multi-threaded environments if another thread opens a file
+between the <code>close</code> and <code>dup</code> calls.</p>
+<h3 id="the-dup2-system-call">The <code>dup2</code> System Call</h3>
+<p>The <code>dup2</code> system call eliminates the need for manual
+closing and ensures an atomic operation:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> dup2<span class="op">(</span><span class="dt">int</span> oldfd<span class="op">,</span> <span class="dt">int</span> newfd<span class="op">);</span></span></code></pre></div>
+<p><code>dup2</code> duplicates <code>oldfd</code> onto
+<code>newfd</code>. If <code>newfd</code> is already open, it is
+silently and atomically closed before being reassigned. If
+<code>oldfd</code> is invalid, the call fails and <code>newfd</code> is
+not closed. If <code>oldfd</code> equals <code>newfd</code>,
+<code>dup2</code> simply returns <code>newfd</code> without doing
+anything.</p>
+<p>Because of its explicit target assignment and atomicity,
+<code>dup2</code> is the standard choice for I/O redirection.</p>
+<h3 id="practical-implementation-redirecting-stdout-to-a-file">Practical
+Implementation: Redirecting <code>stdout</code> to a File</h3>
+<p>The following example demonstrates redirecting standard output to a
+text file using <code>dup2</code>:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;unistd.h&gt;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;fcntl.h&gt;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Open the target file</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> fd <span class="op">=</span> open<span class="op">(</span><span class="st">&quot;output.txt&quot;</span><span class="op">,</span> O_WRONLY <span class="op">|</span> O_CREAT <span class="op">|</span> O_TRUNC<span class="op">,</span> <span class="bn">0644</span><span class="op">);</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>fd <span class="op">&lt;</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        perror<span class="op">(</span><span class="st">&quot;open failed&quot;</span><span class="op">);</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Redirect stdout (1) to point to the file</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>dup2<span class="op">(</span>fd<span class="op">,</span> STDOUT_FILENO<span class="op">)</span> <span class="op">&lt;</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        perror<span class="op">(</span><span class="st">&quot;dup2 failed&quot;</span><span class="op">);</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>        close<span class="op">(</span>fd<span class="op">);</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Close the original file descriptor as it is no longer needed</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    close<span class="op">(</span>fd<span class="op">);</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 4. Output goes to &quot;output.txt&quot; instead of the terminal</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;This message is written to the file instead of the console.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">);</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="key-differences-summary">Key Differences Summary</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;"><code>dup</code></th>
+<th style="text-align: left;"><code>dup2</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Descriptor
+Assignment</strong></td>
+<td style="text-align: left;">Automatically assigns the lowest unused
+integer</td>
+<td style="text-align: left;">Explicitly assigns the user-defined
+<code>newfd</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Target Management</strong></td>
+<td style="text-align: left;">Requires manual <code>close()</code> of
+target slot</td>
+<td style="text-align: left;">Closes <code>newfd</code> automatically
+and atomically</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Primary Use Case</strong></td>
+<td style="text-align: left;">Duplicating descriptors without specific
+slot needs</td>
+<td style="text-align: left;">Stream redirection (<code>stdin</code>,
+<code>stdout</code>, <code>stderr</code>)</td>
+</tr>
+</tbody>
+</table></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

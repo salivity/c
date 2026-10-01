@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Protocol Buffers and FlatBuffers in C Systems - c</title>
+    <meta name="description" content="Protocol Buffers and FlatBuffers are high-performance binary serialization formats designed to exchange structured data efficiently across networks and storage. This article explores the architecture of both formats, compares their internal serialization">
+    <link rel="canonical" href="https://salivity.github.io/c/article/protocol-buffers-and-flat-buffers-in-c-systems">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Protocol Buffers and FlatBuffers in C Systems - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/protocol-buffers-and-flat-buffers-in-c-systems" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Protocol Buffers and FlatBuffers are high-performance binary serialization formats designed to exchange structured data efficiently across networks and storage. This article explores the architecture of both formats, compares their internal serialization" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="protocol-buffers-and-flatbuffers-in-c-systems">Protocol Buffers
+and FlatBuffers in C Systems</h1>
+<p>Protocol Buffers and FlatBuffers are high-performance binary
+serialization formats designed to exchange structured data efficiently
+across networks and storage. This article explores the architecture of
+both formats, compares their internal serialization models, and explains
+how to integrate them into resource-constrained and performance-critical
+systems using the C programming language.</p>
+<h2 id="understanding-protocol-buffers-and-flatbuffers">Understanding
+Protocol Buffers and FlatBuffers</h2>
+<p>Both Protocol Buffers (Protobuf) and FlatBuffers define data schemas
+in platform-neutral <code>.proto</code> or <code>.fbs</code> files,
+which a dedicated compiler converts into native source code. Despite
+sharing this workflow, their data representation and runtime execution
+differ fundamentally.</p>
+<h3 id="protocol-buffers-protobuf">Protocol Buffers (Protobuf)</h3>
+<p>Developed by Google, Protobuf focuses on minimizing payload size. It
+serializes data by encoding fields using variable-length integers
+(varints) and tag-length-value representations. To consume a Protobuf
+message, an application must deserialize the raw binary stream: the
+parser traverses the entire buffer, decodes the values, and allocates
+memory to construct an in-memory object graph.</p>
+<h3 id="flatbuffers">FlatBuffers</h3>
+<p>Also developed by Google, FlatBuffers focuses on zero-copy access and
+execution speed. Data is stored in internal buffers using specific byte
+alignments and internal offset tables (vtables). Because the layout in
+the serialized buffer mirrors the layout required by memory-mapped
+structures, an application can read fields directly from the raw byte
+buffer without a decoding or memory allocation phase.</p>
+<h2 id="protobuf-vs-flatbuffers-core-architectural-differences">Protobuf
+vs. FlatBuffers: Core Architectural Differences</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;">Protocol Buffers</th>
+<th style="text-align: left;">FlatBuffers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Parsing Step</strong></td>
+<td style="text-align: left;">Required (Unpacking bytes to native
+structs)</td>
+<td style="text-align: left;">None (Zero-copy, read directly from wire
+format)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Wire Size</strong></td>
+<td style="text-align: left;">Highly compact (uses varints, bit
+packing)</td>
+<td style="text-align: left;">Slightly larger (requires padding for byte
+alignment)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Memory Allocation</strong></td>
+<td style="text-align: left;">Typically requires heap allocations for
+unpacked objects</td>
+<td style="text-align: left;">Operates directly on the input buffer;
+minimal to no allocation</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Read Latency</strong></td>
+<td style="text-align: left;">Dependent on total payload size and
+parsing speed</td>
+<td style="text-align: left;">Near-instantaneous random access via
+offset indexing</td>
+</tr>
+</tbody>
+</table>
+<h2 id="implementation-in-the-c-programming-language">Implementation in
+the C Programming Language</h2>
+<p>The official Google implementations for both libraries are written in
+C++. Using these formats in pure C—common in Linux kernel modules,
+microcontrollers, real-time operating systems (RTOS), and embedded
+devices—requires dedicated C-native libraries.</p>
+<h3 id="implementing-protocol-buffers-in-c">Implementing Protocol
+Buffers in C</h3>
+<p>For C applications, the most common implementations are
+<code>protobuf-c</code> and <code>nanopb</code>.</p>
+<ul>
+<li><strong>protobuf-c:</strong> A full C implementation that mirrors
+the official C++ API. It maps messages to C structs and uses descriptors
+for reflection. It relies on standard memory allocators
+(<code>malloc</code>/<code>free</code>), making it suitable for desktop
+or server-grade C applications.</li>
+<li><strong>nanopb:</strong> Engineered specifically for
+memory-constrained embedded systems. It compiles <code>.proto</code>
+files into static C structs and generates deterministic encoding and
+decoding callbacks. Nanopb allows fixed-size buffers, completely
+eliminating the need for dynamic memory allocation on the heap.</li>
+</ul>
+<p>A typical workflow with <code>nanopb</code> involves:</p>
+<ol type="1">
+<li>Compiling the <code>.proto</code> file using
+<code>nanopb_generator.py</code> to create <code>.pb.c</code> and
+<code>.pb.h</code> files.</li>
+<li>Initializing a native C struct matching the generated type.</li>
+<li>Passing an output byte stream (<code>pb_ostream_t</code>) and the
+struct to <code>pb_encode()</code> to produce the binary payload.</li>
+<li>Parsing an incoming message using <code>pb_istream_t</code> and
+<code>pb_decode()</code> to populate the C struct.</li>
+</ol>
+<h3 id="implementing-flatbuffers-in-c">Implementing FlatBuffers in
+C</h3>
+<p>The primary tool for C integration is <code>flatcc</code>
+(FlatBuffers in C). It provides an optimizing schema compiler and
+runtime library that produces portable C99 code.</p>
+<p><code>flatcc</code> provides two distinct modes:</p>
+<ul>
+<li><strong>Reader:</strong> A set of lightweight macros and inline
+functions that read directly from the buffer. It requires no memory
+allocation, does not modify the source buffer, and handles endianness
+conversions transparently.</li>
+<li><strong>Builder:</strong> A stack-based state machine that
+constructs FlatBuffer payloads from the bottom up, emitting properly
+aligned binary tables.</li>
+</ul>
+<p>A typical workflow with <code>flatcc</code> involves:</p>
+<ol type="1">
+<li>Compiling the schema (<code>flatcc -a schema.fbs</code>) to generate
+header files.</li>
+<li>Creating an emitter using <code>flatcc_builder_t</code>.</li>
+<li>Constructing nested tables and vectors using emitted macros (e.g.,
+<code>MyTable_start()</code>, <code>MyTable_add_field()</code>,
+<code>MyTable_end()</code>).</li>
+<li>Accessing fields on the receiving end directly via accessors (e.g.,
+<code>MyTable_field_get(table_pointer)</code>), reading directly from
+the serialized pointer.</li>
+</ol>
+<h2 id="selection-criteria-for-c-systems">Selection Criteria for C
+Systems</h2>
+<p>Choose <strong>Protocol Buffers</strong> when network bandwidth or
+disk storage is the primary constraint, or when integrating with an
+existing infrastructure that heavily relies on Protobuf schemas.
+Libraries like <code>nanopb</code> make it practical for
+microcontrollers where payloads must remain as small as possible over
+low-throughput links like CAN, BLE, or LoRa.</p>
+<p>Choose <strong>FlatBuffers</strong> when low latency, deterministic
+execution, and zero-allocation constraints dominate. Because it bypasses
+the parse-and-allocate phase, it is suited for high-frequency trading
+engines, shared-memory inter-process communication (IPC), device
+drivers, and real-time gaming or multimedia pipelines written in C.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

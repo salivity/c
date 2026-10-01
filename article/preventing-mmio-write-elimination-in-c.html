@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preventing MMIO Write Elimination in C - c</title>
+    <meta name="description" content="In the C programming language, optimizing compilers employ Dead Store Elimination to discard memory writes that appear to have no subsequent reads. However, when interfacing with memory-mapped input/output (MMIO), memory addresses correspond to physical">
+    <link rel="canonical" href="https://salivity.github.io/c/article/preventing-mmio-write-elimination-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Preventing MMIO Write Elimination in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/preventing-mmio-write-elimination-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, optimizing compilers employ Dead Store Elimination to discard memory writes that appear to have no subsequent reads. However, when interfacing with memory-mapped input/output (MMIO), memory addresses correspond to physical" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="preventing-mmio-write-elimination-in-c">Preventing MMIO Write
+Elimination in C</h1>
+<p>In the C programming language, optimizing compilers employ Dead Store
+Elimination to discard memory writes that appear to have no subsequent
+reads. However, when interfacing with memory-mapped input/output (MMIO),
+memory addresses correspond to physical hardware registers rather than
+standard RAM, making every write operation critical. This article
+explains how the <code>volatile</code> type qualifier, compiler memory
+barriers, and the C abstract machine's definition of observable behavior
+prevent compilers from optimizing away MMIO writes.</p>
+<h2 id="the-as-if-rule-and-dead-store-elimination">The "As-If" Rule and
+Dead Store Elimination</h2>
+<p>C compilers adhere to the "as-if" rule, defined in the ISO C
+standard. This rule allows a compiler to perform any transformation,
+reordering, or omission of code as long as the program’s observable
+behavior remains identical to the source code.</p>
+<p>Under normal circumstances, observable behavior includes:</p>
+<ul>
+<li>Executing reads and writes to standard input/output streams.</li>
+<li>Halting program execution.</li>
+<li>Accessing objects qualified as <code>volatile</code>.</li>
+</ul>
+<p>When a program writes to a standard memory address without
+subsequently reading from that same location before it is overwritten or
+before the program terminates, the compiler considers the write a "dead
+store." Because normal RAM has no external side effects, the compiler
+eliminates the write instruction entirely to boost performance.</p>
+<h2 id="the-primary-defense-the-volatile-type-qualifier">The Primary
+Defense: The <code>volatile</code> Type Qualifier</h2>
+<p>The definitive mechanism in the C standard to prevent the elimination
+of MMIO writes is the <code>volatile</code> keyword. Marking an object
+or pointer target as <code>volatile</code> informs the compiler that the
+value can change via means outside the program's control (such as
+hardware logic) and that any access to it carries external side
+effects.</p>
+<p>According to the C standard, an access (read or write) to a
+<code>volatile</code>-qualified lvalue constitutes an observable side
+effect. Because the "as-if" rule strictly forbids the elimination of
+observable behavior:</p>
+<ol type="1">
+<li><strong>Writes cannot be omitted:</strong> The compiler must emit
+machine instructions to execute every write to a <code>volatile</code>
+object, even if no software read follows it.</li>
+<li><strong>Writes cannot be cached in registers:</strong> The value
+cannot simply stay in a CPU register; it must be flushed to the
+designated memory address via a bus transaction.</li>
+<li><strong>Writes cannot be consolidated:</strong> Multiple consecutive
+writes to the same address cannot be merged into a single write. If a
+hardware FIFO expects five consecutive writes to the same register, five
+distinct store instructions will be generated.</li>
+</ol>
+<h3 id="mmio-pointer-implementation">MMIO Pointer Implementation</h3>
+<p>To protect MMIO registers, systems developers define register
+pointers with the <code>volatile</code> qualifier applied to the
+dereferenced type:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdint.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Correct: The data pointed to is volatile</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#define UART0_DATA_REG </span><span class="op">((</span><span class="dt">volatile</span><span class="pp"> </span><span class="dt">uint32_t</span><span class="pp"> </span><span class="op">*)</span><span class="bn">0x4000C000</span><span class="op">)</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> uart_send_byte<span class="op">(</span><span class="dt">uint8_t</span> byte<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// The compiler is forced to issue a real store instruction</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>UART0_DATA_REG <span class="op">=</span> <span class="op">(</span><span class="dt">uint32_t</span><span class="op">)</span>byte<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>If the definition omitted <code>volatile</code> (e.g.,
+<code>(uint32_t *)0x4000C000</code>), a compiler optimizing at
+<code>-O2</code> or <code>-O3</code> could determine that the store has
+no local impact and discard the memory write completely.</p>
+<h2 id="compiler-barriers-and-reordering-constraints">Compiler Barriers
+and Reordering Constraints</h2>
+<p>While <code>volatile</code> guarantees that a write will not be
+deleted, optimizing compilers may still attempt to reorder independent
+memory accesses across sequence points. If an MMIO operation requires a
+strict sequence—such as setting a configuration register before pulsing
+a trigger register—a compiler-level optimization might reorder
+non-volatile accesses around volatile accesses.</p>
+<p>To prevent the compiler from moving memory operations across critical
+MMIO writes, developers utilize compiler memory barriers:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// GCC / Clang compiler barrier</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>__asm__ __volatile__<span class="op">(</span><span class="st">&quot;&quot;</span> <span class="op">:::</span> <span class="st">&quot;memory&quot;</span><span class="op">);</span></span></code></pre></div>
+<p>This instruction produces no CPU instructions, but it signals to the
+compiler's optimizer that all memory might have been read or altered,
+forcing the compiler to flush pending writes and prevent reordering
+across the barrier boundary.</p>
+<h2
+id="distinguishing-compiler-behavior-from-hardware-behavior">Distinguishing
+Compiler Behavior from Hardware Behavior</h2>
+<p>Preventing compiler elimination guarantees that the compiler emits
+the necessary store instruction (such as <code>STR</code> on ARM or
+<code>MOV</code> on x86). However, this only governs compiler
+optimization.</p>
+<p>At the hardware level, out-of-order execution engines, write buffers,
+and bus interconnects can still delay, merge, or reorder bus cycles
+unless hardware-level memory barriers (such as ARM
+<code>DMB</code>/<code>DSB</code> instructions or x86
+<code>MFENCE</code>) are used alongside the <code>volatile</code>
+qualifier.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

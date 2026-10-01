@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POSIX Async-Signal-Safe Functions in C - c</title>
+    <meta name="description" content="When handling asynchronous signals in C, execution can be interrupted at virtually any instruction, meaning signal handlers must only call functions that are guaranteed not to corrupt program state or trigger deadlocks. POSIX standards define a strict li">
+    <link rel="canonical" href="https://salivity.github.io/c/article/posix-async-signal-safe-functions-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="POSIX Async-Signal-Safe Functions in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/posix-async-signal-safe-functions-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="When handling asynchronous signals in C, execution can be interrupted at virtually any instruction, meaning signal handlers must only call functions that are guaranteed not to corrupt program state or trigger deadlocks. POSIX standards define a strict li" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="posix-async-signal-safe-functions-in-c">POSIX Async-Signal-Safe
+Functions in C</h1>
+<p>When handling asynchronous signals in C, execution can be interrupted
+at virtually any instruction, meaning signal handlers must only call
+functions that are guaranteed not to corrupt program state or trigger
+deadlocks. POSIX standards define a strict list of "async-signal-safe"
+functions that are reentrant or interrupt-safe and therefore permitted
+inside signal handlers. This article explains the requirements of
+async-signal safety, outlines the most commonly used safe functions,
+highlights dangerous operations to avoid, and details best practices for
+safe signal handling.</p>
+<h3 id="what-makes-a-function-async-signal-safe">What Makes a Function
+Async-Signal-Safe?</h3>
+<p>An async-signal-safe function is one that can be safely invoked from
+a signal handler context without interfering with the interrupted
+thread's execution. A signal may interrupt a process while it is in the
+middle of executing an internal routine, modifying global variables, or
+holding a mutex lock. If the signal handler invokes a function that
+attempts to acquire that same lock or modify the same shared state, a
+deadlock or memory corruption occurs.</p>
+<p>To be async-signal-safe under POSIX, a function must satisfy at least
+one of the following criteria:</p>
+<ul>
+<li>It is entirely reentrant, relying solely on local variables and
+arguments passed on the stack.</li>
+<li>It does not access shared global data without atomic
+protections.</li>
+<li>It disables signals during any critical internal execution that
+alters global state.</li>
+<li>It does not allocate heap memory or use internal static
+buffers.</li>
+</ul>
+<h3 id="common-posix-async-signal-safe-functions">Common POSIX
+Async-Signal-Safe Functions</h3>
+<p>POSIX.1-2008 and POSIX.1-2017 define roughly 180-200 specific
+functions as async-signal-safe. The most frequently used functions
+include:</p>
+<h4 id="file-and-low-level-io">File and Low-Level I/O</h4>
+<ul>
+<li><code>open()</code>, <code>creat()</code>, <code>close()</code></li>
+<li><code>read()</code>, <code>write()</code>, <code>pread()</code>,
+<code>pwrite()</code></li>
+<li><code>lseek()</code>, <code>dup()</code>, <code>dup2()</code></li>
+<li><code>fstat()</code>, <code>stat()</code>, <code>lstat()</code></li>
+<li><code>fcntl()</code></li>
+</ul>
+<h4 id="process-management">Process Management</h4>
+<ul>
+<li><code>_exit()</code>, <code>_Exit()</code> (Note: Standard
+<code>exit()</code> is <strong>not</strong> safe as it flushes standard
+I/O buffers and runs cleanup handlers)</li>
+<li><code>fork()</code></li>
+<li><code>execve()</code></li>
+<li><code>wait()</code>, <code>waitpid()</code></li>
+<li><code>kill()</code>, <code>raise()</code></li>
+<li><code>getpid()</code>, <code>getppid()</code>,
+<code>getuid()</code>, <code>geteuid()</code>, <code>getgid()</code>,
+<code>getegid()</code></li>
+</ul>
+<h4 id="signal-operations">Signal Operations</h4>
+<ul>
+<li><code>sigaction()</code></li>
+<li><code>sigprocmask()</code></li>
+<li><code>sigpending()</code></li>
+<li><code>sigsuspend()</code></li>
+<li><code>sigaddset()</code>, <code>sigdelset()</code>,
+<code>sigemptyset()</code>, <code>sigfillset()</code>,
+<code>sigismember()</code></li>
+</ul>
+<h4 id="time-and-clocks">Time and Clocks</h4>
+<ul>
+<li><code>clock_gettime()</code></li>
+<li><code>time()</code></li>
+<li><code>alarm()</code></li>
+<li><code>timer_getoverrun()</code>, <code>timer_gettime()</code>,
+<code>timer_settime()</code></li>
+</ul>
+<h4 id="string-and-memory-routines-posix1-2024-additions">String and
+Memory Routines (POSIX.1-2024 additions)</h4>
+<p>Recent updates to POSIX standards have formally designated several
+stateless memory and string functions as safe, including:</p>
+<ul>
+<li><code>memchr()</code>, <code>memcmp()</code>, <code>memcpy()</code>,
+<code>memmove()</code>, <code>memset()</code></li>
+<li><code>strcat()</code>, <code>strchr()</code>, <code>strcmp()</code>,
+<code>strcpy()</code>, <code>strlen()</code>, <code>strncmp()</code>,
+<code>strncpy()</code></li>
+</ul>
+<h3 id="functions-that-are-strictly-unsafe">Functions That Are Strictly
+Unsafe</h3>
+<p>Calling non-async-signal-safe functions inside a handler leads to
+undefined behavior. Common unsafe operations include:</p>
+<ul>
+<li><strong>Dynamic Memory Allocation:</strong> <code>malloc()</code>,
+<code>calloc()</code>, <code>realloc()</code>, and <code>free()</code>
+rely on internal heap locks and shared control blocks.</li>
+<li><strong>Standard I/O Operations:</strong> <code>printf()</code>,
+<code>puts()</code>, <code>fopen()</code>, <code>fclose()</code>,
+<code>fread()</code>, and <code>fprintf()</code> use internal buffers
+protected by locks.</li>
+<li><strong>Synchronization Primitives:</strong> Mutex locks
+(<code>pthread_mutex_lock()</code>), condition variables, and semaphores
+can deadlock the interrupted thread.</li>
+<li><strong>Process Exit Routines:</strong> Standard <code>exit()</code>
+and <code>abort()</code> (though <code>abort()</code> can be used to
+terminate via <code>SIGABRT</code>, invoking cleanup hooks is
+unsafe).</li>
+</ul>
+<h3 id="best-practices-for-handling-signals-in-c">Best Practices for
+Handling Signals in C</h3>
+<p>The most robust way to write signal handlers is to avoid executing
+complex logic inside them altogether:</p>
+<ol type="1">
+<li><strong>Set a Flag:</strong> Declare a global flag using
+<code>volatile sig_atomic_t</code> (e.g.,
+<code>volatile sig_atomic_t shutdown_requested = 0;</code>). The signal
+handler simply sets this variable to <code>1</code>, and the main
+execution loop checks it periodically.</li>
+<li><strong>The Self-Pipe Trick:</strong> If using an event loop
+(<code>select()</code>, <code>poll()</code>, or <code>epoll()</code>),
+write a single byte to an internal pipe or <code>eventfd</code> using
+the async-signal-safe <code>write()</code> system call inside the
+handler. This cleanly wakes the main loop.</li>
+<li><strong>Synchronous Signal Handling:</strong> In multithreaded
+programs, block signals in all threads using
+<code>pthread_sigmask()</code> and dedicate a single thread to wait
+synchronously for signals using <code>sigwait()</code> or
+<code>sigwaitinfo()</code>. This eliminates the asynchronous signal
+handler context entirely, allowing you to safely use non-reentrant
+functions like <code>printf()</code> or <code>malloc()</code> upon
+receiving a signal.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

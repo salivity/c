@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C Format String Vulnerabilities and Memory Integrity - c</title>
+    <meta name="description" content="Format string vulnerabilities occur when untrusted user input is passed directly as the format argument to variadic C library functions such as printf(), sprintf(), or syslog(). This article examines why these flaws are catastrophic to memory integrity,">
+    <link rel="canonical" href="https://salivity.github.io/c/article/c-format-string-vulnerabilities-and-memory-integrity">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C Format String Vulnerabilities and Memory Integrity - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/c-format-string-vulnerabilities-and-memory-integrity" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Format string vulnerabilities occur when untrusted user input is passed directly as the format argument to variadic C library functions such as printf(), sprintf(), or syslog(). This article examines why these flaws are catastrophic to memory integrity," />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-format-string-vulnerabilities-and-memory-integrity">C Format
+String Vulnerabilities and Memory Integrity</h1>
+<p>Format string vulnerabilities occur when untrusted user input is
+passed directly as the format argument to variadic C library functions
+such as <code>printf()</code>, <code>sprintf()</code>, or
+<code>syslog()</code>. This article examines why these flaws are
+catastrophic to memory integrity, detailing how the disconnect between
+expected and supplied arguments allows attackers to leak memory,
+overwrite arbitrary addresses using the <code>%n</code> token, bypass
+critical security mitigations, and gain full control over the execution
+flow of a C application.</p>
+<h3 id="the-mechanics-of-variadic-functions-in-c">The Mechanics of
+Variadic Functions in C</h3>
+<p>In the C programming language, functions that accept a variable
+number of arguments rely on the caller to push those arguments onto the
+stack or load them into specific registers, in accordance with the
+system's Application Binary Interface (ABI). The receiving function,
+such as <code>printf(const char *format, ...)</code>, relies entirely on
+the format string to determine how many arguments were passed and what
+types they are.</p>
+<p>When a developer writes <code>printf(user_input)</code> instead of
+<code>printf("%s", user_input)</code>, the function interprets any
+format specifiers (such as <code>%x</code>, <code>%s</code>, or
+<code>%n</code>) within <code>user_input</code> as valid directives.
+Because the C runtime does not track the actual number of arguments
+passed at runtime, the function simply reads the next values off the
+stack or from parameter registers, whether those values were
+intentionally provided as arguments or not.</p>
+<h3 id="arbitrary-memory-read-and-information-leakage">Arbitrary Memory
+Read and Information Leakage</h3>
+<p>The first breakdown in memory integrity comes from unauthorized
+reads. By providing sequences of <code>%x</code> or <code>%p</code>
+specifiers, an attacker forces the function to traverse the stack frame,
+outputting values stored in adjacent memory.</p>
+<p>This behavior destroys the confidentiality of in-memory data.
+Attackers can expose:</p>
+<ul>
+<li><strong>Pointers:</strong> Leaking pointers to the stack, heap, and
+executable code segments allows an attacker to calculate base addresses
+and defeat Address Space Layout Randomization (ASLR).</li>
+<li><strong>Stack Canaries:</strong> Extracting stack guard values
+allows an attacker to later craft stack-based buffer overflows without
+triggering canary corruption defenses.</li>
+<li><strong>Sensitive Application Data:</strong> Cryptographic keys,
+passwords, and user data residing in nearby stack frames or accessible
+via leaked pointers (using the <code>%s</code> dereferencing specifier)
+can be read directly.</li>
+</ul>
+<h3 id="the-destructive-power-of-the-n-specifier">The Destructive Power
+of the <code>%n</code> Specifier</h3>
+<p>While memory disclosure is dangerous, the true catastrophe to memory
+integrity is arbitrary memory writing. The C standard defines the
+<code>%n</code> format specifier, which does not output text; instead,
+it writes the number of bytes printed so far into an integer pointer
+provided as an argument.</p>
+<p>When an attacker controls the format string:</p>
+<ol type="1">
+<li><strong>Targeting the Destination Address:</strong> By using direct
+parameter access (e.g., <code>%&lt;index&gt;$n</code>) or padding the
+format string, the attacker can align the format string's parsing with
+an address they have placed in the input buffer itself.</li>
+<li><strong>Controlling the Value:</strong> By manipulating field width
+specifiers (such as <code>%1000u</code>), the attacker controls the
+exact number of characters written, thereby dictating the precise
+integer value that <code>%n</code> will write to the target memory
+address.</li>
+<li><strong>Writing Arbitrary Bytes:</strong> By chaining multiple
+writes using modifier lengths like <code>%hn</code> (write two bytes) or
+<code>%hhn</code> (write a single byte), an attacker can reliably write
+any 32-bit or 64-bit value to any writable memory location in the
+process address space.</li>
+</ol>
+<h3 id="system-takeover-via-integrity-loss">System Takeover via
+Integrity Loss</h3>
+<p>Once an attacker can write arbitrary values to arbitrary addresses,
+memory integrity is fundamentally compromised. In a typical exploitation
+chain, the attacker targets pointers that control the flow of
+execution:</p>
+<ul>
+<li><strong>Global Offset Table (GOT):</strong> In dynamically linked
+binaries, functions resolve external library calls through the GOT.
+Overwriting a GOT entry for a common function like <code>exit()</code>
+or <code>puts()</code> with the address of a shellcode payload or a
+standard library function like <code>system()</code> redirects execution
+immediately upon the next call.</li>
+<li><strong>Saved Return Addresses:</strong> Overwriting the return
+address on the stack enables direct control of the instruction pointer,
+allowing the attacker to construct Return-Oriented Programming (ROP)
+chains.</li>
+<li><strong>Function Pointers and Hooks:</strong> Overwriting
+application-level function pointers, C++ virtual method tables (vtable),
+or glibc management hooks (like <code>__free_hook</code> or
+<code>__malloc_hook</code>) yields deterministic code execution with the
+permissions of the vulnerable process.</li>
+</ul>
+<h3 id="prevention-and-mitigation">Prevention and Mitigation</h3>
+<p>Preventing format string vulnerabilities requires treating the format
+argument strictly as static code rather than dynamic data:</p>
+<ul>
+<li><strong>Strict Static Formatting:</strong> Never pass dynamic user
+buffers as the format argument. Always use explicit format specifiers:
+<code>printf("%s", input)</code>.</li>
+<li><strong>Compiler Defenses:</strong> Modern compilers provide flags
+such as <code>-Wformat</code> and <code>-Wformat-security</code> to
+detect and reject non-literal format strings at compile time.</li>
+<li><strong>Runtime Hardening:</strong> Tools like
+<code>-D_FORTIFY_SOURCE=2</code> inspect format strings at runtime,
+disabling dangerous behaviors like using <code>%n</code> on writable
+memory locations or referencing unpassed positional arguments.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

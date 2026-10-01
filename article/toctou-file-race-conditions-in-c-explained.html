@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOCTOU File Race Conditions in C Explained - c</title>
+    <meta name="description" content="Time-of-Check to Time-of-Use (TOCTOU) race conditions are a critical class of software vulnerabilities that occur when a program checks the state of a resource and assumes that state remains constant until the resource is subsequently used. In the C prog">
+    <link rel="canonical" href="https://salivity.github.io/c/article/toctou-file-race-conditions-in-c-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="TOCTOU File Race Conditions in C Explained - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/toctou-file-race-conditions-in-c-explained" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Time-of-Check to Time-of-Use (TOCTOU) race conditions are a critical class of software vulnerabilities that occur when a program checks the state of a resource and assumes that state remains constant until the resource is subsequently used. In the C prog" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="toctou-file-race-conditions-in-c-explained">TOCTOU File Race
+Conditions in C Explained</h1>
+<p>Time-of-Check to Time-of-Use (TOCTOU) race conditions are a critical
+class of software vulnerabilities that occur when a program checks the
+state of a resource and assumes that state remains constant until the
+resource is subsequently used. In the C programming language, these
+vulnerabilities frequently manifest during file operations where a
+program verifies a file's metadata—such as existence, ownership, or
+permissions—before opening, modifying, or executing it. This article
+breaks down the mechanics of TOCTOU flaws in C, explores the underlying
+causes that allow attackers to exploit them, and outlines the standard
+development practices required to prevent them.</p>
+<h2 id="the-core-problem-non-atomic-operations">The Core Problem:
+Non-Atomic Operations</h2>
+<p>The root cause of a TOCTOU race condition is the lack of atomicity
+between two distinct system calls. In C, standard libraries and
+operating system APIs often split operations into separate steps. For
+example, a developer might use <code>access()</code> to check if a user
+has permission to write to a file, and then call <code>fopen()</code> or
+<code>open()</code> to access the file if the check passes.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Vulnerable pattern</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>access<span class="op">(</span><span class="st">&quot;/tmp/shared_file.txt&quot;</span><span class="op">,</span> W_OK<span class="op">)</span> <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// A context switch or concurrent process can alter the file here</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">FILE</span> <span class="op">*</span>f <span class="op">=</span> fopen<span class="op">(</span><span class="st">&quot;/tmp/shared_file.txt&quot;</span><span class="op">,</span> <span class="st">&quot;w&quot;</span><span class="op">);</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>f<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        fputs<span class="op">(</span><span class="st">&quot;Sensitive data&quot;</span><span class="op">,</span> f<span class="op">);</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        fclose<span class="op">(</span>f<span class="op">);</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Between the invocation of <code>access()</code> (the check) and
+<code>fopen()</code> (the use), the kernel's scheduler may pause the
+executing process to run another thread or process. During this brief
+window, the state of the filesystem can change. If a malicious actor
+alters the target file between these two operations, the application
+proceeds based on obsolete, invalid assumptions.</p>
+<h2 id="file-paths-vs-file-descriptors">File Paths vs. File
+Descriptors</h2>
+<p>TOCTOU vulnerabilities are heavily exacerbated by referencing files
+via string paths rather than persistent file handles. Path resolution is
+dynamic; every time a system call accepts a path string like
+<code>"/tmp/shared_file.txt"</code>, the kernel traverses the directory
+tree from scratch to locate the corresponding inode on the disk.</p>
+<p>This design introduces specific exploitation vectors:</p>
+<ul>
+<li><strong>Symlink Swapping:</strong> An attacker can monitor the
+system and replace a legitimate file with a symbolic link pointing to a
+protected resource (such as <code>/etc/shadow</code> or critical system
+binaries) immediately after the program passes its security check.</li>
+<li><strong>Directory Renaming:</strong> An attacker can rename an
+intermediate directory within the path, causing the program to write to
+or read from an unintended location.</li>
+</ul>
+<p>Because the program evaluates the path twice—once to check validity
+and once to perform the I/O—the path may resolve to two entirely
+different physical files.</p>
+<h2 id="concurrency-and-preemptive-multitasking">Concurrency and
+Preemptive Multitasking</h2>
+<p>Modern operating systems rely on preemptive multitasking, where the
+CPU rapidly switches between running processes. Even without an
+intentional delay in the C code, an attacker can flood the CPU or use
+filesystem manipulation loops (such as calling <code>rename()</code> or
+<code>symlink()</code> in a tight loop) to win the race condition. When
+the application's time slice expires between the check and the use, the
+attacker’s process executes and modifies the target path before the
+original program resumes.</p>
+<h2 id="how-to-prevent-toctou-in-c">How to Prevent TOCTOU in C</h2>
+<p>Eliminating TOCTOU race conditions requires designing file operations
+so that checks and actions occur simultaneously (atomically), or
+ensuring operations bind directly to file descriptors rather than
+paths.</p>
+<ol type="1">
+<li><strong>Avoid Pre-Checking APIs:</strong> Do not use
+<code>access()</code>, <code>stat()</code>, or <code>lstat()</code> to
+make authorization decisions before an <code>open()</code> call.
+Instead, attempt the operation directly and handle any returned errors
+(such as <code>EACCES</code> or <code>EEXIST</code>).</li>
+<li><strong>Use Atomic Open Flags:</strong> Use POSIX
+<code>open()</code> flags to guarantee atomic behavior:
+<ul>
+<li><code>O_CREAT | O_EXCL</code>: Ensures the file is created only if
+it does not already exist, preventing attackers from pre-creating
+files.</li>
+<li><code>O_NOFOLLOW</code>: Fails the call if the target file is a
+symbolic link, mitigating symlink redirection attacks.</li>
+</ul></li>
+<li><strong>Bind to Descriptors Immediately:</strong> Perform metadata
+checks on an open file descriptor using <code>fstat()</code> rather than
+<code>stat()</code>. Once a file descriptor is obtained via
+<code>open()</code>, it references a specific inode, rendering path
+manipulations like symlink swaps ineffective.</li>
+<li><strong>Use Directory Descriptors:</strong> APIs such as
+<code>openat()</code>, <code>fstatat()</code>, and
+<code>unlinkat()</code> allow operations relative to an already-opened
+directory descriptor, drastically reducing the attack surface for
+path-traversal and renaming races.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

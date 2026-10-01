@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C23 #embed Directive: Importing Binary Resources in C - c</title>
+    <meta name="description" content="The #embed preprocessor directive, introduced in the ISO C23 standard, provides a native and standardized mechanism to include raw binary assets directly into C source code. Prior to C23, developers relied on external conversion scripts or platform-speci">
+    <link rel="canonical" href="https://salivity.github.io/c/article/c-23-embed-directive-importing-binary-resources-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C23 #embed Directive: Importing Binary Resources in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/c-23-embed-directive-importing-binary-resources-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The #embed preprocessor directive, introduced in the ISO C23 standard, provides a native and standardized mechanism to include raw binary assets directly into C source code. Prior to C23, developers relied on external conversion scripts or platform-speci" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c23-embed-directive-importing-binary-resources-in-c">C23 #embed
+Directive: Importing Binary Resources in C</h1>
+<p>The <code>#embed</code> preprocessor directive, introduced in the ISO
+C23 standard, provides a native and standardized mechanism to include
+raw binary assets directly into C source code. Prior to C23, developers
+relied on external conversion scripts or platform-specific linkers to
+embed images, audio, firmware, or certificates into their executables.
+This article explains the limitations of legacy approaches, the syntax
+and behavior of <code>#embed</code>, its optional parameters, and how to
+verify resource availability using the <code>__has_embed</code>
+operator.</p>
+<h3 id="the-problem-with-legacy-binary-embedding">The Problem with
+Legacy Binary Embedding</h3>
+<p>Before C23, embedding binary data into a C program required
+workarounds:</p>
+<ul>
+<li><strong>Hex-dump converters:</strong> Utilities like
+<code>xxd -i</code> transformed raw binary files into massive C source
+files containing byte-by-byte comma-separated arrays. This created
+immense compiler overhead, ballooning memory usage and parse times
+during compilation.</li>
+<li><strong>Linker directives and Assembly:</strong> Compilers like GCC
+supported platform-dependent solutions like <code>.incbin</code> in
+inline assembly, or tools like <code>objcopy</code> to wrap binaries
+into object files. These methods were non-portable and disrupted unified
+build pipelines.</li>
+</ul>
+<p>The <code>#embed</code> directive addresses these inefficiencies by
+instructing the preprocessor to supply raw binary sequences directly
+into array initializers, allowing compilers to optimize memory
+management and skip standard lexical token parsing.</p>
+<h3 id="basic-syntax-and-usage">Basic Syntax and Usage</h3>
+<p>The syntax of <code>#embed</code> mimics the <code>#include</code>
+directive, accepting a file path enclosed in either quotation marks or
+angle brackets.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stddef.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="dt">const</span> <span class="dt">unsigned</span> <span class="dt">char</span> app_icon<span class="op">[]</span> <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="pp">#embed &quot;assets/icon.png&quot;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="dt">const</span> <span class="dt">size_t</span> app_icon_len <span class="op">=</span> <span class="kw">sizeof</span><span class="op">(</span>app_icon<span class="op">);</span></span></code></pre></div>
+<p>When evaluated, the compiler replaces
+<code>#embed "assets/icon.png"</code> with a sequence of integer
+constant expressions suitable for initializing an array of
+<code>unsigned char</code>, <code>char</code>, or other integer
+types.</p>
+<h3 id="parameters-and-modifiers">Parameters and Modifiers</h3>
+<p>C23 allows specific parameters inside <code>#embed</code> to control
+how data is read and handled:</p>
+<h4 id="1-limiting-ingested-bytes-limit">1. Limiting Ingested Bytes
+(<code>limit</code>)</h4>
+<p>The <code>limit</code> parameter caps the number of resource elements
+included:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">const</span> <span class="dt">unsigned</span> <span class="dt">char</span> header<span class="op">[</span><span class="dv">16</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="pp">#embed &quot;firmware.bin&quot; limit(16)</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<h4 id="2-handling-empty-resources-if_empty">2. Handling Empty Resources
+(<code>if_empty</code>)</h4>
+<p>If the referenced file has a size of zero bytes, the
+<code>if_empty</code> directive substitutes a specified fallback token
+list instead of failing or producing an empty expansion:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">const</span> <span class="dt">unsigned</span> <span class="dt">char</span> signature<span class="op">[]</span> <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="pp">#embed &quot;signature.bin&quot; if_empty(0x00)</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<h4 id="3-prefixes-and-suffixes-prefix-suffix">3. Prefixes and Suffixes
+(<code>prefix</code>, <code>suffix</code>)</h4>
+<p>You can prepend or append tokens to the binary stream, which is
+useful for adding null terminators or framing bytes:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">const</span> <span class="dt">char</span> embedded_text<span class="op">[]</span> <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="pp">#embed &quot;message.txt&quot; suffix(, &#39;\0&#39;)</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>If the targeted file is empty, neither <code>prefix</code> nor
+<code>suffix</code> is expanded.</p>
+<h3 id="conditional-checks-with-__has_embed">Conditional Checks with
+<code>__has_embed</code></h3>
+<p>To maintain portability and avoid preprocessor errors when a resource
+is absent, C23 introduced the <code>__has_embed</code> feature-test
+macro. Similar to <code>__has_include</code>, it evaluates within
+<code>#if</code> and <code>#elif</code> conditions to determine if a
+resource exists:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#if __has_embed(&quot;config.json&quot;)</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="dt">const</span> <span class="dt">unsigned</span> <span class="dt">char</span> config_data<span class="op">[]</span> <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="pp">#embed &quot;config.json&quot;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="pp">#else</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="dt">const</span> <span class="dt">unsigned</span> <span class="dt">char</span> config_data<span class="op">[]</span> <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span> <span class="op">};</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="pp">#endif</span></span></code></pre></div>
+<p>The macro returns:</p>
+<ul>
+<li><code>__STDC_EMBED_FOUND__</code> if the file exists and is
+accessible.</li>
+<li><code>__STDC_EMBED_EMPTY__</code> if the file is found but contains
+zero bytes.</li>
+<li><code>__STDC_EMBED_NOT_FOUND__</code> (evaluating to <code>0</code>)
+if the file cannot be opened.</li>
+</ul>
+<h3 id="compiler-performance-benefits">Compiler Performance
+Benefits</h3>
+<p>Unlike <code>#include</code> with text-formatted hex arrays, modern
+compilers implement <code>#embed</code> through specialized internal
+paths. Instead of generating abstract syntax tree (AST) nodes for
+millions of individual comma-separated integer literals, the compiler
+can map the disk resource straight into the binary’s read-only data
+section (<code>.rodata</code>), dramatically reducing build times and
+compiler memory footprints.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

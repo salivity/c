@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C Function Pointers: Callbacks and Runtime Dispatch - c</title>
+    <meta name="description" content="Function pointers in the C programming language provide a way to store, pass, and invoke executable code dynamically at runtime. Because C lacks native object-oriented features like polymorphism and high-level abstractions like first-class functions, fun">
+    <link rel="canonical" href="https://salivity.github.io/c/article/c-function-pointers-callbacks-and-runtime-dispatch">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C Function Pointers: Callbacks and Runtime Dispatch - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/c-function-pointers-callbacks-and-runtime-dispatch" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Function pointers in the C programming language provide a way to store, pass, and invoke executable code dynamically at runtime. Because C lacks native object-oriented features like polymorphism and high-level abstractions like first-class functions, fun" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-function-pointers-callbacks-and-runtime-dispatch">C Function
+Pointers: Callbacks and Runtime Dispatch</h1>
+<p>Function pointers in the C programming language provide a way to
+store, pass, and invoke executable code dynamically at runtime. Because
+C lacks native object-oriented features like polymorphism and high-level
+abstractions like first-class functions, function pointers act as the
+foundational mechanism for implementing both callbacks and runtime
+dispatch. This article explores how function pointers operate, how they
+decouple producers and consumers through callback architectures, and how
+they emulate dynamic method dispatch and jump tables for flexible system
+design.</p>
+<h2 id="the-fundamentals-of-function-pointers">The Fundamentals of
+Function Pointers</h2>
+<p>In C, functions reside in memory within the text (code) segment, and
+their names resolve to their entry-point addresses. A function pointer
+variable holds this memory address rather than a data value.</p>
+<p>The declaration syntax mirrors the signature of the target
+function:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>return_type <span class="op">(*</span>pointer_name<span class="op">)(</span>parameter_types<span class="op">);</span></span></code></pre></div>
+<p>For instance, a pointer to a function taking two integers and
+returning an integer is declared as:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> <span class="op">(*</span>operation<span class="op">)(</span><span class="dt">int</span><span class="op">,</span> <span class="dt">int</span><span class="op">);</span></span></code></pre></div>
+<p>By assigning an address to this pointer, the program can invoke the
+underlying function indirectly using standard call syntax:
+<code>operation(5, 3)</code>.</p>
+<h2 id="enabling-callback-mechanisms">Enabling Callback Mechanisms</h2>
+<p>A callback is a function passed as an argument to another function,
+which the receiving code invokes when a specific event occurs or a
+condition is met. This pattern decouples high-level policy from
+low-level execution logic.</p>
+<h3 id="1-inversion-of-control">1. Inversion of Control</h3>
+<p>Without function pointers, a processing function must hardcode the
+actions it takes on data. By accepting a function pointer, the function
+delegates execution back to the caller's specific implementation.</p>
+<p>A classic example is the C Standard Library's <code>qsort</code>
+function:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> qsort<span class="op">(</span><span class="dt">void</span> <span class="op">*</span>base<span class="op">,</span> <span class="dt">size_t</span> nitems<span class="op">,</span> <span class="dt">size_t</span> size<span class="op">,</span> <span class="dt">int</span> <span class="op">(*</span>compar<span class="op">)(</span><span class="dt">const</span> <span class="dt">void</span> <span class="op">*,</span> <span class="dt">const</span> <span class="dt">void</span><span class="op">*));</span></span></code></pre></div>
+<p>The sorting algorithm handles array partitioning and element
+swapping, but it delegates comparison logic to the user-supplied
+<code>compar</code> callback.</p>
+<h3 id="2-custom-callback-implementation">2. Custom Callback
+Implementation</h3>
+<p>Consider an asynchronous or decoupled event processing pipeline:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">typedef</span> <span class="dt">void</span> <span class="op">(*</span>DataHandler<span class="op">)(</span><span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>data<span class="op">);</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> fetch_network_data<span class="op">(</span>DataHandler on_success<span class="op">,</span> DataHandler on_error<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> success <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> <span class="co">// Simulated operation result</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>success<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        on_success<span class="op">(</span><span class="st">&quot;Payload: 200 OK&quot;</span><span class="op">);</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        on_error<span class="op">(</span><span class="st">&quot;Error: 500 Server Error&quot;</span><span class="op">);</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> log_success<span class="op">(</span><span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>data<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Success: </span><span class="sc">%s\n</span><span class="st">&quot;</span><span class="op">,</span> data<span class="op">);</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> log_error<span class="op">(</span><span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>data<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    fprintf<span class="op">(</span>stderr<span class="op">,</span> <span class="st">&quot;Failure: </span><span class="sc">%s\n</span><span class="st">&quot;</span><span class="op">,</span> data<span class="op">);</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>    fetch_network_data<span class="op">(</span>log_success<span class="op">,</span> log_error<span class="op">);</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Here, <code>fetch_network_data</code> remains agnostic about how data
+or errors are handled, allowing callers to plug in logging, UI updates,
+or custom retry routines without modifying the network logic.</p>
+<h2 id="implementing-runtime-dispatch">Implementing Runtime
+Dispatch</h2>
+<p>Runtime dispatch refers to determining which concrete function
+executes while the program is actively running, rather than fixing it
+during compilation. C relies on function pointers to achieve this via
+two primary patterns: Jump Tables and Virtual Method Tables
+(Vtables).</p>
+<h3 id="1-jump-tables-arrays-of-function-pointers">1. Jump Tables
+(Arrays of Function Pointers)</h3>
+<p>A jump table maps keys, command codes, or state machine states
+directly to function addresses. This eliminates lengthy
+<code>switch-case</code> or <code>if-else</code> chains and provides
+<span class="math inline">\(O(1)\)</span> time-complexity
+dispatching.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> add<span class="op">(</span><span class="dt">int</span> a<span class="op">,</span> <span class="dt">int</span> b<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> a <span class="op">+</span> b<span class="op">;</span> <span class="op">}</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> sub<span class="op">(</span><span class="dt">int</span> a<span class="op">,</span> <span class="dt">int</span> b<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> a <span class="op">-</span> b<span class="op">;</span> <span class="op">}</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> mul<span class="op">(</span><span class="dt">int</span> a<span class="op">,</span> <span class="dt">int</span> b<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> a <span class="op">*</span> b<span class="op">;</span> <span class="op">}</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="kw">typedef</span> <span class="dt">int</span> <span class="op">(*</span>MathOp<span class="op">)(</span><span class="dt">int</span><span class="op">,</span> <span class="dt">int</span><span class="op">);</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Array of function pointers serving as a jump table</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    MathOp operations<span class="op">[]</span> <span class="op">=</span> <span class="op">{</span> add<span class="op">,</span> sub<span class="op">,</span> mul <span class="op">};</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> op_code <span class="op">=</span> <span class="dv">2</span><span class="op">;</span> <span class="co">// Selected at runtime (e.g., user input)</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> a <span class="op">=</span> <span class="dv">10</span><span class="op">,</span> b <span class="op">=</span> <span class="dv">5</span><span class="op">;</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>op_code <span class="op">&gt;=</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span> op_code <span class="op">&lt;</span> <span class="dv">3</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> result <span class="op">=</span> operations<span class="op">[</span>op_code<span class="op">](</span>a<span class="op">,</span> b<span class="op">);</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>        printf<span class="op">(</span><span class="st">&quot;Result: </span><span class="sc">%d\n</span><span class="st">&quot;</span><span class="op">,</span> result<span class="op">);</span> <span class="co">// Output: 50</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="2-simulated-polymorphism-via-structs">2. Simulated Polymorphism
+via Structs</h3>
+<p>Object-oriented languages automatically manage virtual method tables
+to support polymorphism. In C, developers achieve identical behavior by
+embedding function pointers within a <code>struct</code>, effectively
+creating an interface contract.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="kw">typedef</span> <span class="kw">struct</span> Shape Shape<span class="op">;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Shape <span class="op">{</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> <span class="op">(*</span>draw<span class="op">)(</span>Shape <span class="op">*</span>self<span class="op">);</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> x<span class="op">,</span> y<span class="op">;</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> draw_circle<span class="op">(</span>Shape <span class="op">*</span>self<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Drawing circle at (</span><span class="sc">%d</span><span class="st">, </span><span class="sc">%d</span><span class="st">)</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">,</span> self<span class="op">-&gt;</span>x<span class="op">,</span> self<span class="op">-&gt;</span>y<span class="op">);</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> draw_square<span class="op">(</span>Shape <span class="op">*</span>self<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Drawing square at (</span><span class="sc">%d</span><span class="st">, </span><span class="sc">%d</span><span class="st">)</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">,</span> self<span class="op">-&gt;</span>x<span class="op">,</span> self<span class="op">-&gt;</span>y<span class="op">);</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>    Shape circle <span class="op">=</span> <span class="op">{</span> <span class="op">.</span>draw <span class="op">=</span> draw_circle<span class="op">,</span> <span class="op">.</span>x <span class="op">=</span> <span class="dv">10</span><span class="op">,</span> <span class="op">.</span>y <span class="op">=</span> <span class="dv">20</span> <span class="op">};</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>    Shape square <span class="op">=</span> <span class="op">{</span> <span class="op">.</span>draw <span class="op">=</span> draw_square<span class="op">,</span> <span class="op">.</span>x <span class="op">=</span> <span class="dv">5</span><span class="op">,</span>  <span class="op">.</span>y <span class="op">=</span> <span class="dv">15</span> <span class="op">};</span></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>    Shape <span class="op">*</span>shapes<span class="op">[]</span> <span class="op">=</span> <span class="op">{</span> <span class="op">&amp;</span>circle<span class="op">,</span> <span class="op">&amp;</span>square <span class="op">};</span></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">2</span><span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>        shapes<span class="op">[</span>i<span class="op">]-&gt;</span>draw<span class="op">(</span>shapes<span class="op">[</span>i<span class="op">]);</span> <span class="co">// Dynamic dispatch</span></span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The loop processes instances uniformly, invoking the appropriate
+implementation determined at initialization.</p>
+<h2 id="performance-and-safety-considerations">Performance and Safety
+Considerations</h2>
+<p>While function pointers introduce significant architectural
+flexibility, they carry distinct trade-offs:</p>
+<ul>
+<li><strong>Compiler Optimizations:</strong> Indirect calls through
+pointers generally prevent inlining, which introduces minor call
+overhead and limits dead-code elimination across call boundaries.</li>
+<li><strong>Branch Prediction:</strong> Modern CPUs rely on branch
+target buffers (BTB) to predict indirect branch targets. Irregular or
+erratic function pointer targets can lead to pipeline stalls due to
+mispredictions.</li>
+<li><strong>Type Safety:</strong> Improper casting of function pointers
+invokes undefined behavior under the C standard. Signatures must match
+strictly to ensure that stack frames and register conventions remain
+intact.</li>
+<li><strong>Security:</strong> Function pointers located in writable
+memory segments can be targets for memory corruption exploits (e.g.,
+buffer overflows leading to control-flow hijacking). Where possible,
+dispatch tables should be marked <code>const</code> to reside in
+read-only memory.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

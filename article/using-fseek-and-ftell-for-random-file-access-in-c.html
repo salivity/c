@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Using fseek and ftell for Random File Access in C - c</title>
+    <meta name="description" content="In C file handling, fseek and ftell are essential standard library functions that enable random access, allowing developers to read or write data at any specific position within a file rather than processing it sequentially from start to finish. This art">
+    <link rel="canonical" href="https://salivity.github.io/c/article/using-fseek-and-ftell-for-random-file-access-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Using fseek and ftell for Random File Access in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/using-fseek-and-ftell-for-random-file-access-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C file handling, fseek and ftell are essential standard library functions that enable random access, allowing developers to read or write data at any specific position within a file rather than processing it sequentially from start to finish. This art" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="using-fseek-and-ftell-for-random-file-access-in-c">Using fseek
+and ftell for Random File Access in C</h1>
+<p>In C file handling, <code>fseek</code> and <code>ftell</code> are
+essential standard library functions that enable random access, allowing
+developers to read or write data at any specific position within a file
+rather than processing it sequentially from start to finish. This
+article explains the core purpose of both functions, how their
+parameters control the file position indicator, and how they work
+together to navigate files, retrieve current offsets, and determine
+total file sizes.</p>
+<h3 id="understanding-random-access">Understanding Random Access</h3>
+<p>By default, file operations in C (such as <code>fread</code>,
+<code>fwrite</code>, <code>fgetc</code>, or <code>fgets</code>) operate
+sequentially. Every read or write automatically advances the internal
+file position indicator by the number of bytes processed. In many
+applications—such as database engines, indexed file readers, or media
+decoders—reading through gigabytes of data sequentially to reach a
+specific record is inefficient. Random file access solves this problem
+by directly jumping to the required byte offset.</p>
+<h3 id="the-purpose-of-fseek">The Purpose of <code>fseek</code></h3>
+<p>The <code>fseek</code> function repositions the file position
+indicator associated with a given file stream. Its function prototype is
+defined in <code>&lt;stdio.h&gt;</code> as:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> fseek<span class="op">(</span><span class="dt">FILE</span> <span class="op">*</span>stream<span class="op">,</span> <span class="dt">long</span> offset<span class="op">,</span> <span class="dt">int</span> whence<span class="op">);</span></span></code></pre></div>
+<ul>
+<li><strong><code>stream</code></strong>: A pointer to the open
+<code>FILE</code> object.</li>
+<li><strong><code>offset</code></strong>: A signed integer representing
+the number of bytes to shift the position indicator relative to the
+reference point defined by <code>whence</code>. A positive value moves
+forward; a negative value moves backward.</li>
+<li><strong><code>whence</code></strong>: The reference point from which
+the offset is applied. The C standard defines three constants for this
+argument:
+<ul>
+<li><code>SEEK_SET</code>: The beginning of the file.</li>
+<li><code>SEEK_CUR</code>: The current position of the indicator.</li>
+<li><code>SEEK_END</code>: The end of the file.</li>
+</ul></li>
+</ul>
+<p><code>fseek</code> returns <code>0</code> upon success and a non-zero
+value if an error occurs, such as attempting an invalid seek operation
+on a non-seekable stream (like a network socket or standard input).</p>
+<h3 id="the-purpose-of-ftell">The Purpose of <code>ftell</code></h3>
+<p>The <code>ftell</code> function determines the current value of the
+file position indicator. Its prototype is:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">long</span> ftell<span class="op">(</span><span class="dt">FILE</span> <span class="op">*</span>stream<span class="op">);</span></span></code></pre></div>
+<p>For binary streams, <code>ftell</code> returns the exact number of
+bytes from the beginning of the file to the current position. For text
+streams, the return value is an implementation-defined token that can
+still be passed to <code>fseek</code> with <code>SEEK_SET</code> to
+return to that exact position. If an error occurs, <code>ftell</code>
+returns <code>-1L</code> and sets <code>errno</code>.</p>
+<p><code>ftell</code> is critical for bookmarking locations in a file
+before navigating away, logging positions, or computing the sizes of
+dynamically allocated buffers needed to store file contents.</p>
+<h3 id="working-together-common-use-cases">Working Together: Common Use
+Cases</h3>
+<p><code>fseek</code> and <code>ftell</code> are frequently used in
+combination to perform operations that sequential file streams cannot
+natively handle:</p>
+<ol type="1">
+<li><strong>Determining File Size</strong>: Moving the indicator to the
+end of the file with <code>fseek(fp, 0, SEEK_END)</code> and immediately
+calling <code>long size = ftell(fp)</code> provides the complete byte
+size of the file. Afterward, calling <code>fseek(fp, 0, SEEK_SET)</code>
+(or <code>rewind(fp)</code>) resets the indicator so normal processing
+can begin.</li>
+<li><strong>Accessing Fixed-Width Records</strong>: If a binary file
+contains uniform structs of size <code>N</code>, the program can
+directly access record <code>i</code> by computing the byte offset
+(<code>i * sizeof(struct Record)</code>) and calling
+<code>fseek(fp, offset, SEEK_SET)</code> before reading.</li>
+<li><strong>In-Place File Updates</strong>: When an entry needs
+modification, <code>fseek</code> allows the program to jump directly
+over existing bytes, overwrite the data with <code>fwrite</code>, and
+maintain the surrounding file structure without rewriting the entire
+file.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

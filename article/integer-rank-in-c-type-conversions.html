@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integer Rank in C Type Conversions - c</title>
+    <meta name="description" content="In the C programming language, the concept of integer conversion rank provides a strict, standardized hierarchy that governs how operands of differing integer types are implicitly converted during expression evaluation. Whenever an operation involves mix">
+    <link rel="canonical" href="https://salivity.github.io/c/article/integer-rank-in-c-type-conversions">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Integer Rank in C Type Conversions - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/integer-rank-in-c-type-conversions" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, the concept of integer conversion rank provides a strict, standardized hierarchy that governs how operands of differing integer types are implicitly converted during expression evaluation. Whenever an operation involves mix" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="integer-rank-in-c-type-conversions">Integer Rank in C Type
+Conversions</h1>
+<p>In the C programming language, the concept of integer conversion rank
+provides a strict, standardized hierarchy that governs how operands of
+differing integer types are implicitly converted during expression
+evaluation. Whenever an operation involves mixed types, the compiler
+does not perform calculations on mismatched bit-widths or incompatible
+signedness arbitrarily. Instead, it relies on integer rank to dictate
+both integer promotions—elevating smaller types to standard
+machine-sized integers—and the "usual arithmetic conversions," which
+reconcile differing types into a single common type to ensure
+predictable and safe computation.</p>
+<p>Every integer type in C is assigned a specific rank according to
+standard language rules. The basic hierarchy of signed types, listed
+from highest to lowest rank, is:</p>
+<ol type="1">
+<li><code>long long int</code></li>
+<li><code>long int</code></li>
+<li><code>int</code></li>
+<li><code>short int</code></li>
+<li><code>signed char</code></li>
+</ol>
+<p>Unsigned integer types share the exact same rank as their
+corresponding signed counterparts (for example,
+<code>unsigned int</code> has the same rank as <code>signed int</code>).
+The <code>_Bool</code> (or <code>bool</code>) type holds the lowest rank
+of all integer types. Standard <code>char</code> shares the same rank as
+<code>signed char</code> and <code>unsigned char</code>, regardless of
+whether the implementation treats plain <code>char</code> as signed or
+unsigned by default. Extended integer types, if provided by an
+implementation, are integrated into this hierarchy based on their
+precision.</p>
+<p>Integer rank first governs the process of integer promotion, which is
+applied automatically to operands in unary and binary expressions. Any
+integer type with a rank strictly less than the rank of <code>int</code>
+and <code>unsigned int</code> (such as <code>char</code>,
+<code>short</code>, or bit-fields) is immediately promoted. If the
+original type's complete value range can be represented by a standard
+<code>int</code>, the value is converted to <code>int</code>; otherwise,
+it is converted to <code>unsigned int</code>. This step eliminates
+sub-<code>int</code> operations, standardizing the minimum working type
+at the machine level.</p>
+<p>After integer promotions are applied, the compiler uses integer rank
+to determine the "usual arithmetic conversions" for binary operators
+when the operands still differ in type. The resolution follows a
+deterministic set of precedence rules:</p>
+<ul>
+<li><strong>Same Signedness:</strong> If both operands are signed or
+both are unsigned, the operand with the lower conversion rank is
+converted to the type of the operand with the higher rank. For example,
+in an operation between <code>int</code> and <code>long int</code>, the
+<code>int</code> is converted to <code>long int</code>.</li>
+<li><strong>Unsigned Rank Greater Than or Equal:</strong> If the
+unsigned operand has a conversion rank greater than or equal to the rank
+of the signed operand, the signed operand is converted to the type of
+the unsigned operand. For instance, in an expression combining
+<code>int</code> and <code>unsigned int</code>, the <code>int</code> is
+converted to <code>unsigned int</code>.</li>
+<li><strong>Signed Rank Greater With Full Representation:</strong> If
+the signed operand has a greater rank than the unsigned operand, and the
+signed type can represent all possible values of the unsigned type, the
+unsigned operand is converted to the signed type. For example, on a
+system where <code>long</code> is 64-bit and <code>unsigned int</code>
+is 32-bit, the <code>unsigned int</code> safely converts to
+<code>long</code>.</li>
+<li><strong>Signed Rank Greater Without Full Representation:</strong> If
+the signed operand has a higher rank but cannot represent all values of
+the unsigned operand (such as when both types have the same width, as
+often occurs with <code>long</code> and <code>unsigned int</code> on
+certain platforms), both operands are converted to the unsigned
+counterpart of the signed type (e.g., <code>unsigned long</code>).</li>
+</ul>
+<p>Through these structured rules, integer rank ensures that implicit
+type coercion in C is consistent, preventing undefined behavior and
+minimizing data truncation across different hardware architectures.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pointer Casting to Absolute Addresses in Embedded C - c</title>
+    <meta name="description" content="In embedded systems programming, casting integer literals directly to pointer types is a standard practice used to access specific physical hardware registers. This article explains why this technique is ubiquitous in embedded C, exploring how microcontr">
+    <link rel="canonical" href="https://salivity.github.io/c/article/pointer-casting-to-absolute-addresses-in-embedded-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Pointer Casting to Absolute Addresses in Embedded C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/pointer-casting-to-absolute-addresses-in-embedded-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In embedded systems programming, casting integer literals directly to pointer types is a standard practice used to access specific physical hardware registers. This article explains why this technique is ubiquitous in embedded C, exploring how microcontr" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="pointer-casting-to-absolute-addresses-in-embedded-c">Pointer
+Casting to Absolute Addresses in Embedded C</h1>
+<p>In embedded systems programming, casting integer literals directly to
+pointer types is a standard practice used to access specific physical
+hardware registers. This article explains why this technique is
+ubiquitous in embedded C, exploring how microcontrollers utilize
+memory-mapped input/output (MMIO), the absence of virtual memory layers,
+the vital role of the <code>volatile</code> qualifier, and how direct
+address casting enables zero-overhead peripheral control.</p>
+<h3 id="memory-mapped-io-mmio-architecture">Memory-Mapped I/O (MMIO)
+Architecture</h3>
+<p>Microcontrollers (such as ARM Cortex-M, AVR, or RISC-V) typically use
+memory-mapped input/output. In this architecture, hardware
+peripherals—such as timers, GPIO ports, ADCs, and communication
+interfaces (UART, SPI, I2C)—are mapped directly into the processor's
+unified memory address space.</p>
+<p>Hardware engineers assign fixed physical addresses to the
+configuration and data registers of these peripherals, which are
+detailed in the microcontroller's datasheet and reference manual.
+Because these registers share the same address bus as system RAM and
+Flash memory, the CPU communicates with hardware using the same read and
+write instructions (<code>LDR</code> and <code>STR</code> in ARM
+assembly) that it uses for standard variables. Casting an absolute
+integer to a pointer allows the C compiler to emit instructions
+targeting these precise hardware addresses.</p>
+<h3 id="absence-of-virtual-memory-and-abstraction-layers">Absence of
+Virtual Memory and Abstraction Layers</h3>
+<p>In desktop or server application development, an Operating System
+(OS) and a Memory Management Unit (MMU) isolate processes through
+virtual memory. A raw pointer address in user space does not correspond
+to a physical address, making arbitrary pointer casting dangerous and
+often illegal (causing segmentation faults).</p>
+<p>Embedded systems, by contrast, frequently run "bare-metal" without an
+operating system or with a lightweight Real-Time Operating System (RTOS)
+that lacks an MMU. The processor operates directly in the physical
+address space. Because there is no OS driver API to mediate hardware
+interaction, the firmware developer is responsible for directly
+manipulating hardware state at the physical address level.</p>
+<h3 id="the-mechanism-of-direct-memory-casting">The Mechanism of Direct
+Memory Casting</h3>
+<p>To access a register, an integer representing the physical address is
+cast to a pointer of appropriate width (e.g., 8-bit, 16-bit, or 32-bit),
+and then dereferenced.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#define GPIOA_ODR </span><span class="op">((</span><span class="dt">volatile</span><span class="pp"> </span><span class="dt">uint32_t</span><span class="pp"> </span><span class="op">*)</span><span class="bn">0x40020014</span><span class="op">)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> set_pin_high<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>GPIOA_ODR <span class="op">|=</span> <span class="op">(</span><span class="dv">1</span> <span class="op">&lt;&lt;</span> <span class="dv">5</span><span class="op">);</span> <span class="co">// Sets pin 5 high</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In this pattern:</p>
+<ul>
+<li><code>0x40020014</code> is the absolute hardware address defined by
+the silicon vendor.</li>
+<li><code>(volatile uint32_t *)</code> tells the compiler that the value
+at this memory location is an unsigned 32-bit word.</li>
+<li>The <code>volatile</code> qualifier is mandatory. It informs the
+compiler's optimizer that the value of this memory location can change
+outside the compiler's control (e.g., by hardware state changes) and
+that writes must not be optimized away or reordered. Without
+<code>volatile</code>, an optimizing compiler might cache the read in a
+CPU register or omit sequential writes.</li>
+</ul>
+<h3 id="struct-overlays-for-peripheral-blocks">Struct Overlays for
+Peripheral Blocks</h3>
+<p>While casting individual addresses is common, firmware architectures
+frequently group contiguous peripheral registers into C structures.
+Developers cast a base memory address to a pointer to that structure
+type:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">typedef</span> <span class="kw">struct</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">volatile</span> <span class="dt">uint32_t</span> MODER<span class="op">;</span>   <span class="co">// Offset 0x00</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">volatile</span> <span class="dt">uint32_t</span> OTYPER<span class="op">;</span>  <span class="co">// Offset 0x04</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">volatile</span> <span class="dt">uint32_t</span> OSPEEDR<span class="op">;</span> <span class="co">// Offset 0x08</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">volatile</span> <span class="dt">uint32_t</span> PUPDR<span class="op">;</span>   <span class="co">// Offset 0x0C</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">volatile</span> <span class="dt">uint32_t</span> IDR<span class="op">;</span>     <span class="co">// Offset 0x10</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">volatile</span> <span class="dt">uint32_t</span> ODR<span class="op">;</span>     <span class="co">// Offset 0x14</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> GPIO_TypeDef<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="pp">#define GPIOA </span><span class="op">((</span><span class="pp">GPIO_TypeDef </span><span class="op">*)</span><span class="bn">0x40020000</span><span class="op">)</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> configure_gpio<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    GPIOA<span class="op">-&gt;</span>MODER <span class="op">|=</span> <span class="op">(</span><span class="dv">1</span> <span class="op">&lt;&lt;</span> <span class="dv">10</span><span class="op">);</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    GPIOA<span class="op">-&gt;</span>ODR   <span class="op">|=</span> <span class="op">(</span><span class="dv">1</span> <span class="op">&lt;&lt;</span> <span class="dv">5</span><span class="op">);</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>This structural mapping relies on standard C struct layout rules
+(with padding to match hardware alignment), maintaining readable code
+while generating optimal machine code that references registers via
+base-plus-offset addressing modes.</p>
+<h3 id="performance-and-zero-overhead">Performance and Zero
+Overhead</h3>
+<p>Embedded systems often operate with strict constraints regarding
+execution time, power consumption, and code size. Abstracting hardware
+access through function calls or software drivers introduces execution
+overhead and increases stack usage. Casting to absolute pointer
+addresses compiles down to the absolute minimum machine instructions
+required to interact with hardware, providing deterministic execution
+speed and immediate response times critical for low-level device drivers
+and interrupt service routines.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

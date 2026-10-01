@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bare-Metal C Bootloader Architectural Constraints - c</title>
+    <meta name="description" content="Developing a bare-metal operating system bootloader in C requires navigating severe hardware limitations that standard user-space applications never encounter. This article examines the fundamental architectural constraints—such as execution modes, the">
+    <link rel="canonical" href="https://salivity.github.io/c/article/bare-metal-c-bootloader-architectural-constraints">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Bare-Metal C Bootloader Architectural Constraints - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/bare-metal-c-bootloader-architectural-constraints" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Developing a bare-metal operating system bootloader in C requires navigating severe hardware limitations that standard user-space applications never encounter. This article examines the fundamental architectural constraints—such as execution modes, the" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="bare-metal-c-bootloader-architectural-constraints">Bare-Metal C
+Bootloader Architectural Constraints</h1>
+<p>Developing a bare-metal operating system bootloader in C requires
+navigating severe hardware limitations that standard user-space
+applications never encounter. This article examines the fundamental
+architectural constraints—such as execution modes, the absence of a
+standard runtime, severe space limitations, explicit memory layout
+management, and direct hardware interaction—that dictate how developers
+must structure, compile, and execute low-level C code.</p>
+<h3 id="1-the-absence-of-a-c-runtime-environment">1. The Absence of a C
+Runtime Environment</h3>
+<p>Standard C programs rely on an underlying runtime environment
+provided by the operating system and the C standard library
+(<code>libc</code>). In a bare-metal environment, none of this
+scaffolding exists.</p>
+<p>Before any C function can be invoked:</p>
+<ul>
+<li><strong>Stack Initialization:</strong> The CPU must have a valid
+stack pointer register (<code>RSP</code>, <code>ESP</code>, or
+<code>SP</code>) pointing to an accessible, writable memory region. If a
+C function attempts to allocate local variables or preserve frame
+pointers without a stack, the system will immediately fault or
+hang.</li>
+<li><strong>BSS Segment Zeroing:</strong> The C standard mandates that
+uninitialized global and static variables (the <code>.bss</code>
+segment) evaluate to zero. Because no OS loader is present to zero this
+memory, the bootloader must explicitly zero out this block before
+passing execution to the main C entry point.</li>
+<li><strong>No Standard Library Support:</strong> Functions like
+<code>printf</code>, <code>malloc</code>, or <code>memcpy</code> are
+unavailable until implemented from scratch. Dynamic memory allocation
+must either be avoided entirely or implemented via custom page frame
+allocators and heap structures.</li>
+</ul>
+<h3 id="2-cpu-operating-modes-and-addressing-boundaries">2. CPU
+Operating Modes and Addressing Boundaries</h3>
+<p>Modern processors boot into legacy or restricted execution states for
+backwards compatibility, placing immediate constraints on how C code is
+generated and executed.</p>
+<ul>
+<li><strong>Word Size Mismatches:</strong> On the x86 architecture, the
+CPU powers on in 16-bit Real Mode. Modern C compilers (such as GCC and
+Clang) target 32-bit or 64-bit architectures by default. Generating
+16-bit code in C requires specialized compiler flags (e.g.,
+<code>-m16</code>), and compiler output can be suboptimal or rely on
+instructions unsupported by older modes.</li>
+<li><strong>Privilege and Mode Transitions:</strong> Transitioning the
+processor into 32-bit Protected Mode or 64-bit Long Mode requires
+manipulating architectural registers (<code>CR0</code>,
+<code>CR3</code>, <code>CR4</code>), loading a Global Descriptor Table
+(GDT), and establishing page tables. Because C lacks native syntax for
+modifying control registers or reloading segment registers, developers
+must use inline assembly or assembly source wrappers for these mode
+shifts.</li>
+<li><strong>ARM and RISC-V Privilege Levels:</strong> Similarly, ARM
+chips initialize in high-privilege exception levels (such as EL3 or
+EL2), and RISC-V chips boot in Machine Mode (M-Mode). The bootloader
+must set up exception vectors, configure architectural features, and
+cleanly drop privilege levels using target-specific instructions before
+high-level kernel handoff can occur.</li>
+</ul>
+<h3 id="3-severe-binary-size-and-alignment-limits">3. Severe Binary Size
+and Alignment Limits</h3>
+<p>Bootable media standards impose strict physical space constraints on
+initial boot code:</p>
+<ul>
+<li><strong>MBR Limitations:</strong> A standard Master Boot Record
+(MBR) reserves only 512 bytes for the first sector, with only 446 bytes
+available for executable instructions after accounting for the partition
+table. Standard C function prologues, epilogues, and data alignments
+often make it impractical to fit a functional C program into this
+footprint.</li>
+<li><strong>Staged Architecture:</strong> To overcome this,
+architectures require a multi-stage bootloader design. Stage 1 is
+typically written in pure assembly to load additional sectors from disk
+into memory, setting up the environment so that a larger Stage
+2—compiled from C—can take over execution.</li>
+</ul>
+<h3 id="4-linker-control-and-non-relocatable-memory-maps">4. Linker
+Control and Non-Relocatable Memory Maps</h3>
+<p>Desktop binaries typically rely on dynamic linking,
+position-independent code (PIC), or standard base addresses (such as
+<code>0x400000</code> on Linux). A bare-metal bootloader must execute
+from precise physical memory locations dictated by hardware or firmware
+specifications:</p>
+<ul>
+<li><strong>Fixed Loading Addresses:</strong> On x86, the BIOS loads the
+initial boot sector precisely at memory address <code>0x7C00</code>.
+UEFI systems load applications into arbitrary memory buffers defined by
+firmware allocators.</li>
+<li><strong>Custom Linker Scripts:</strong> C compilers must be paired
+with customized linker scripts (<code>ld</code> scripts) to define the
+exact memory layout. The linker script instructs the toolchain where to
+map the <code>.text</code>, <code>.rodata</code>, <code>.data</code>,
+and <code>.bss</code> sections in physical memory, ensuring that all
+absolute jumps and memory references correspond directly to hardware
+addresses.</li>
+<li><strong>Disabling Metadata:</strong> Executable and Linkable Format
+(ELF) or PE/COFF headers cannot be processed directly by raw hardware.
+The compiler output must be stripped down to a flat binary (using
+utilities like <code>objcopy -O binary</code>) or explicitly mapped
+according to firmware specifications (such as UEFI PE32+).</li>
+</ul>
+<h3 id="5-memory-mapped-io-and-compiler-optimizations">5. Memory-Mapped
+I/O and Compiler Optimizations</h3>
+<p>Bootloaders must interact directly with hardware controllers (disk,
+timers, UART, video framebuffers) through Memory-Mapped I/O (MMIO) or
+processor-specific I/O ports.</p>
+<ul>
+<li><strong>Volatile Access:</strong> Compilers assume that memory
+locations do not change unless modified by the program itself. When
+reading status registers or writing commands to peripheral controllers,
+developers must strictly declare memory addresses as
+<code>volatile</code>. Failure to do so allows the compiler's optimizer
+to eliminate repeated reads or rearrange critical hardware access
+sequences.</li>
+<li><strong>Memory Barriers:</strong> Modern out-of-order processors and
+aggressive compiler pipelines can reorder reads and writes. Bootloaders
+must use explicit memory barriers and fence instructions to ensure that
+peripheral hardware receives commands in the exact order required by
+device data sheets.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

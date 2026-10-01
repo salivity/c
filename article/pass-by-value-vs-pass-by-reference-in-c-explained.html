@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pass-by-Value vs Pass-by-Reference in C Explained - c</title>
+    <meta name="description" content="The C programming language strictly evaluates all function arguments using pass-by-value semantics, meaning the runtime always duplicates the supplied argument into the callee’s execution context. To achieve "pass-by-reference," C developers pass point">
+    <link rel="canonical" href="https://salivity.github.io/c/article/pass-by-value-vs-pass-by-reference-in-c-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Pass-by-Value vs Pass-by-Reference in C Explained - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/pass-by-value-vs-pass-by-reference-in-c-explained" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The C programming language strictly evaluates all function arguments using pass-by-value semantics, meaning the runtime always duplicates the supplied argument into the callee’s execution context. To achieve "pass-by-reference," C developers pass point" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="pass-by-value-vs-pass-by-reference-in-c-explained">Pass-by-Value
+vs Pass-by-Reference in C Explained</h1>
+<p>The C programming language strictly evaluates all function arguments
+using pass-by-value semantics, meaning the runtime always duplicates the
+supplied argument into the callee’s execution context. To achieve
+"pass-by-reference," C developers pass pointer values, allowing a called
+function to manipulate memory allocated in the caller's frame. This
+article breaks down the precise low-level execution differences between
+standard pass-by-value and simulated pass-by-reference, examining how
+the compiler and CPU handle stack allocation, register usage,
+indirection costs, and memory mutations during execution.</p>
+<h3 id="the-underlying-model-c-is-strictly-pass-by-value">The Underlying
+Model: C Is Strictly Pass-by-Value</h3>
+<p>From an architectural standpoint, C does not possess a native
+pass-by-reference mechanism like C++ or Fortran. Every parameter passed
+to a function is evaluated, and its instantaneous value is copied into
+either a machine register or a new slot on the call stack, governed by
+the target platform's Application Binary Interface (ABI).</p>
+<p>The distinction between "true" pass-by-value and "simulated"
+pass-by-reference lies entirely in what value is being copied: the
+actual data itself, or the memory address representing where that data
+resides.</p>
+<h3 id="execution-of-standard-pass-by-value">Execution of Standard
+Pass-by-Value</h3>
+<p>When passing an object directly by value (e.g.,
+<code>void func(int x)</code> or
+<code>void func(struct Data s)</code>):</p>
+<ol type="1">
+<li><strong>Argument Evaluation and Copying:</strong> The caller
+evaluates the expression. If the argument fits into hardware registers
+(such as general-purpose registers <code>rdi</code>, <code>rsi</code>,
+<code>rdx</code> in System V AMD64 ABI), the value is loaded directly
+into a register. If it exceeds register capacity—such as a large
+struct—the CPU allocates stack space in the caller's outgoing parameter
+area and executes a memory block copy (<code>memcpy</code> or a sequence
+of <code>mov</code> instructions) to duplicate the entire
+structure.</li>
+<li><strong>Callee Stack Frame Isolation:</strong> The callee operates
+exclusively on this isolated copy. The memory allocated for the
+parameter lives strictly within the lifetime of the callee's stack frame
+or local register set.</li>
+<li><strong>Execution Cost:</strong>
+<ul>
+<li><strong>Data Transfer:</strong> Proportional to the size of the data
+type (<code>sizeof(T)</code>). Copying primitives (e.g.,
+<code>int</code>, <code>double</code>) is virtually instantaneous
+(single-cycle register moves), but copying large aggregates consumes CPU
+cycles and increases cache churn.</li>
+<li><strong>Access Speed:</strong> Accessing the parameter is extremely
+fast because it requires no pointer indirection. The CPU performs direct
+register reads or direct stack-relative addressing
+(<code>[rbp - offset]</code>).</li>
+</ul></li>
+<li><strong>Side Effects:</strong> Writes to the parameter alter only
+the local copy. Once the function executes a <code>ret</code>
+instruction, that local state is invalidated or overwritten by
+subsequent stack allocations. The caller’s original state remains
+unchanged.</li>
+</ol>
+<h3 id="execution-of-simulated-pass-by-reference">Execution of Simulated
+Pass-by-Reference</h3>
+<p>When simulating pass-by-reference (e.g.,
+<code>void func(int *ptr)</code> called via
+<code>func(&amp;x)</code>):</p>
+<ol type="1">
+<li><strong>Address Calculation and Copying:</strong> Instead of reading
+the variable's payload, the caller calculates the memory address of the
+target variable using the address-of operator (<code>&amp;</code>). In
+machine code, this frequently translates to a Load Effective Address
+instruction (e.g., <code>lea rax, [rbp - offset]</code>). The calculated
+address—a fixed-size pointer (typically 4 bytes on 32-bit systems or 8
+bytes on 64-bit systems)—is then passed by value via register or
+stack.</li>
+<li><strong>Callee Indirection Execution:</strong> The callee receives a
+copy of the address, not the original variable. Whenever the callee
+reads or updates the referenced data, it must perform pointer
+dereferencing (e.g., <code>*ptr = 10</code>). In assembly, this requires
+indirect addressing: the CPU loads the address from the pointer register
+and issues a memory read or write targeting that address (e.g.,
+<code>mov [rax], 10</code>).</li>
+<li><strong>Execution Cost:</strong>
+<ul>
+<li><strong>Data Transfer:</strong> Minimal and deterministic
+(<code>sizeof(uintptr_t)</code>), making it efficient for passing large
+structures.</li>
+<li><strong>Access Speed:</strong> Every access to the underlying
+variable incurs the overhead of indirection. Because the data resides
+elsewhere in memory, dereferencing can cause CPU pipeline stalls, cache
+misses, and prevents certain compiler optimizations (like register
+allocation) due to potential pointer aliasing.</li>
+</ul></li>
+<li><strong>Side Effects:</strong> Mutations bypass the callee’s local
+activation record. The CPU writes values directly across the call
+boundary into the caller’s stack frame or heap allocation, producing
+persistent side effects that outlive the callee's execution.</li>
+</ol>
+<h3 id="summary-of-differences">Summary of Differences</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Execution Phase</th>
+<th style="text-align: left;">Standard Pass-by-Value</th>
+<th style="text-align: left;">Simulated Pass-by-Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Call Site Action</strong></td>
+<td style="text-align: left;">Value copied (<code>sizeof(T)</code>)</td>
+<td style="text-align: left;">Address calculated (<code>lea</code>) and
+copied (<code>sizeof(void*)</code>)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Data Access</strong></td>
+<td style="text-align: left;">Direct (register or stack-offset)</td>
+<td style="text-align: left;">Indirect (memory dereference via
+address)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Caller State
+Mutation</strong></td>
+<td style="text-align: left;">Impossible (complete isolation)</td>
+<td style="text-align: left;">Direct mutation across function
+boundaries</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Hardware Overhead</strong></td>
+<td style="text-align: left;">High copy cost for large types; zero
+indirection</td>
+<td style="text-align: left;">Low copy cost; added indirection and
+potential cache penalties</td>
+</tr>
+</tbody>
+</table></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

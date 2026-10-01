@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How nodiscard Prevents Ignored Return Codes in C - c</title>
+    <meta name="description" content="The [[nodiscard]] attribute in the C programming language is a compile-time feature that prevents developers from accidentally ignoring critical function return values, such as error codes or allocated resources. By annotating functions or types with thi">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-nodiscard-prevents-ignored-return-codes-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How nodiscard Prevents Ignored Return Codes in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-nodiscard-prevents-ignored-return-codes-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The [[nodiscard]] attribute in the C programming language is a compile-time feature that prevents developers from accidentally ignoring critical function return values, such as error codes or allocated resources. By annotating functions or types with thi" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-nodiscard-prevents-ignored-return-codes-in-c">How nodiscard
+Prevents Ignored Return Codes in C</h1>
+<p>The <code>[[nodiscard]]</code> attribute in the C programming
+language is a compile-time feature that prevents developers from
+accidentally ignoring critical function return values, such as error
+codes or allocated resources. By annotating functions or types with this
+attribute, the compiler is instructed to issue a warning whenever a
+caller discards the returned value. This article explains how the
+attribute functions, why traditional C patterns left programs vulnerable
+to silent failures, and how incorporating <code>[[nodiscard]]</code>
+leads to safer, more robust C code.</p>
+<h3 id="the-problem-with-discarded-return-codes-in-traditional-c">The
+Problem with Discarded Return Codes in Traditional C</h3>
+<p>Historically, C allows function return values to be discarded
+silently. If a function returns an integer indicating success or
+failure, a caller can invoke the function as a standalone statement:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>allocate_resource<span class="op">();</span> <span class="co">// Return code silently ignored</span></span></code></pre></div>
+<p>If <code>allocate_resource()</code> returns an error code or a memory
+pointer that requires cleanup, failing to check or store that result can
+lead to silent data corruption, resource leaks, or undefined behavior.
+Before standard attribute support, developers relied on
+compiler-specific extensions like GCC's
+<code>__attribute__((warn_unused_result))</code> or external static
+analysis tools to catch these oversights.</p>
+<h3 id="how-the-nodiscard-attribute-works">How the
+<code>[[nodiscard]]</code> Attribute Works</h3>
+<p>Standardized in C23, <code>[[nodiscard]]</code> provides a standard,
+vendor-neutral syntax to declare that a return value must not be
+ignored. When a function marked with <code>[[nodiscard]]</code> is
+invoked without capturing, evaluating, or explicitly casting its return
+value, the compiler emits a diagnostic warning during compilation.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="op">[[</span><span class="at">nodiscard</span><span class="op">]]</span> <span class="dt">int</span> open_connection<span class="op">(</span><span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>address<span class="op">);</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> run<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    open_connection<span class="op">(</span><span class="st">&quot;127.0.0.1&quot;</span><span class="op">);</span> <span class="co">// Compiler warning: return value discarded</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>To resolve the warning, the developer must explicitly handle the
+value:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> run<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> status <span class="op">=</span> open_connection<span class="op">(</span><span class="st">&quot;127.0.0.1&quot;</span><span class="op">);</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>status <span class="op">!=</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Handle error</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="providing-context-with-custom-messages">Providing Context with
+Custom Messages</h3>
+<p>C23 also supports attaching an explanatory string literal to the
+attribute using the syntax <code>[[nodiscard("reason")]]</code>. This
+allows API authors to inform developers why the return value must be
+checked:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="op">[[</span><span class="at">nodiscard</span><span class="op">(</span><span class="st">&quot;Ignoring this error code can cause resource leaks&quot;</span><span class="op">)]]</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> release_handle<span class="op">(</span><span class="dt">int</span> handle<span class="op">);</span></span></code></pre></div>
+<p>When a developer ignores the result of <code>release_handle()</code>,
+the compiler includes the custom message in the warning output, offering
+immediate context and instructions on how to handle the result
+properly.</p>
+<h3 id="applying-nodiscard-to-types">Applying <code>[[nodiscard]]</code>
+to Types</h3>
+<p>In addition to individual functions, <code>[[nodiscard]]</code> can
+be applied directly to type definitions, such as structures or
+enumerations:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">typedef</span> <span class="kw">struct</span> <span class="op">[[</span><span class="at">nodiscard</span><span class="op">]]</span> <span class="op">{</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> code<span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>message<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> Status<span class="op">;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>Status perform_action<span class="op">(</span><span class="dt">void</span><span class="op">);</span></span></code></pre></div>
+<p>Any function returning a type annotated with
+<code>[[nodiscard]]</code> automatically inherits the requirement that
+its return value must not be discarded. This ensures system-wide
+error-handling types cannot be bypassed anywhere in the codebase.</p>
+<h3 id="overriding-the-warning-intentionally">Overriding the Warning
+Intentionally</h3>
+<p>There are rare cases where a developer deliberately chooses to ignore
+a return code. The compiler warning can be cleanly suppressed by
+explicitly casting the function call to <code>(void)</code>:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="op">(</span><span class="dt">void</span><span class="op">)</span>open_connection<span class="op">(</span><span class="st">&quot;127.0.0.1&quot;</span><span class="op">);</span> <span class="co">// Suppresses the warning</span></span></code></pre></div>
+<p>This cast acts as an explicit signal to future maintainers and code
+reviewers that the return code was omitted intentionally, rather than
+forgotten through negligence.</p>
+<h3 id="benefits-to-code-safety">Benefits to Code Safety</h3>
+<p>Using <code>[[nodiscard]]</code> shifts runtime error discovery to
+compile-time verification. It directly prevents:</p>
+<ul>
+<li><strong>Resource Leaks:</strong> Forcing verification of functions
+that return handles, pointers, or file descriptors.</li>
+<li><strong>Unchecked Preconditions:</strong> Ensuring validation
+functions are evaluated before critical operations proceed.</li>
+<li><strong>Silent Logic Errors:</strong> Flagging pure functions whose
+results are computed but never used.</li>
+</ul>
+<p>By turning overlooked return values into visible compilation
+diagnostics, <code>[[nodiscard]]</code> eliminates an entire class of
+subtle bugs at the earliest stage of development.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

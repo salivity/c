@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Break and Continue Statements in C Loops - c</title>
+    <meta name="description" content="In the C programming language, loops typically execute sequentially until a predefined condition evaluates to false. However, developers frequently need more granular control over this execution flow based on dynamic runtime conditions. The break and con">
+    <link rel="canonical" href="https://salivity.github.io/c/article/break-and-continue-statements-in-c-loops">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Break and Continue Statements in C Loops - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/break-and-continue-statements-in-c-loops" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, loops typically execute sequentially until a predefined condition evaluates to false. However, developers frequently need more granular control over this execution flow based on dynamic runtime conditions. The break and con" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="break-and-continue-statements-in-c-loops">Break and Continue
+Statements in C Loops</h1>
+<p>In the C programming language, loops typically execute sequentially
+until a predefined condition evaluates to false. However, developers
+frequently need more granular control over this execution flow based on
+dynamic runtime conditions. The <code>break</code> and
+<code>continue</code> statements serve as jump statements that alter
+standard loop iteration: <code>break</code> terminates the loop entirely
+and transfers control to the statement immediately following the loop
+block, whereas <code>continue</code> halts only the current iteration,
+skipping any remaining code within the loop body and proceeding directly
+to the next iteration cycle.</p>
+<h3 id="standard-loop-iteration-vs-jump-statements">Standard Loop
+Iteration vs. Jump Statements</h3>
+<p>Standard loops in C—namely <code>for</code>, <code>while</code>, and
+<code>do-while</code>—evaluate an expression either before or after
+running the enclosed block of code. Under normal circumstances, every
+instruction inside the loop body executes sequentially from top to
+bottom before the loop checks the condition again. The
+<code>break</code> and <code>continue</code> keywords bypass this rigid
+cycle, providing conditional branching directly inside the loop
+construct.</p>
+<h3 id="the-break-statement-terminating-loop-execution">The
+<code>break</code> Statement: Terminating Loop Execution</h3>
+<p>When a program encounters a <code>break</code> statement inside a
+loop, the loop is terminated immediately. Any statements remaining
+inside the loop body for that iteration are ignored, and the loop's test
+condition is not evaluated again. Execution resumes at the first line of
+code outside the enclosing loop structure.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">10</span><span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>i <span class="op">==</span> <span class="dv">5</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>        <span class="cf">break</span><span class="op">;</span> <span class="co">// Exits the loop completely when i reaches 5</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;</span><span class="sc">%d</span><span class="st"> &quot;</span><span class="op">,</span> i<span class="op">);</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Execution continues here; output is: 0 1 2 3 4</span></span></code></pre></div>
+<p>Common applications of the <code>break</code> statement include:</p>
+<ul>
+<li><strong>Linear Searching:</strong> Exiting an array search
+immediately once the target value is located, avoiding unnecessary
+iterations through the remaining elements.</li>
+<li><strong>Handling Error States:</strong> Aborting repetitive
+operations, such as file reading or memory allocation checks, if an
+unrecoverable error occurs.</li>
+<li><strong>Exiting Infinite Loops:</strong> Terminating loops designed
+as <code>while(1)</code> or <code>for(;;)</code> once an external
+trigger or sentinel value is received.</li>
+</ul>
+<p>When used inside nested loops, a <code>break</code> statement only
+exits the innermost loop containing it; outer loops continue to execute
+normally.</p>
+<h3 id="the-continue-statement-skipping-the-current-iteration">The
+<code>continue</code> Statement: Skipping the Current Iteration</h3>
+<p>The <code>continue</code> statement alters the execution flow without
+terminating the loop entirely. Instead of leaving the loop, it stops the
+execution of the current iteration, ignores any subsequent code inside
+the loop body, and advances control to the loop's update or conditional
+check step.</p>
+<p>The exact behavior of <code>continue</code> depends slightly on the
+loop construct being used:</p>
+<ul>
+<li><strong>In a <code>for</code> loop:</strong> The program jumps
+directly to the increment/decrement (update) expression, evaluates it,
+and then checks the conditional expression to decide if the next
+iteration should run.</li>
+<li><strong>In a <code>while</code> or <code>do-while</code>
+loop:</strong> The program jumps directly to the conditional test
+expression. Developers must ensure that manual loop counters are
+incremented before the <code>continue</code> statement to prevent
+accidental infinite loops.</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> i <span class="op">&lt;=</span> <span class="dv">5</span><span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>i <span class="op">==</span> <span class="dv">3</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        <span class="cf">continue</span><span class="op">;</span> <span class="co">// Skips printing 3 and moves to i++</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;</span><span class="sc">%d</span><span class="st"> &quot;</span><span class="op">,</span> i<span class="op">);</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Output is: 1 2 4 5</span></span></code></pre></div>
+<p>Common applications of the <code>continue</code> statement
+include:</p>
+<ul>
+<li><strong>Filtering Input:</strong> Skipping invalid, null, or
+out-of-range data points without terminating the processing of the
+remaining dataset.</li>
+<li><strong>Reducing Nesting:</strong> Eliminating deeply nested
+<code>if</code> statements inside loops by guarding against unwanted
+conditions early in the block.</li>
+</ul>
+<h3 id="summary-of-differences">Summary of Differences</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;"><code>break</code> Statement</th>
+<th style="text-align: left;"><code>continue</code> Statement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Action</strong></td>
+<td style="text-align: left;">Aborts the entire loop immediately.</td>
+<td style="text-align: left;">Aborts only the active iteration.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Next Step</strong></td>
+<td style="text-align: left;">First statement outside the loop
+block.</td>
+<td style="text-align: left;">Condition test (or increment step in
+<code>for</code>).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Loop State</strong></td>
+<td style="text-align: left;">Inactive; execution moves forward.</td>
+<td style="text-align: left;">Active; continues until the condition
+fails.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Scope</strong></td>
+<td style="text-align: left;">Works inside loops and <code>switch</code>
+blocks.</td>
+<td style="text-align: left;">Works exclusively inside loop
+structures.</td>
+</tr>
+</tbody>
+</table></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

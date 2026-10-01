@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Languages Designed for C Interoperability - c</title>
+    <meta name="description" content="Modern systems programming often requires deep integration with existing software ecosystems, operating system kernels, and high-performance libraries dominated by the C language. To avoid the performance penalties and complexity of heavy Foreign Functio">
+    <link rel="canonical" href="https://salivity.github.io/c/article/modern-languages-designed-for-c-interoperability">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Modern Languages Designed for C Interoperability - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/modern-languages-designed-for-c-interoperability" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Modern systems programming often requires deep integration with existing software ecosystems, operating system kernels, and high-performance libraries dominated by the C language. To avoid the performance penalties and complexity of heavy Foreign Functio" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="modern-languages-designed-for-c-interoperability">Modern
+Languages Designed for C Interoperability</h1>
+<p>Modern systems programming often requires deep integration with
+existing software ecosystems, operating system kernels, and
+high-performance libraries dominated by the C language. To avoid the
+performance penalties and complexity of heavy Foreign Function
+Interfaces (FFI), several modern languages have intentionally engineered
+their low-level semantics—such as memory layout, calling conventions,
+and type systems—to mirror the C Application Binary Interface (ABI).
+This article examines the primary modern languages designed from the
+ground up for seamless, zero-cost C interoperability, focusing on the
+specific semantic decisions that make this possible.</p>
+<h2 id="the-foundation-of-c-interoperability">The Foundation of C
+Interoperability</h2>
+<p>The C ABI serves as the universal lingua franca of computing. For a
+language to achieve seamless interoperability, it must natively support
+C data representations and invocation protocols. This requires matching
+struct padding and alignment rules, supporting C-style raw pointers,
+disabling name mangling when exporting or importing functions, and
+adhering to standard platform calling conventions (such as System V
+AMD64 or Microsoft x64).</p>
+<h2 id="zig">Zig</h2>
+<p>Zig treats C interoperability as a core design pillar rather than an
+afterthought. It goes beyond simple ABI compatibility by embedding a
+full C compiler (<code>Clang</code>) directly into its toolchain.</p>
+<ul>
+<li><strong>Native Type and Layout Compatibility:</strong> Zig’s
+standard types map directly to C types (e.g., <code>c_int</code>,
+<code>c_char</code>, <code>[*]T</code> for multi-item pointers).
+Structures marked with <code>extern struct</code> follow the target
+platform's C ABI layout and padding rules precisely.</li>
+<li><strong>Direct Header Ingestion:</strong> Through the
+<code>@cImport</code> built-in, Zig parses C header files directly,
+translating macros, structs, and function prototypes into native Zig
+declarations at compile time without requiring manual wrapper
+generation.</li>
+<li><strong>No Runtime Overhead:</strong> Zig does not feature a runtime
+or garbage collector, meaning calling a C function from Zig—or a Zig
+function from C—incurs zero translation overhead.</li>
+</ul>
+<h2 id="rust">Rust</h2>
+<p>While Rust prioritizes memory safety via a borrow checker, its
+low-level semantics are intentionally configurable to align perfectly
+with C.</p>
+<ul>
+<li><strong>Explicit Representation Attributes:</strong> Rust structs
+usually feature an undefined layout to allow compiler optimizations.
+However, applying the <code>#[repr(C)]</code> attribute forces the
+compiler to layout fields using the target platform's C struct alignment
+and padding rules.</li>
+<li><strong>Extern Functions:</strong> The <code>extern "C"</code>
+specifier informs the Rust compiler to use the standard C calling
+convention and disable symbol name mangling, allowing C programs to
+invoke Rust code and vice versa.</li>
+<li><strong>Raw Pointers:</strong> Rust provides <code>*const T</code>
+and <code>*mut T</code> primitive types that match the semantics of C
+pointers, bypassing borrow-checking restrictions inside
+<code>unsafe</code> blocks to interact directly with foreign
+memory.</li>
+</ul>
+<h2 id="d">D</h2>
+<p>Created by Walter Bright, a veteran C and C++ compiler developer, D
+was designed from its inception to interface natively with C.</p>
+<ul>
+<li><strong>Binary-Level Compatibility:</strong> D’s primitive types
+correspond directly in size and behavior to C equivalents. Structs in D
+have the exact same memory layout as C structs by default, eliminating
+the need for data marshaling.</li>
+<li><strong>Linkage Directives:</strong> Using <code>extern(C)</code>, D
+code adopts C calling conventions and naming conventions, allowing
+direct linking against compiled C object files without wrapper layers or
+glue code.</li>
+<li><strong>Direct Header Porting:</strong> D features a companion tool,
+<code>dstep</code>, and native syntax additions like
+<code>__gshared</code> (which mimics C global variables rather than
+thread-local storage) to mirror C semantics as closely as possible.</li>
+</ul>
+<h2 id="odin">Odin</h2>
+<p>Odin is a modern procedural language focused on high-performance
+data-oriented programming that treats C integration as a primary
+requirement.</p>
+<ul>
+<li><strong>Foreign Blocks:</strong> Odin uses explicit
+<code>foreign</code> blocks to declare C libraries. Functions declared
+within these blocks automatically adopt C calling conventions.</li>
+<li><strong>Explicit Struct Alignment:</strong> Structures in Odin can
+be explicitly marked with <code>#align</code> or defined as
+<code>#packed</code>, matching arbitrary C layout requirements
+natively.</li>
+<li><strong>Type Preservation:</strong> Odin provides a dedicated
+<code>core:c</code> package that exposes direct aliases for fundamental
+C types, ensuring that differences in architecture-specific sizes (like
+<code>long</code>) are respected without runtime conversion.</li>
+</ul>
+<h2 id="nim">Nim</h2>
+<p>Nim achieves transparent integration by using C as one of its primary
+compilation backends.</p>
+<ul>
+<li><strong>Source-Level Compatibility:</strong> Because Nim can emit C
+code directly, integrating with C involves virtually no overhead. Nim
+types can be mapped directly to existing C types using the
+<code>importc</code> pragma.</li>
+<li><strong>Direct Inlining and Header Inclusion:</strong> The
+<code>header</code> pragma allows Nim to include C headers directly in
+the generated source, ensuring that C macros, typedefs, and inline
+functions can be referenced natively without bridge code.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding cdecl and fastcall Overhead in C - c</title>
+    <meta name="description" content="Function calling conventions in C define the low-level contract for passing arguments, returning values, and managing the stack between callers and callees. The overhead associated with conventions such as cdecl and fastcall primarily consists of memory">
+    <link rel="canonical" href="https://salivity.github.io/c/article/understanding-cdecl-and-fastcall-overhead-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding cdecl and fastcall Overhead in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/understanding-cdecl-and-fastcall-overhead-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Function calling conventions in C define the low-level contract for passing arguments, returning values, and managing the stack between callers and callees. The overhead associated with conventions such as cdecl and fastcall primarily consists of memory" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="understanding-cdecl-and-fastcall-overhead-in-c">Understanding
+cdecl and fastcall Overhead in C</h1>
+<p>Function calling conventions in C define the low-level contract for
+passing arguments, returning values, and managing the stack between
+callers and callees. The overhead associated with conventions such as
+<code>cdecl</code> and <code>fastcall</code> primarily consists of
+memory operations, register allocation and spilling, instruction counts
+in function prologues and epilogues, and stack-pointer cleanup. This
+article examines the exact hardware and software factors that generate
+calling convention overhead and compares how <code>cdecl</code> and
+<code>fastcall</code> balance these performance costs.</p>
+<h3 id="1-memory-access-and-stack-manipulation">1. Memory Access and
+Stack Manipulation</h3>
+<p>The most prominent source of overhead in traditional calling
+conventions is interaction with the stack. Reading and writing to RAM,
+even when buffered by the L1 data cache, introduces latency compared to
+direct CPU register manipulation.</p>
+<ul>
+<li><strong>Stack Pushes and Pops:</strong> In <code>cdecl</code>, all
+arguments are pushed onto the call stack in right-to-left order using
+instructions like <code>push</code> or stack-pointer-relative
+<code>mov</code> operations. Each push requires modifying the stack
+pointer (<code>esp</code>/<code>rsp</code>) and writing to memory.</li>
+<li><strong>Cache Latency:</strong> While the top of the stack usually
+resides in the L1 CPU cache, cache hits still incur a latency of 3 to 4
+clock cycles, whereas CPU registers are accessed in a single cycle or
+less via register renaming.</li>
+</ul>
+<h3 id="2-register-utilization-and-register-spilling">2. Register
+Utilization and Register Spilling</h3>
+<p><code>fastcall</code> mitigates memory overhead by passing the first
+two (or more, depending on the compiler and architecture) pointer- or
+integer-sized arguments in registers—typically <code>ECX</code> and
+<code>EDX</code> on x86-32. However, passing parameters in registers
+introduces its own overhead:</p>
+<ul>
+<li><strong>Register Pressure:</strong> CPUs have a finite number of
+general-purpose registers (GPRs). When arguments occupy <code>ECX</code>
+and <code>EDX</code>, fewer registers are available for intermediate
+computations within the function.</li>
+<li><strong>Register Spilling:</strong> If the callee is computationally
+complex and requires more registers than are available, it must "spill"
+registers to the stack. This negates the performance benefit of
+register-based parameter passing.</li>
+<li><strong>Preservation Costs (Caller vs. Callee Saved):</strong>
+Calling conventions dictate whether the caller or callee must preserve
+register states. Saving registers to the stack with <code>push</code>
+and restoring them with <code>pop</code> incurs instruction and latency
+overhead.</li>
+</ul>
+<h3 id="3-function-prologue-and-epilogue-size">3. Function Prologue and
+Epilogue Size</h3>
+<p>Every function invocation requires administrative instructions to
+establish and dismantle execution contexts:</p>
+<ul>
+<li><strong>Prologue Overhead:</strong> Functions often set up a
+standard stack frame (<code>push ebp; mov ebp, esp; sub esp, N</code>)
+to allocate local variables and preserve callee-saved registers.</li>
+<li><strong>Epilogue Overhead:</strong> Functions must restore
+callee-saved registers, reset the stack pointer
+(<code>mov esp, ebp; pop ebp</code>), and execute a return
+instruction.</li>
+<li><strong>Code Density:</strong> More instructions in prologues and
+epilogues increase binary size, which indirectly reduces instruction
+cache (I-cache) efficiency.</li>
+</ul>
+<h3 id="4-stack-cleanup-responsibility">4. Stack Cleanup
+Responsibility</h3>
+<p>Conventions differ in which party is responsible for clearing
+arguments off the stack:</p>
+<ul>
+<li><strong><code>cdecl</code> (Caller Clean-up):</strong> The calling
+function removes parameters from the stack after the callee returns,
+typically via <code>add esp, 4*N</code>. This adds an instruction at
+every call site, increasing binary footprint. However, caller clean-up
+allows <code>cdecl</code> to support variable argument lists (variadic
+functions like <code>printf</code>), because only the caller knows how
+many arguments were pushed.</li>
+<li><strong><code>fastcall</code> (Callee Clean-up):</strong> The called
+function cleans up any remaining stack-allocated arguments using a
+return instruction that accepts an immediate value (e.g.,
+<code>ret 8</code>). This eliminates the cleanup instruction at the call
+site, reducing code size, but prevents variadic parameter lists.</li>
+</ul>
+<h3 id="direct-comparison-cdecl-vs-fastcall">Direct Comparison: cdecl
+vs. fastcall</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Overhead Metric</th>
+<th style="text-align: left;"><code>cdecl</code></th>
+<th style="text-align: left;"><code>fastcall</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Argument Passing</strong></td>
+<td style="text-align: left;">Memory-bound (Stack)</td>
+<td style="text-align: left;">Hybrid (Registers + Stack)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Initial Latency</strong></td>
+<td style="text-align: left;">Higher (Memory writes)</td>
+<td style="text-align: left;">Lower (Register transfers)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Code Size at Call
+Site</strong></td>
+<td style="text-align: left;">Larger (Requires manual stack
+adjustment)</td>
+<td style="text-align: left;">Smaller (Callee cleans via
+<code>ret N</code>)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Register Pressure</strong></td>
+<td style="text-align: left;">Low (All GPRs free for caller/callee
+logic)</td>
+<td style="text-align: left;">High (GPRs consumed by arguments)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Variadic Support</strong></td>
+<td style="text-align: left;">Yes</td>
+<td style="text-align: left;">No</td>
+</tr>
+</tbody>
+</table>
+<h3 id="modern-context-x86-64">Modern Context (x86-64)</h3>
+<p>In modern 64-bit computing, the historical distinction between 32-bit
+<code>cdecl</code> and <code>fastcall</code> is largely obsolete.
+Standard 64-bit ABIs—such as the System V AMD64 ABI (Linux/macOS) and
+the Microsoft x64 calling convention (Windows)—are essentially
+standardized, highly optimized variants of <code>fastcall</code>. System
+V passes up to six integer/pointer arguments in registers
+(<code>RDI</code>, <code>RSI</code>, <code>RDX</code>, <code>RCX</code>,
+<code>R8</code>, <code>R9</code>), and Windows passes four
+(<code>RCX</code>, <code>RDX</code>, <code>R8</code>, <code>R9</code>),
+reserving stack operations only for functions with numerous
+parameters.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

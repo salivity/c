@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monotonic vs Real-Time Wall Clocks in C - c</title>
+    <meta name="description" content="In C programming, choosing the correct clock type is critical for ensuring reliable timekeeping, benchmarking, and scheduling. The primary operational difference between a monotonic clock and a real-time wall clock lies in how they respond to system time">
+    <link rel="canonical" href="https://salivity.github.io/c/article/monotonic-vs-real-time-wall-clocks-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Monotonic vs Real-Time Wall Clocks in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/monotonic-vs-real-time-wall-clocks-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C programming, choosing the correct clock type is critical for ensuring reliable timekeeping, benchmarking, and scheduling. The primary operational difference between a monotonic clock and a real-time wall clock lies in how they respond to system time" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="monotonic-vs-real-time-wall-clocks-in-c">Monotonic vs Real-Time
+Wall Clocks in C</h1>
+<p>In C programming, choosing the correct clock type is critical for
+ensuring reliable timekeeping, benchmarking, and scheduling. The primary
+operational difference between a monotonic clock and a real-time wall
+clock lies in how they respond to system time changes: a real-time clock
+measures calendar time and can jump forward or backward due to manual
+updates or Network Time Protocol (NTP) synchronizations, while a
+monotonic clock continuously advances at a steady rate from an arbitrary
+point, guaranteeing that time never moves backward.</p>
+<h2 id="real-time-wall-clocks-clock_realtime">Real-Time Wall Clocks:
+<code>CLOCK_REALTIME</code></h2>
+<p>A real-time wall clock measures standard calendar time, traditionally
+represented in POSIX C systems as elapsed seconds and nanoseconds since
+the Unix Epoch (00:00:00 UTC on January 1, 1970). It is accessed
+primarily through functions like
+<code>clock_gettime(CLOCK_REALTIME, &amp;ts)</code> or
+<code>gettimeofday()</code>.</p>
+<h3 id="key-operational-characteristics">Key Operational
+Characteristics:</h3>
+<ul>
+<li><strong>Subject to Jumps:</strong> If a system administrator changes
+the system time, or if NTP applies a step correction to fix clock drift,
+<code>CLOCK_REALTIME</code> immediately jumps to the new value.</li>
+<li><strong>Non-Linear Deltas:</strong> Calculating elapsed time using
+<code>t2 - t1</code> with a real-time clock can produce negative
+durations, zero, or artificially massive intervals if a time adjustment
+occurs between measurements.</li>
+<li><strong>Leap Seconds and Time Zones:</strong> While the underlying
+value is UTC, wall-clock representations interact with daylight saving
+rules, timezone configurations, and leap seconds.</li>
+</ul>
+<h3 id="best-use-cases">Best Use Cases:</h3>
+<ul>
+<li>Displaying human-readable timestamps (e.g., file modification times,
+logging events with calendar dates).</li>
+<li>Synchronizing events across different machines that must agree on
+absolute UTC time.</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;time.h&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> log_current_time<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> timespec ts<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    clock_gettime<span class="op">(</span>CLOCK_REALTIME<span class="op">,</span> <span class="op">&amp;</span>ts<span class="op">);</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Epoch Time: </span><span class="sc">%ld</span><span class="st">.</span><span class="sc">%09ld</span><span class="st"> seconds</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">,</span> ts<span class="op">.</span>tv_sec<span class="op">,</span> ts<span class="op">.</span>tv_nsec<span class="op">);</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="monotonic-clocks-clock_monotonic">Monotonic Clocks:
+<code>CLOCK_MONOTONIC</code></h2>
+<p>A monotonic clock represents elapsed time from an unspecified
+starting reference point—typically the moment the operating system
+booted. It is queried via
+<code>clock_gettime(CLOCK_MONOTONIC, &amp;ts)</code>.</p>
+<h3 id="key-operational-characteristics-1">Key Operational
+Characteristics:</h3>
+<ul>
+<li><strong>Guaranteed Directionality:</strong> The clock cannot move
+backward. Each successive read will yield a value equal to or greater
+than the preceding read.</li>
+<li><strong>Immunity to Manual Adjustments:</strong> Alterations to the
+system calendar time do not affect the monotonic timeline.</li>
+<li><strong>NTP Frequency Slew vs. Step:</strong> Standard
+<code>CLOCK_MONOTONIC</code> may be slewed (its frequency slightly sped
+up or slowed down) by NTP to eliminate drift, but it will never
+step-jump. For scenarios requiring absolute raw hardware frequency
+without NTP slewing, Linux provides the <code>CLOCK_MONOTONIC_RAW</code>
+variant.</li>
+</ul>
+<h3 id="best-use-cases-1">Best Use Cases:</h3>
+<ul>
+<li>Performance profiling, benchmarking, and execution timing.</li>
+<li>Implementing timeouts, retry loops, and sleep durations in network
+sockets or multithreaded locks.</li>
+<li>Event loop rate-limiting and frame-rate regulation in graphics and
+game engines.</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;time.h&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> measure_duration<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> timespec start<span class="op">,</span> end<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    clock_gettime<span class="op">(</span>CLOCK_MONOTONIC<span class="op">,</span> <span class="op">&amp;</span>start<span class="op">);</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Work to be timed occurs here</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    clock_gettime<span class="op">(</span>CLOCK_MONOTONIC<span class="op">,</span> <span class="op">&amp;</span>end<span class="op">);</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">double</span> elapsed <span class="op">=</span> <span class="op">(</span>end<span class="op">.</span>tv_sec <span class="op">-</span> start<span class="op">.</span>tv_sec<span class="op">)</span> <span class="op">+</span> </span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>                     <span class="op">(</span>end<span class="op">.</span>tv_nsec <span class="op">-</span> start<span class="op">.</span>tv_nsec<span class="op">)</span> <span class="op">/</span> <span class="fl">1e9</span><span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Elapsed: </span><span class="sc">%.9f</span><span class="st"> seconds</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">,</span> elapsed<span class="op">);</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="summary-of-differences">Summary of Differences</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;"><code>CLOCK_REALTIME</code></th>
+<th style="text-align: left;"><code>CLOCK_MONOTONIC</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Reference Point</strong></td>
+<td style="text-align: left;">Unix Epoch (Jan 1, 1970 UTC)</td>
+<td style="text-align: left;">Arbitrary (typically system boot)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Monotonicity</strong></td>
+<td style="text-align: left;">No (can jump backward or forward)</td>
+<td style="text-align: left;">Yes (strictly non-decreasing)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Affected by NTP
+Steps</strong></td>
+<td style="text-align: left;">Yes</td>
+<td style="text-align: left;">No</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Affected by Admin
+Edits</strong></td>
+<td style="text-align: left;">Yes</td>
+<td style="text-align: left;">No</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Primary Purpose</strong></td>
+<td style="text-align: left;">Absolute date and time stamping</td>
+<td style="text-align: left;">Relative time measurement and
+intervals</td>
+</tr>
+</tbody>
+</table></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pragma Once in C: Benefits and Portability Trade-Offs - c</title>
+    <meta name="description" content="In C development, preventing multiple inclusions of the same header file is essential to avoid redefinition errors and reduce compile times. While traditional preprocessor include guards (#ifndef, #define, #endif) represent the standard approach, the non">
+    <link rel="canonical" href="https://salivity.github.io/c/article/pragma-once-in-c-benefits-and-portability-trade-offs">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Pragma Once in C: Benefits and Portability Trade-Offs - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/pragma-once-in-c-benefits-and-portability-trade-offs" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C development, preventing multiple inclusions of the same header file is essential to avoid redefinition errors and reduce compile times. While traditional preprocessor include guards (#ifndef, #define, #endif) represent the standard approach, the non" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="pragma-once-in-c-benefits-and-portability-trade-offs">Pragma
+Once in C: Benefits and Portability Trade-Offs</h1>
+<p>In C development, preventing multiple inclusions of the same header
+file is essential to avoid redefinition errors and reduce compile times.
+While traditional preprocessor include guards (<code>#ifndef</code>,
+<code>#define</code>, <code>#endif</code>) represent the standard
+approach, the non-standard preprocessor directive
+<code>#pragma once</code> serves as a popular modern alternative. This
+article examines the mechanics of <code>#pragma once</code>, outlining
+the primary benefits of using it—such as reduced boilerplate, immunity
+to naming collisions, and potential build acceleration—alongside the
+critical trade-offs regarding language standard compliance and
+filesystem edge cases.</p>
+<h3 id="understanding-pragma-once-vs-include-guards">Understanding
+<code>#pragma once</code> vs. Include Guards</h3>
+<p>Traditional include guards require three lines of preprocessor code
+per header:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#ifndef MY_HEADER_H</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#define MY_HEADER_H</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">/* Declarations and definitions */</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="pp">#endif </span><span class="co">/* MY_HEADER_H */</span></span></code></pre></div>
+<p>In contrast, <code>#pragma once</code> accomplishes the same intended
+outcome with a single line placed at the top of the header file:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#pragma once</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">/* Declarations and definitions */</span></span></code></pre></div>
+<p>When a compiler encounters <code>#pragma once</code>, it marks the
+physical file so that subsequent include directives for that same file
+during the same translation unit are ignored.</p>
+<h3 id="benefits-of-pragma-once">Benefits of
+<code>#pragma once</code></h3>
+<h4 id="1-elimination-of-boilerplate-and-typos">1. Elimination of
+Boilerplate and Typos</h4>
+<p>Traditional include guards require developer discipline. A typo in
+the <code>#ifndef</code> or <code>#define</code> token, or forgetting
+the closing <code>#endif</code>, results in compilation errors.
+<code>#pragma once</code> eliminates this syntactic overhead, reducing
+the likelihood of copy-paste bugs when creating new header files.</p>
+<h4 id="2-prevention-of-macro-naming-collisions">2. Prevention of Macro
+Naming Collisions</h4>
+<p>Standard guards rely on unique preprocessor macro names across the
+entire project and all included third-party libraries. If two distinct
+headers accidentally use the same macro guard (e.g.,
+<code>UTILS_H</code>), one of the headers will be silently skipped,
+triggering confusing missing-symbol compiler errors.
+<code>#pragma once</code> tracks file identity rather than macro names,
+eliminating collision risks entirely.</p>
+<h4 id="3-compilation-performance">3. Compilation Performance</h4>
+<p>When <code>#pragma once</code> is used, the preprocessor can skip
+opening and reading the file altogether after the first inclusion. While
+most modern compilers implement an optimization known as the
+"multiple-include optimization" to achieve similar speeds for
+traditional guards, <code>#pragma once</code> explicitly guarantees that
+the compiler avoids redundant file I/O operations without needing to
+scan the file to verify the guard structure.</p>
+<h3 id="portability-and-technical-trade-offs">Portability and Technical
+Trade-Offs</h3>
+<h4 id="1-non-standard-language-status">1. Non-Standard Language
+Status</h4>
+<p>The most significant drawback is that <code>#pragma once</code> is
+not defined by any ISO C specification (from C89 through C23). While
+major compilers like GCC, Clang, and MSVC fully support it, strictly
+conforming code cannot rely on vendor-specific pragmas. An obscure or
+highly specialized embedded compiler may issue a warning, ignore the
+directive, or fail to compile entirely.</p>
+<h4 id="2-file-identity-and-filesystem-issues">2. File Identity and
+Filesystem Issues</h4>
+<p>Because <code>#pragma once</code> relies on identifying unique files
+rather than macro tokens, it depends heavily on compiler heuristics and
+underlying operating system APIs. Complications arise in complex build
+environments:</p>
+<ul>
+<li><strong>Symlinks and Hard Links:</strong> If a header file is
+accessible via multiple paths (e.g., through symbolic links or hard
+links), some compilers may fail to recognize that both paths resolve to
+the same underlying file, causing duplicate inclusions.</li>
+<li><strong>Network Filesystems:</strong> Compilers often determine file
+uniqueness using device numbers and inode identifiers. Network-attached
+storage (NAS) or distributed build systems may not consistently report
+reliable inodes, leading to inconsistent behavior.</li>
+<li><strong>Build System Copies:</strong> If a build process copies or
+shadows header files into different output directories, the same header
+may exist in multiple physical locations. Include guards would prevent
+multiple inclusions in this scenario, whereas <code>#pragma once</code>
+will treat them as distinct files.</li>
+</ul>
+<h3 id="which-approach-should-you-use">Which Approach Should You
+Use?</h3>
+<p>For closed, internal codebases targeting modern toolchains (GCC,
+Clang, or MSVC), <code>#pragma once</code> provides a cleaner, less
+error-prone developer experience with widespread support. However, for
+open-source libraries, safety-critical systems, or projects that must
+guarantee compatibility across esoteric embedded toolchains, standard
+<code>#ifndef</code> include guards remain the definitive choice due to
+their universal, standard-mandated behavior. Some codebases adopt a
+hybrid approach, using both <code>#pragma once</code> and traditional
+guards simultaneously to maximize compiler-level file caching while
+retaining a guaranteed fallback.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

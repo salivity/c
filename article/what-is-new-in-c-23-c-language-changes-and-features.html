@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Is New in C23? C Language Changes and Features - c</title>
+    <meta name="description" content="The C23 standard (ISO/IEC 9899:2024) marks the most significant update to the C programming language in over a decade, introducing modern syntax improvements, standardizing common idioms, and pruning outdated legacy constructs. This overview explores the">
+    <link rel="canonical" href="https://salivity.github.io/c/article/what-is-new-in-c-23-c-language-changes-and-features">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Is New in C23? C Language Changes and Features - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/what-is-new-in-c-23-c-language-changes-and-features" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The C23 standard (ISO/IEC 9899:2024) marks the most significant update to the C programming language in over a decade, introducing modern syntax improvements, standardizing common idioms, and pruning outdated legacy constructs. This overview explores the" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="what-is-new-in-c23-c-language-changes-and-features">What Is New
+in C23? C Language Changes and Features</h1>
+<p>The C23 standard (ISO/IEC 9899:2024) marks the most significant
+update to the C programming language in over a decade, introducing
+modern syntax improvements, standardizing common idioms, and pruning
+outdated legacy constructs. This overview explores the finalized
+features of C23, covering fundamental language enhancements such as
+native booleans, type inference, standard attributes, and binary
+resource embedding, alongside critical library upgrades and
+deprecations.</p>
+<h3 id="core-language-modernizations">Core Language Modernizations</h3>
+<ul>
+<li><strong>Native Booleans (<code>bool</code>, <code>true</code>,
+<code>false</code>):</strong> Previously defined as macros in
+<code>&lt;stdbool.h&gt;</code>, <code>bool</code>, <code>true</code>,
+and <code>false</code> are now first-class keywords in the core
+language. The header <code>&lt;stdbool.h&gt;</code> remains available
+for backward compatibility.</li>
+<li><strong>Distinct Null Pointer (<code>nullptr</code>):</strong> C23
+introduces <code>nullptr</code> with the underlying type
+<code>nullptr_t</code>. Unlike the traditional <code>NULL</code> macro
+(which often expands to <code>(void*)0</code> or integer
+<code>0</code>), <code>nullptr</code> is explicitly a pointer type and
+cannot be inadvertently assigned to integer types.</li>
+<li><strong>Type Inference (<code>auto</code>):</strong> The
+<code>auto</code> keyword has been repurposed to deduce the type of a
+variable from its initializer, aligning with modern C++ usage. The
+variable must have an initializer to determine its type.</li>
+<li><strong>Type Queries (<code>typeof</code> and
+<code>typeof_unqual</code>):</strong> Long supported as a compiler
+extension (such as in GCC and Clang), <code>typeof</code> is now
+standard. It retrieves the type of an expression or type name.
+<code>typeof_unqual</code> functions similarly but strips
+<code>const</code>, <code>volatile</code>, and <code>atomic</code>
+qualifiers.</li>
+<li><strong>Empty Parameter Lists Mean "No Arguments":</strong> In prior
+C standards, a function declared as <code>int foo()</code> meant the
+function took an unspecified number of arguments. In C23,
+<code>int foo()</code> is strictly equivalent to
+<code>int foo(void)</code>, taking zero arguments.</li>
+</ul>
+<h3 id="syntax-and-preprocessor-enhancements">Syntax and Preprocessor
+Enhancements</h3>
+<ul>
+<li><strong>Binary Literals and Digit Separators:</strong> Programmers
+can now write binary constants directly using prefixes like
+<code>0b</code> or <code>0B</code> (e.g., <code>0b101010</code>). Single
+quotes can be used as digit separators for improved readability in
+integer and floating-point literals (e.g., <code>1'000'000</code> or
+<code>0b1111'0000</code>).</li>
+<li><strong>Standard Attribute Syntax (<code>[[...]]</code>):</strong>
+C23 adopts the double-bracket attribute syntax introduced in C++11.
+Standardized attributes include:
+<ul>
+<li><code>[[nodiscard]]</code>: Warns if the return value of a function
+or type is ignored.</li>
+<li><code>[[maybe_unused]]</code>: Suppresses compiler warnings for
+unused variables or parameters.</li>
+<li><code>[[deprecated]]</code>: Warns when a designated entity is used,
+optionally accepting a reason string.</li>
+<li><code>[[fallthrough]]</code>: Explicitly indicates an intentional
+fall-through in a <code>switch</code> statement.</li>
+<li><code>[[unsequenced]]</code> and <code>[[reproducible]]</code>:
+Convey functional side-effect guarantees for compiler
+optimizations.</li>
+</ul></li>
+<li><strong>Binary Resource Inclusion (<code>#embed</code>):</strong>
+The <code>#embed</code> preprocessor directive allows source files to
+directly incorporate raw binary data from external files into arrays as
+a sequence of integer values, eliminating the need for manual
+file-to-hex conversion scripts.</li>
+<li><strong>Conditional Directives (<code>#elifdef</code> and
+<code>#elifndef</code>):</strong> These additions simplify preprocessor
+logic by replacing verbose combinations of
+<code>#elif defined(...)</code> and
+<code>#elif !defined(...)</code>.</li>
+<li><strong>Flexible Label Placement:</strong> Labels can now be placed
+at the end of compound statements or directly before declarations
+without requiring an empty statement
+(<code>{ label: int x = 0; }</code>).</li>
+</ul>
+<h3 id="data-types-and-representations">Data Types and
+Representations</h3>
+<ul>
+<li><strong>Mandatory Two's Complement:</strong> C23 drops historical
+support for one's complement and sign-magnitude representations. All
+signed integers are now guaranteed to use two's complement
+representation.</li>
+<li><strong>Bit-Precise Integers (<code>_BitInt(N)</code>):</strong>
+Introduces exact-width integer types where <span
+class="math inline">\(N\)</span> defines the explicit number of bits
+(e.g., <code>_BitInt(24)</code> or <code>unsigned _BitInt(48)</code>),
+useful for hardware modeling and FPGA target support.</li>
+<li><strong>Zero-Size Structures:</strong> Empty structure declarations
+(<code>struct S {};</code>) are now conditionally permitted with
+implementation-defined sizes.</li>
+</ul>
+<h3 id="standard-library-additions-and-hardening">Standard Library
+Additions and Hardening</h3>
+<ul>
+<li><strong>Checked Integer Arithmetic
+(<code>&lt;stdckdint.h&gt;</code>):</strong> Provides functions to
+perform safe additions, subtractions, and multiplications
+(<code>ckd_add</code>, <code>ckd_sub</code>, <code>ckd_mul</code>) that
+return a boolean indicating whether an overflow occurred.</li>
+<li><strong>Explicit Memory Zeroing
+(<code>memset_explicit</code>):</strong> Introduced in
+<code>&lt;string.h&gt;</code> to securely overwrite sensitive data (like
+passwords or cryptographic keys). Unlike standard <code>memset</code>,
+compilers are prohibited from optimizing away this call.</li>
+<li><strong>POSIX Extensions in Standard C:</strong> Several widely used
+POSIX utilities are now standardized in the C library, including
+<code>memccpy</code>, <code>strdup</code>, and
+<code>strndup</code>.</li>
+<li><strong>Time Improvements:</strong> Additions to
+<code>&lt;time.h&gt;</code> include <code>timespec_getres</code> for
+querying time resolution and standardized handling of leap seconds.</li>
+</ul>
+<h3 id="removed-and-deprecated-features">Removed and Deprecated
+Features</h3>
+<ul>
+<li><strong>Removal of K&amp;R Function Declarations:</strong> The
+ancient K&amp;R declaration style (where parameters are listed in the
+signature and typed on subsequent lines) has been entirely removed from
+the language.</li>
+<li><strong>Removal of Trigraghs:</strong> Three-character escape
+sequences like <code>??=</code> (for <code>#</code>) or <code>??/</code>
+(for <code>\</code>) have been completely removed.</li>
+<li><strong>Removal of <code>__alignof_is_defined</code> and
+<code>__alignas_is_defined</code>:</strong> Replaced by core keyword
+alignments.</li>
+<li><strong>Deprecation of Static Asserts via Macro:</strong> The
+<code>static_assert</code> keyword is now directly part of the grammar
+and no longer requires <code>&lt;assert.h&gt;</code>, also permitting
+single-argument assertions without a diagnostic message.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

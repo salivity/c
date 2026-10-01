@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integer Shift Beyond Bit Width in C - c</title>
+    <meta name="description" content="In the C programming language, shifting an integer left or right by an amount equal to or greater than its bit width results in undefined behavior. While developers might intuitively expect such an operation to evaluate to zero or wrap around, the C stan">
+    <link rel="canonical" href="https://salivity.github.io/c/article/integer-shift-beyond-bit-width-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Integer Shift Beyond Bit Width in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/integer-shift-beyond-bit-width-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, shifting an integer left or right by an amount equal to or greater than its bit width results in undefined behavior. While developers might intuitively expect such an operation to evaluate to zero or wrap around, the C stan" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="integer-shift-beyond-bit-width-in-c">Integer Shift Beyond Bit
+Width in C</h1>
+<p>In the C programming language, shifting an integer left or right by
+an amount equal to or greater than its bit width results in undefined
+behavior. While developers might intuitively expect such an operation to
+evaluate to zero or wrap around, the C standard does not guarantee any
+specific outcome. This article examines the official specification under
+the C standard, the underlying hardware reasons for this design choice,
+and the practical implications modern compiler optimizations have on
+oversized bit shifts.</p>
+<p>According to the ISO C standard (Section 6.5.7 of C99, C11, and C17),
+the bitwise shift operators <code>&lt;&lt;</code> and
+<code>&gt;&gt;</code> require the right operand to be non-negative and
+strictly less than the width of the promoted left operand. If the right
+operand is negative or is greater than or equal to the width of the
+promoted type (for example, shifting a 32-bit <code>unsigned int</code>
+by 32 or more), the behavior is strictly undefined. Once an operation
+enters undefined behavior, the compiler is not obligated to produce a
+particular value, issue a warning, or prevent unexpected execution
+paths.</p>
+<p>The primary reason C leaves this behavior undefined is the variance
+in how different CPU architectures handle oversized shifts:</p>
+<ul>
+<li><strong>x86 and x86-64:</strong> The shift instructions (such as
+<code>SHL</code> and <code>SHR</code>) mask the shift count using the
+lower 5 bits for 32-bit registers or 6 bits for 64-bit registers.
+Shifting a 32-bit integer by 32 on an x86 processor evaluates to
+<code>value &lt;&lt; (32 &amp; 31)</code>, which is equivalent to
+<code>value &lt;&lt; 0</code>, leaving the original integer
+unchanged.</li>
+<li><strong>ARM:</strong> Older ARM architectures use the lower 8 bits
+of the shift register, meaning a shift by 32 produces zero, while a
+shift by 256 would wrap around.</li>
+<li><strong>Other architectures:</strong> Some specialized processors
+may saturate the shift to the bit width, clear the register entirely to
+zero, or trigger hardware exceptions.</li>
+</ul>
+<p>Because CPU behavior is inconsistent, the C standard chose undefined
+behavior to allow compilers to emit direct, fast machine instructions
+without needing to inject runtime branch checks or masking logic.</p>
+<p>Modern optimizing compilers (such as GCC and Clang) take advantage of
+undefined behavior during code generation. If a shift amount is known at
+compile time, the compiler's constant-folding pass might compute zero,
+while the runtime machine instruction might leave the value unmodified,
+resulting in discrepancies between optimized and unoptimized builds.
+Furthermore, a compiler may assume that an oversized shift is
+impossible, causing it to eliminate conditional checks or entire blocks
+of surrounding code.</p>
+<p>To handle shifts safely when the shift amount is dynamic, you must
+validate or constrain the shift count before applying the operator:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdint.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="dt">uint32_t</span> safe_left_shift<span class="op">(</span><span class="dt">uint32_t</span> value<span class="op">,</span> <span class="dt">unsigned</span> <span class="dt">int</span> shift<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>shift <span class="op">&gt;=</span> <span class="dv">32</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> value <span class="op">&lt;&lt;</span> shift<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Alternatively, if circular behavior is explicitly desired, use the
+bitwise AND operator to mask the shift counter to the valid range
+(<code>shift &amp; 31</code> for 32-bit values) before executing the
+shift. Explicitly managing boundaries ensures predictable execution
+across all compilers and CPU targets.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

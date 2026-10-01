@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fixed-Point Arithmetic Implementation in C - c</title>
+    <meta name="description" content="Fixed-point arithmetic provides a computationally efficient and deterministic method for handling non-integer values on target processors lacking a dedicated Floating-Point Unit (FPU). In resource-constrained embedded systems, relying on compiler-driven">
+    <link rel="canonical" href="https://salivity.github.io/c/article/fixed-point-arithmetic-implementation-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Fixed-Point Arithmetic Implementation in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/fixed-point-arithmetic-implementation-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Fixed-point arithmetic provides a computationally efficient and deterministic method for handling non-integer values on target processors lacking a dedicated Floating-Point Unit (FPU). In resource-constrained embedded systems, relying on compiler-driven" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="fixed-point-arithmetic-implementation-in-c">Fixed-Point
+Arithmetic Implementation in C</h1>
+<p>Fixed-point arithmetic provides a computationally efficient and
+deterministic method for handling non-integer values on target
+processors lacking a dedicated Floating-Point Unit (FPU). In
+resource-constrained embedded systems, relying on compiler-driven
+software floating-point emulation introduces substantial code bloat and
+cycle overhead. This article explains how to represent fractional
+numbers using standard C integer types and implements the fundamental
+arithmetic operations, scaling techniques, and overflow management
+required for a robust fixed-point math system.</p>
+<h2 id="number-representation-and-the-q-format">Number Representation
+and the Q Format</h2>
+<p>Fixed-point arithmetic simulates fractional numbers by scaling an
+integer by an implicit fixed factor, typically a power of two (<span
+class="math inline">\(2^n\)</span>). This allows the underlying hardware
+to manipulate numbers using native integer instructions while
+conceptually placing a fractional "radix point" within the register.</p>
+<p>The most widely used notation is the <strong>Q format</strong>:</p>
+<ul>
+<li><strong>Qm.n</strong>: Indicates an integer where <span
+class="math inline">\(m\)</span> bits represent the integer component
+and <span class="math inline">\(n\)</span> bits represent the fractional
+component.</li>
+<li>A signed 32-bit integer configured as <strong>Q16.16</strong> uses 1
+sign bit, 15 magnitude bits for the whole number part, and 16 fractional
+bits.</li>
+<li>The real-world value is calculated as: <span
+class="math inline">\(\text{Real Value} = \frac{\text{Integer
+Value}}{2^n}\)</span>.</li>
+</ul>
+<p>In C99 and later, fixed-point types are defined using fixed-width
+integers from <code>&lt;stdint.h&gt;</code>:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdint.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#define FIXED_SHIFT </span><span class="dv">16</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#define FIXED_SCALE </span><span class="op">(</span><span class="dv">1</span><span class="pp"> </span><span class="op">&lt;&lt;</span><span class="pp"> FIXED_SHIFT</span><span class="op">)</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">typedef</span> <span class="dt">int32_t</span> fixed_t<span class="op">;</span></span></code></pre></div>
+<h2 id="conversions">Conversions</h2>
+<p>Converting between native integers, floating-point literals, and
+fixed-point types requires shifting or scaling by the fractional
+factor:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Convert integer to fixed-point</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#define INT_TO_FIXED</span><span class="op">(</span><span class="pp">x</span><span class="op">)</span><span class="pp"> </span><span class="op">((</span><span class="pp">fixed_t</span><span class="op">)((</span><span class="pp">x</span><span class="op">)</span><span class="pp"> </span><span class="op">&lt;&lt;</span><span class="pp"> FIXED_SHIFT</span><span class="op">))</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Convert fixed-point to integer (truncating toward zero)</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="pp">#define FIXED_TO_INT</span><span class="op">(</span><span class="pp">x</span><span class="op">)</span><span class="pp"> </span><span class="op">((</span><span class="dt">int32_t</span><span class="op">)((</span><span class="pp">x</span><span class="op">)</span><span class="pp"> </span><span class="op">&gt;&gt;</span><span class="pp"> FIXED_SHIFT</span><span class="op">))</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Convert floating-point literal at compile-time/initialization</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="pp">#define FLOAT_TO_FIXED</span><span class="op">(</span><span class="pp">x</span><span class="op">)</span><span class="pp"> </span><span class="op">((</span><span class="pp">fixed_t</span><span class="op">)((</span><span class="pp">x</span><span class="op">)</span><span class="pp"> </span><span class="op">*</span><span class="pp"> FIXED_SCALE </span><span class="op">+</span><span class="pp"> </span><span class="op">((</span><span class="pp">x</span><span class="op">)</span><span class="pp"> </span><span class="op">&gt;=</span><span class="pp"> </span><span class="dv">0</span><span class="pp"> </span><span class="op">?</span><span class="pp"> </span><span class="fl">0.5</span><span class="bu">f</span><span class="pp"> </span><span class="op">:</span><span class="pp"> </span><span class="op">-</span><span class="fl">0.5</span><span class="bu">f</span><span class="op">)))</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Convert fixed-point back to float (debugging/logging only)</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="pp">#define FIXED_TO_FLOAT</span><span class="op">(</span><span class="pp">x</span><span class="op">)</span><span class="pp"> </span><span class="op">((</span><span class="dt">float</span><span class="op">)(</span><span class="pp">x</span><span class="op">)</span><span class="pp"> </span><span class="op">/</span><span class="pp"> </span><span class="op">(</span><span class="dt">float</span><span class="op">)</span><span class="pp">FIXED_SCALE</span><span class="op">)</span></span></code></pre></div>
+<h2 id="addition-and-subtraction">Addition and Subtraction</h2>
+<p>When two operands share the same fractional scaling (<span
+class="math inline">\(n\)</span>), their addition and subtraction
+execute as standard integer operations. The position of the radix point
+remains unchanged:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>fixed_t fixed_add<span class="op">(</span>fixed_t a<span class="op">,</span> fixed_t b<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> a <span class="op">+</span> b<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>fixed_t fixed_sub<span class="op">(</span>fixed_t a<span class="op">,</span> fixed_t b<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> a <span class="op">-</span> b<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Both operations take a single clock cycle on most architectures.</p>
+<h2 id="multiplication">Multiplication</h2>
+<p>Multiplying two <span class="math inline">\(Q16.16\)</span> numbers
+produces a result with <span class="math inline">\(16 + 16 = 32\)</span>
+fractional bits (<span class="math inline">\(Q32.32\)</span>), which
+requires a 64-bit storage container to prevent truncation and overflow.
+To restore the result to the target <span
+class="math inline">\(Q16.16\)</span> format, the 64-bit intermediate
+value must be right-shifted by 16 bits:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>fixed_t fixed_mul<span class="op">(</span>fixed_t a<span class="op">,</span> fixed_t b<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int64_t</span> product <span class="op">=</span> <span class="op">(</span><span class="dt">int64_t</span><span class="op">)</span>a <span class="op">*</span> <span class="op">(</span><span class="dt">int64_t</span><span class="op">)</span>b<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">(</span>fixed_t<span class="op">)(</span>product <span class="op">&gt;&gt;</span> FIXED_SHIFT<span class="op">);</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>To incorporate nearest-neighbor rounding instead of truncation toward
+negative infinity, add half of the fractional base (<span
+class="math inline">\(2^{n-1}\)</span>) prior to the shift:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>fixed_t fixed_mul_round<span class="op">(</span>fixed_t a<span class="op">,</span> fixed_t b<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int64_t</span> product <span class="op">=</span> <span class="op">(</span><span class="dt">int64_t</span><span class="op">)</span>a <span class="op">*</span> <span class="op">(</span><span class="dt">int64_t</span><span class="op">)</span>b<span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">(</span>fixed_t<span class="op">)((</span>product <span class="op">+</span> <span class="op">(</span><span class="dv">1</span> <span class="op">&lt;&lt;</span> <span class="op">(</span>FIXED_SHIFT <span class="op">-</span> <span class="dv">1</span><span class="op">)))</span> <span class="op">&gt;&gt;</span> FIXED_SHIFT<span class="op">);</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="division">Division</h2>
+<p>Dividing two <span class="math inline">\(Q16.16\)</span> values
+directly causes the scaling factors to cancel out, yielding an ordinary
+unscaled integer. To preserve the fractional component, the dividend
+must first be cast to a wider integer type and shifted left by the
+fractional bit count before performing the division:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>fixed_t fixed_div<span class="op">(</span>fixed_t a<span class="op">,</span> fixed_t b<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>b <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Handle divide-by-zero according to system requirements</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int64_t</span> temp <span class="op">=</span> <span class="op">((</span><span class="dt">int64_t</span><span class="op">)</span>a <span class="op">&lt;&lt;</span> FIXED_SHIFT<span class="op">);</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">(</span>fixed_t<span class="op">)(</span>temp <span class="op">/</span> b<span class="op">);</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="handling-overflow-and-saturation">Handling Overflow and
+Saturation</h2>
+<p>Unlike floating-point values that degrade to <code>+INF</code> or
+<code>-INF</code> upon overflow, standard integer overflow causes
+wraparound, leading to severe calculation errors. In safety-critical or
+digital signal processing (DSP) contexts, saturation arithmetic clamps
+values to maximum or minimum allowable limits instead of wrapping:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;limits.h&gt;</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>fixed_t fixed_add_saturated<span class="op">(</span>fixed_t a<span class="op">,</span> fixed_t b<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int64_t</span> sum <span class="op">=</span> <span class="op">(</span><span class="dt">int64_t</span><span class="op">)</span>a <span class="op">+</span> <span class="op">(</span><span class="dt">int64_t</span><span class="op">)</span>b<span class="op">;</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>sum <span class="op">&gt;</span> INT32_MAX<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> INT32_MAX<span class="op">;</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>sum <span class="op">&lt;</span> INT32_MIN<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> INT32_MIN<span class="op">;</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">(</span>fixed_t<span class="op">)</span>sum<span class="op">;</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>By substituting 64-bit temporary variables for multiplication and
+division, carefully controlling radix alignments, and selecting
+saturation where appropriate, fixed-point implementations deliver
+deterministic mathematical execution using minimal instruction cycles on
+microcontrollers without hardware FPUs.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

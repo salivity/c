@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Defenses Against Return Address Manipulation in C - c</title>
+    <meta name="description" content="In C programming, memory safety vulnerabilities such as buffer overflows frequently allow malicious actors to overwrite saved return addresses on the call stack, enabling arbitrary code execution through techniques like Return-Oriented Programming (ROP).">
+    <link rel="canonical" href="https://salivity.github.io/c/article/defenses-against-return-address-manipulation-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Defenses Against Return Address Manipulation in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/defenses-against-return-address-manipulation-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C programming, memory safety vulnerabilities such as buffer overflows frequently allow malicious actors to overwrite saved return addresses on the call stack, enabling arbitrary code execution through techniques like Return-Oriented Programming (ROP)." />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="defenses-against-return-address-manipulation-in-c">Defenses
+Against Return Address Manipulation in C</h1>
+<p>In C programming, memory safety vulnerabilities such as buffer
+overflows frequently allow malicious actors to overwrite saved return
+addresses on the call stack, enabling arbitrary code execution through
+techniques like Return-Oriented Programming (ROP). To prevent this
+execution hijacking, modern systems employ several hardware- and
+software-based defenses. This article outlines the primary mechanisms
+used to protect return addresses in compiled C binaries, including
+compiler-inserted stack canaries, hardware and software shadow stacks,
+backward-edge Control Flow Integrity (CFI), and ARM Pointer
+Authentication.</p>
+<h2 id="stack-canaries">Stack Canaries</h2>
+<p>Stack canaries (also known as Stack Smashing Protection) are one of
+the oldest and most widely deployed defenses against linear buffer
+overflows. Supported by compilers like GCC and Clang via flags such as
+<code>-fstack-protector-strong</code>, this mechanism places an
+integrity check value—the canary—on the stack directly between local
+variables and the saved return address.</p>
+<p>Before a function executes its <code>ret</code> instruction, it
+verifies that the canary value remains unchanged. If a buffer overflow
+overwrites the return address, it inevitably alters the canary first.
+The application detects the mismatch and immediately terminates
+execution before the corrupted return address can be used. However,
+canaries cannot stop targeted non-linear writes or memory disclosure
+attacks that leak the canary value.</p>
+<h2 id="shadow-stacks">Shadow Stacks</h2>
+<p>A shadow stack is a dedicated memory region used exclusively for
+storing return addresses, completely isolated from normal program data.
+When a function call occurs, the return address is pushed onto both the
+standard call stack and the shadow stack. Upon function return, the
+system compares the two values or pops the address directly from the
+shadow stack.</p>
+<h3 id="hardware-shadow-stacks">Hardware Shadow Stacks</h3>
+<p>Modern architectures integrate shadow stacks directly into the
+processor to minimize performance overhead and prevent tampering:</p>
+<ul>
+<li><strong>Intel Control-flow Enforcement Technology (CET):</strong>
+Implements a hardware-enforced shadow stack. The CPU maintains an
+internal shadow stack pointer (<code>SSP</code>) that cannot be modified
+by ordinary memory write instructions. If the return address on the data
+stack does not match the one on the shadow stack during a return
+instruction, the CPU triggers a control protection exception
+(<code>#CP</code>).</li>
+<li><strong>ARM Guarded Control Stack (GCS):</strong> Introduced in
+ARMv9-A, GCS functions similarly to Intel CET, utilizing privileged
+hardware instructions and dedicated memory page permissions to ensure
+that the return stack remains inaccessible to standard store
+operations.</li>
+</ul>
+<h3 id="software-shadow-stacks">Software Shadow Stacks</h3>
+<p>Compilers can also generate software-managed shadow stacks when
+hardware support is absent. For example, Clang offers
+<strong>ShadowCallStack</strong>, which reserves a dedicated CPU
+register (such as <code>x18</code> on AArch64) to point to a private
+shadow stack, ensuring return addresses are saved and restored without
+writing them to the standard data stack.</p>
+<h2 id="pointer-authentication-codes-pac">Pointer Authentication Codes
+(PAC)</h2>
+<p>Introduced in the ARMv8.3-A architecture, Pointer Authentication uses
+cryptographic signatures to ensure pointer integrity. When compiling C
+code with PAC support:</p>
+<ol type="1">
+<li>When entering a function, the compiler inserts an instruction (e.g.,
+<code>PACIASP</code>) that generates a cryptographic hash of the return
+address combined with a secret processor key and a context modifier
+(such as the current stack pointer).</li>
+<li>The resulting signature is stored in the unused upper bits of the
+64-bit return address.</li>
+<li>Before returning, the function executes an authentication
+instruction (e.g., <code>AUTIASP</code> or <code>RETAA</code>).</li>
+</ol>
+<p>If an attacker overwrites the return address in memory, the
+cryptographic signature becomes invalid. When authentication fails, the
+processor corrupts the address into a designated illegal value, causing
+a fatal segmentation fault when the branch occurs.</p>
+<h2 id="backward-edge-control-flow-integrity-cfi">Backward-Edge Control
+Flow Integrity (CFI)</h2>
+<p>Control Flow Integrity restricts the execution path of a binary to a
+strictly defined control-flow graph (CFG) generated at compile time.
+While forward-edge CFI protects indirect calls and jumps, backward-edge
+CFI focuses specifically on function returns.</p>
+<p>Backward-edge CFI mechanisms record the set of valid call sites for
+every function. Upon returning, the binary verifies that the destination
+address corresponds to an allowed call site for that specific routine.
+While effective, software-only backward-edge CFI often incurs noticeable
+performance costs, leading most production environments to favor
+hardware shadow stacks or Pointer Authentication as more efficient
+alternatives.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

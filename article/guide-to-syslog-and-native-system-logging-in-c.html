@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guide to Syslog and Native System Logging in C - c</title>
+    <meta name="description" content="This article explains the purpose of the syslog protocol in Unix-like operating systems and demonstrates how to natively implement diagnostic logging within C applications. Syslog provides a centralized, standardized mechanism for recording system events">
+    <link rel="canonical" href="https://salivity.github.io/c/article/guide-to-syslog-and-native-system-logging-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Guide to Syslog and Native System Logging in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/guide-to-syslog-and-native-system-logging-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the purpose of the syslog protocol in Unix-like operating systems and demonstrates how to natively implement diagnostic logging within C applications. Syslog provides a centralized, standardized mechanism for recording system events" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="guide-to-syslog-and-native-system-logging-in-c">Guide to Syslog
+and Native System Logging in C</h1>
+<p>This article explains the purpose of the syslog protocol in Unix-like
+operating systems and demonstrates how to natively implement diagnostic
+logging within C applications. Syslog provides a centralized,
+standardized mechanism for recording system events and application
+state. By using the native POSIX C library interface defined in
+<code>&lt;syslog.h&gt;</code>, developers can seamlessly route
+informational messages, warnings, and error diagnostics directly to
+system log daemons without relying on third-party dependencies.</p>
+<h2 id="the-purpose-of-syslog">The Purpose of Syslog</h2>
+<p>Syslog is a standardized logging architecture and protocol widely
+used in Unix, Linux, and other POSIX-compliant operating systems. Its
+primary objective is to separate message generation from message storage
+and analysis. Instead of every individual service implementing custom
+file-writing routines, rotation policies, and formatting rules, services
+dispatch their log events to a centralized system daemon (such as
+<code>rsyslog</code>, <code>syslog-ng</code>, or
+<code>systemd-journald</code>).</p>
+<p>The main benefits of using syslog include:</p>
+<ul>
+<li><strong>Centralized Log Management:</strong> Messages can be
+aggregated in standard locations (such as <code>/var/log/syslog</code>
+or <code>/var/log/messages</code>) or forwarded over the network to a
+central log server.</li>
+<li><strong>Standardized Severity Levels:</strong> Every log event is
+assigned a severity rating (ranging from Debug to Emergency), allowing
+system administrators to filter, alert, or discard messages based on
+importance.</li>
+<li><strong>Facility Categorization:</strong> Events are grouped by
+operational category (e.g., <code>LOG_DAEMON</code>,
+<code>LOG_USER</code>, <code>LOG_AUTH</code>), making it easy to
+determine the originating subsystem.</li>
+<li><strong>Concurrency and Thread Safety:</strong> Log daemons safely
+handle concurrent writes from hundreds of processes without file-locking
+contention or corrupted log files.</li>
+</ul>
+<h2 id="native-diagnostics-logging-in-c">Native Diagnostics Logging in
+C</h2>
+<p>C applications interact with the system logger through the standard
+POSIX API provided by the <code>&lt;syslog.h&gt;</code> header. This API
+consists of three primary functions: <code>openlog()</code>,
+<code>syslog()</code>, and <code>closelog()</code>.</p>
+<h3 id="the-core-api-functions">The Core API Functions</h3>
+<ol type="1">
+<li><p><strong><code>openlog()</code></strong>: Initializes a connection
+to the system logger for the calling program.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> openlog<span class="op">(</span><span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>ident<span class="op">,</span> <span class="dt">int</span> option<span class="op">,</span> <span class="dt">int</span> facility<span class="op">);</span></span></code></pre></div>
+<ul>
+<li><code>ident</code>: An identifier prepended to every message
+(typically the program or service name).</li>
+<li><code>option</code>: Bit flags controlling behavior, such as
+<code>LOG_PID</code> (includes process ID) or <code>LOG_CONS</code>
+(writes to system console if logging fails).</li>
+<li><code>facility</code>: The default category for the application,
+such as <code>LOG_DAEMON</code> or <code>LOG_USER</code>.</li>
+</ul></li>
+<li><p><strong><code>syslog()</code></strong>: Dispatches a log message
+using standard <code>printf</code>-style formatting.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> syslog<span class="op">(</span><span class="dt">int</span> priority<span class="op">,</span> <span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>format<span class="op">,</span> <span class="op">...);</span></span></code></pre></div>
+<ul>
+<li><code>priority</code>: A bitwise combination of a facility and a
+severity level (e.g., <code>LOG_ERR</code>, <code>LOG_WARNING</code>,
+<code>LOG_INFO</code>).</li>
+<li><code>%m</code>: A syslog-specific format specifier that
+automatically expands to the current <code>strerror(errno)</code>
+string.</li>
+</ul></li>
+<li><p><strong><code>closelog()</code></strong>: Closes the descriptor
+associated with the system logger.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> closelog<span class="op">(</span><span class="dt">void</span><span class="op">);</span></span></code></pre></div></li>
+</ol>
+<h3 id="implementation-example">Implementation Example</h3>
+<p>The following C program demonstrates how a background service
+initializes logging, records operational events and diagnostics, handles
+an error condition, and tears down the connection.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;syslog.h&gt;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;errno.h&gt;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Initialize syslog with program name, PID inclusion, and daemon facility</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    openlog<span class="op">(</span><span class="st">&quot;demo_service&quot;</span><span class="op">,</span> LOG_PID <span class="op">|</span> LOG_NDELAY<span class="op">,</span> LOG_DAEMON<span class="op">);</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Log standard operational events</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    syslog<span class="op">(</span>LOG_INFO<span class="op">,</span> <span class="st">&quot;Service initialization started.&quot;</span><span class="op">);</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Simulate an operation and log dynamic variables</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> worker_threads <span class="op">=</span> <span class="dv">4</span><span class="op">;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    syslog<span class="op">(</span>LOG_DEBUG<span class="op">,</span> <span class="st">&quot;Allocating resources for </span><span class="sc">%d</span><span class="st"> worker threads.&quot;</span><span class="op">,</span> worker_threads<span class="op">);</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Simulate an error condition</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="dt">FILE</span> <span class="op">*</span>config_file <span class="op">=</span> fopen<span class="op">(</span><span class="st">&quot;/etc/nonexistent_config.conf&quot;</span><span class="op">,</span> <span class="st">&quot;r&quot;</span><span class="op">);</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(!</span>config_file<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>        <span class="co">// %m automatically prints the error message corresponding to errno</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>        syslog<span class="op">(</span>LOG_ERR<span class="op">,</span> <span class="st">&quot;Failed to open configuration file: %m&quot;</span><span class="op">);</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>        fclose<span class="op">(</span>config_file<span class="op">);</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>    syslog<span class="op">(</span>LOG_NOTICE<span class="op">,</span> <span class="st">&quot;Service exiting gracefully.&quot;</span><span class="op">);</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Close the logging connection</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>    closelog<span class="op">();</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="diagnostic-severities-reference">Diagnostic Severities
+Reference</h3>
+<p>When calling <code>syslog()</code>, developers select the severity
+that matches the event's operational impact:</p>
+<ul>
+<li><code>LOG_EMERG</code>: System is unusable (highest priority).</li>
+<li><code>LOG_ALERT</code>: Immediate action is required.</li>
+<li><code>LOG_CRIT</code>: Critical system conditions (e.g., hard drive
+failure).</li>
+<li><code>LOG_ERR</code>: Error conditions that prevented an operation
+from completing.</li>
+<li><code>LOG_WARNING</code>: Non-fatal warning messages indicating
+potential issues.</li>
+<li><code>LOG_NOTICE</code>: Normal but significant system
+conditions.</li>
+<li><code>LOG_INFO</code>: Informational runtime state messages.</li>
+<li><code>LOG_DEBUG</code>: Detailed diagnostic messages used primarily
+during troubleshooting and development.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

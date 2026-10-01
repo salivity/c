@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Low-Level Byte Manipulation Functions in string.h - c</title>
+    <meta name="description" content="While the C standard library header string.h is commonly associated with null-terminated character strings, it also provides the primary standard tools for low-level byte manipulation. These functions operate on raw memory blocks via void pointers, ignor">
+    <link rel="canonical" href="https://salivity.github.io/c/article/low-level-byte-manipulation-functions-in-string-h">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Low-Level Byte Manipulation Functions in string.h - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/low-level-byte-manipulation-functions-in-string-h" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="While the C standard library header string.h is commonly associated with null-terminated character strings, it also provides the primary standard tools for low-level byte manipulation. These functions operate on raw memory blocks via void pointers, ignor" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="low-level-byte-manipulation-functions-in-stringh">Low-Level Byte
+Manipulation Functions in string.h</h1>
+<p>While the C standard library header <code>string.h</code> is commonly
+associated with null-terminated character strings, it also provides the
+primary standard tools for low-level byte manipulation. These functions
+operate on raw memory blocks via <code>void</code> pointers, ignoring
+null terminators and relying strictly on explicit byte counts. This
+article outlines the essential low-level memory functions defined in
+<code>string.h</code>—specifically <code>memcpy</code>,
+<code>memmove</code>, <code>memset</code>, <code>memcmp</code>, and
+<code>memchr</code>—detailing their purpose, syntax, and operational
+mechanics.</p>
+<h3 id="memcpy"><code>memcpy</code></h3>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> <span class="op">*</span>memcpy<span class="op">(</span><span class="dt">void</span> <span class="op">*</span>dest<span class="op">,</span> <span class="dt">const</span> <span class="dt">void</span> <span class="op">*</span>src<span class="op">,</span> <span class="dt">size_t</span> n<span class="op">);</span></span></code></pre></div>
+<p><code>memcpy</code> copies <code>n</code> consecutive bytes from the
+memory area pointed to by <code>src</code> to the memory area pointed to
+by <code>dest</code>. It does not check for terminating null bytes,
+making it suitable for any data type, including binary structures and
+primitive arrays.</p>
+<ul>
+<li><strong>Behavior:</strong> Fastest standard memory-copy
+routine.</li>
+<li><strong>Caveat:</strong> The source and destination memory blocks
+must not overlap. If they do, the behavior is undefined.</li>
+</ul>
+<h3 id="memmove"><code>memmove</code></h3>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> <span class="op">*</span>memmove<span class="op">(</span><span class="dt">void</span> <span class="op">*</span>dest<span class="op">,</span> <span class="dt">const</span> <span class="dt">void</span> <span class="op">*</span>src<span class="op">,</span> <span class="dt">size_t</span> n<span class="op">);</span></span></code></pre></div>
+<p>Like <code>memcpy</code>, <code>memmove</code> copies <code>n</code>
+bytes from <code>src</code> to <code>dest</code>. However,
+<code>memmove</code> is explicitly designed to handle overlapping memory
+blocks safely.</p>
+<ul>
+<li><strong>Behavior:</strong> It behaves as though the bytes are first
+copied to a temporary array that does not overlap <code>src</code> or
+<code>dest</code>, and then written to <code>dest</code>.</li>
+<li><strong>Use Case:</strong> Shifting elements within the same array
+or buffer.</li>
+</ul>
+<h3 id="memset"><code>memset</code></h3>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> <span class="op">*</span>memset<span class="op">(</span><span class="dt">void</span> <span class="op">*</span>s<span class="op">,</span> <span class="dt">int</span> c<span class="op">,</span> <span class="dt">size_t</span> n<span class="op">);</span></span></code></pre></div>
+<p><code>memset</code> fills the first <code>n</code> bytes of the
+memory area pointed to by <code>s</code> with the constant byte
+<code>c</code> (converted to an <code>unsigned char</code>).</p>
+<ul>
+<li><strong>Behavior:</strong> Operates strictly on a byte-by-byte
+basis.</li>
+<li><strong>Use Case:</strong> Commonly used to zero-initialize structs,
+buffers, or arrays (<code>memset(ptr, 0, sizeof(*ptr))</code>). It
+cannot be used to set multi-byte integers to arbitrary non-zero values
+(e.g., setting an array of <code>int</code> to <code>1</code> results in
+each byte being <code>0x01</code>, producing
+<code>0x01010101</code>).</li>
+</ul>
+<h3 id="memcmp"><code>memcmp</code></h3>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> memcmp<span class="op">(</span><span class="dt">const</span> <span class="dt">void</span> <span class="op">*</span>s1<span class="op">,</span> <span class="dt">const</span> <span class="dt">void</span> <span class="op">*</span>s2<span class="op">,</span> <span class="dt">size_t</span> n<span class="op">);</span></span></code></pre></div>
+<p><code>memcmp</code> compares the first <code>n</code> bytes of two
+memory blocks, <code>s1</code> and <code>s2</code>, interpreting each
+byte as an <code>unsigned char</code>.</p>
+<ul>
+<li><strong>Return Value:</strong>
+<ul>
+<li><code>0</code> if all <code>n</code> bytes are identical.</li>
+<li>A negative value if the first differing byte in <code>s1</code> is
+smaller than in <code>s2</code>.</li>
+<li>A positive value if the first differing byte in <code>s1</code> is
+greater than in <code>s2</code>.</li>
+</ul></li>
+<li><strong>Caveat:</strong> Comparing struct instances with
+<code>memcmp</code> may yield unexpected results due to uninitialized
+padding bytes inserted by the compiler.</li>
+</ul>
+<h3 id="memchr"><code>memchr</code></h3>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> <span class="op">*</span>memchr<span class="op">(</span><span class="dt">const</span> <span class="dt">void</span> <span class="op">*</span>s<span class="op">,</span> <span class="dt">int</span> c<span class="op">,</span> <span class="dt">size_t</span> n<span class="op">);</span></span></code></pre></div>
+<p><code>memchr</code> scans the initial <code>n</code> bytes of the
+memory block pointed to by <code>s</code> for the first instance of the
+byte <code>c</code> (converted to an <code>unsigned char</code>).</p>
+<ul>
+<li><strong>Return Value:</strong> A pointer to the matching byte within
+the block, or <code>NULL</code> if the byte is not found within the
+specified <code>n</code> bytes.</li>
+<li><strong>Use Case:</strong> Locating specific byte patterns or
+delimiters within raw binary data where strings are not
+null-terminated.</li>
+</ul>
+<h3 id="core-differences-from-string-functions">Core Differences from
+String Functions</h3>
+<ul>
+<li><strong>No Delimiter Dependency:</strong> Standard string functions
+(like <code>strcpy</code> or <code>strcmp</code>) read memory until
+encountering a <code>\0</code> byte. Low-level <code>mem*</code>
+functions ignore delimiters and process exactly <code>n</code> bytes,
+avoiding buffer overruns on non-string data.</li>
+<li><strong>Type Agnosticism:</strong> By utilizing <code>void *</code>,
+these functions operate on arbitrary memory representations without
+requiring explicit type casting.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

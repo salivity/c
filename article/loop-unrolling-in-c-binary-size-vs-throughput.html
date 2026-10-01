@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loop Unrolling in C: Binary Size vs Throughput - c</title>
+    <meta name="description" content="Loop unrolling, also known as loop unwinding, is a compiler and software optimization technique that expands a loop's body to execute multiple iterations within a single cycle. This article explores the mechanics of loop unrolling in C, demonstrating how">
+    <link rel="canonical" href="https://salivity.github.io/c/article/loop-unrolling-in-c-binary-size-vs-throughput">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Loop Unrolling in C: Binary Size vs Throughput - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/loop-unrolling-in-c-binary-size-vs-throughput" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Loop unrolling, also known as loop unwinding, is a compiler and software optimization technique that expands a loop's body to execute multiple iterations within a single cycle. This article explores the mechanics of loop unrolling in C, demonstrating how" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="loop-unrolling-in-c-binary-size-vs-throughput">Loop Unrolling in
+C: Binary Size vs Throughput</h1>
+<p>Loop unrolling, also known as loop unwinding, is a compiler and
+software optimization technique that expands a loop's body to execute
+multiple iterations within a single cycle. This article explores the
+mechanics of loop unrolling in C, demonstrating how duplicating loop
+iterations minimizes branch overhead and maximizes CPU instruction-level
+parallelism to increase throughput, while simultaneously increasing
+binary size and potentially stressing the instruction cache.</p>
+<h2 id="what-is-loop-unrolling">What is Loop Unrolling?</h2>
+<p>In C programming, a standard loop evaluates a termination condition,
+executes its body, updates an index variable, and jumps back to the
+beginning on every single iteration. Loop unrolling reduces this
+administrative overhead by replicating the loop's body multiple times
+and adjusting the loop counter step accordingly.</p>
+<p>Consider a simple array initialization:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Standard loop</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">1000</span><span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    data<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Every iteration involves:</p>
+<ol type="1">
+<li>Comparing <code>i &lt; 1000</code>.</li>
+<li>Writing <code>0</code> to memory.</li>
+<li>Incrementing <code>i</code>.</li>
+<li>Branching back to the comparison.</li>
+</ol>
+<p>An unrolled version executes several iterations per step:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Manually unrolled by a factor of 4</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">1000</span><span class="op">;</span> i <span class="op">+=</span> <span class="dv">4</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    data<span class="op">[</span>i<span class="op">]</span>     <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    data<span class="op">[</span>i <span class="op">+</span> <span class="dv">1</span><span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    data<span class="op">[</span>i <span class="op">+</span> <span class="dv">2</span><span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    data<span class="op">[</span>i <span class="op">+</span> <span class="dv">3</span><span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In the unrolled version, the conditional check, increment, and jump
+happen only 250 times instead of 1,000 times, cutting loop control
+instructions by 75%.</p>
+<h2 id="how-loop-unrolling-increases-throughput">How Loop Unrolling
+Increases Throughput</h2>
+<p>Loop unrolling improves execution speed (throughput) through three
+primary mechanisms:</p>
+<ol type="1">
+<li><strong>Reduced Branch Overhead:</strong> Branch instructions
+consume CPU cycles. Modern superscalar processors use branch prediction
+to keep execution pipelines full. Reducing the absolute number of
+branches minimizes the performance penalties associated with branch
+mispredictions.</li>
+<li><strong>Instruction-Level Parallelism (ILP):</strong> When a loop
+body contains multiple independent instructions, modern out-of-order
+processors can execute them concurrently across multiple execution
+ports. Unrolling exposes more independent operations in a single block,
+enabling the hardware to saturate execution units.</li>
+<li><strong>Optimized Instruction Scheduling:</strong> Compilers can
+interleave memory loads and arithmetic operations from consecutive
+iterations to hide memory latency and eliminate pipeline stalls.</li>
+</ol>
+<h2 id="the-trade-off-increased-binary-size">The Trade-Off: Increased
+Binary Size</h2>
+<p>The primary cost of loop unrolling is an increase in executable
+binary size, often referred to as "code bloat."</p>
+<p>Because the instructions inside the loop body are duplicated directly
+in machine code, the compiled <code>.text</code> section of the binary
+expands proportionally to the unroll factor.</p>
+<p>This expansion leads to specific trade-offs:</p>
+<ul>
+<li><strong>Instruction Cache (I-Cache) Thrashing:</strong> Small loops
+typically fit entirely within the fast L1 instruction cache (L1i). If
+unrolling inflates the loop body beyond the cache size, the CPU must
+fetch instructions from slower L2/L3 cache or main memory. In extreme
+cases, the latency of cache misses completely outweighs the performance
+gained from eliminating branch instructions.</li>
+<li><strong>Memory Footprint:</strong> In embedded systems or
+constrained environments, storage is limited. Unrolling loops across an
+entire codebase can cause the final binary to exceed hardware flash
+memory limits.</li>
+</ul>
+<h2 id="compiler-optimization-vs-manual-unrolling">Compiler Optimization
+vs. Manual Unrolling</h2>
+<p>Modern C compilers such as GCC and Clang automate this process and
+assess the trade-off dynamically based on optimization flags:</p>
+<ul>
+<li><code>-O2</code>: The compiler applies conservative optimizations,
+unrolling loops only when it determines that doing so will not
+significantly increase the binary size or degrade cache locality.</li>
+<li><code>-O3</code> / <code>-funroll-loops</code>: The compiler
+aggressively unrolls loops where throughput benefits are likely,
+accepting larger binary sizes.</li>
+<li><code>#pragma GCC unroll N</code>: Developers can guide the compiler
+to unroll specific critical loops by a factor of <code>N</code> without
+polluting the source code with duplicated statements.</li>
+</ul>
+<p>Manual loop unrolling in modern C is generally discouraged unless
+profiling proves a bottleneck, as manual duplication hurts code
+maintainability and can prevent compilers from applying
+architecture-specific vectorization (SIMD) optimizations.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

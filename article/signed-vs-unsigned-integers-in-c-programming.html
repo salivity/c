@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signed vs Unsigned Integers in C Programming - c</title>
+    <meta name="description" content="In C, integer types are categorized as either signed or unsigned, a distinction that dictates whether a variable can represent negative numbers or exclusively non-negative values. Signed integers allocate one bit to indicate the sign and typically rely o">
+    <link rel="canonical" href="https://salivity.github.io/c/article/signed-vs-unsigned-integers-in-c-programming">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Signed vs Unsigned Integers in C Programming - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/signed-vs-unsigned-integers-in-c-programming" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C, integer types are categorized as either signed or unsigned, a distinction that dictates whether a variable can represent negative numbers or exclusively non-negative values. Signed integers allocate one bit to indicate the sign and typically rely o" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="signed-vs-unsigned-integers-in-c-programming">Signed vs Unsigned
+Integers in C Programming</h1>
+<p>In C, integer types are categorized as either signed or unsigned, a
+distinction that dictates whether a variable can represent negative
+numbers or exclusively non-negative values. Signed integers allocate one
+bit to indicate the sign and typically rely on two's complement
+representation, whereas unsigned integers use all available bits for
+magnitude, effectively doubling the maximum positive range. This article
+examines the binary representation of both types, their distinct value
+ranges, how they behave during overflow, and the rules governing type
+promotion and arithmetic conversions.</p>
+<h2 id="binary-representation-and-range">Binary Representation and
+Range</h2>
+<p>The primary difference between signed and unsigned integers lies in
+how the underlying bit pattern is interpreted by the machine.</p>
+<ul>
+<li><strong>Unsigned Integers:</strong> Every bit in an unsigned type
+represents a magnitude value using standard binary encoding. For an
+<span class="math inline">\(N\)</span>-bit unsigned integer, the minimum
+value is <span class="math inline">\(0\)</span>, and the maximum value
+is <span class="math inline">\(2^N - 1\)</span>. For example, an 8-bit
+<code>unsigned char</code> stores values from <span
+class="math inline">\(0\)</span> to <span
+class="math inline">\(255\)</span> (<code>00000000</code> to
+<code>11111111</code>).</li>
+<li><strong>Signed Integers:</strong> Signed integers use the most
+significant bit (MSB) as a sign bit: <code>0</code> indicates a
+non-negative number, and <code>1</code> indicates a negative number.
+Almost all modern architectures, and the C23 standard mandatorily, use
+<strong>two's complement</strong> arithmetic. In two's complement, an
+<span class="math inline">\(N\)</span>-bit signed integer covers the
+range from <span class="math inline">\(-2^{N-1}\)</span> to <span
+class="math inline">\(2^{N-1} - 1\)</span>. An 8-bit
+<code>signed char</code> ranges from <span
+class="math inline">\(-128\)</span> (<code>10000000</code>) to <span
+class="math inline">\(127\)</span> (<code>01111111</code>).</li>
+</ul>
+<h2 id="overflow-and-wrap-around-behavior">Overflow and Wrap-Around
+Behavior</h2>
+<p>How C handles operations that exceed a type's capacity differs
+fundamentally between signed and unsigned variants:</p>
+<ul>
+<li><strong>Unsigned Overflow:</strong> The C standard explicitly
+defines unsigned integer arithmetic to use modulo arithmetic (<span
+class="math inline">\(2^N\)</span>). If an operation exceeds the upper
+limit, it wraps around to zero. If an unsigned variable drops below
+zero, it wraps around to the maximum possible value. Unsigned overflow
+is fully defined and safe from compiler-induced undefined behavior.</li>
+<li><strong>Signed Overflow:</strong> In C, signed overflow is
+<strong>undefined behavior</strong>. Because the standard does not
+define what happens when a signed integer overflows, compilers are free
+to optimize code under the assumption that signed overflow never occurs.
+This can lead to unexpected dead-code elimination, loop optimizations,
+or security vulnerabilities if left unchecked.</li>
+</ul>
+<h2 id="type-promotion-and-mixed-mode-arithmetic">Type Promotion and
+Mixed-Mode Arithmetic</h2>
+<p>When operations involve multiple integer types, C applies a set of
+implicit conversion rules known as the "Usual Arithmetic
+Conversions":</p>
+<ol type="1">
+<li><strong>Integer Promotion:</strong> Any type smaller than
+<code>int</code> (such as <code>char</code> or <code>short</code>) is
+promoted to <code>int</code> if an <code>int</code> can hold all values
+of the original type, or to <code>unsigned int</code> otherwise.</li>
+<li><strong>Signed vs. Unsigned Conversions:</strong> When combining a
+signed and an unsigned integer of the same rank (e.g.,
+<code>signed int</code> and <code>unsigned int</code>), the signed value
+is implicitly converted to unsigned.</li>
+</ol>
+<p>This implicit conversion can introduce subtle bugs. For example:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> a <span class="op">=</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> b <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>a <span class="op">&lt;</span> b<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// This block will NOT execute</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In the example above, <code>a</code> (-1) is implicitly converted to
+an <code>unsigned int</code>. In two's complement, the bit pattern for
+<code>-1</code> maps to the largest representable unsigned integer
+(<code>UINT_MAX</code>), making the comparison evaluate to
+<code>false</code>.</p>
+<h2 id="bitwise-operations-and-shifting">Bitwise Operations and
+Shifting</h2>
+<p>The signedness of an integer also influences bitwise operations,
+particularly shifting:</p>
+<ul>
+<li><strong>Left Shift (<code>&lt;&lt;</code>):</strong> Shifting a 1
+into the sign bit of a signed integer or shifting a negative signed
+integer yields undefined behavior prior to C23. Unsigned left shift
+simply discards bits that exceed the width of the type.</li>
+<li><strong>Right Shift (<code>&gt;&gt;</code>):</strong> For unsigned
+types, right shifting performs a <strong>logical shift</strong>, padding
+the leftmost bits with zeros. For signed types, right shifting a
+negative value is implementation-defined, though nearly all compilers
+perform an <strong>arithmetic shift</strong>, preserving the sign bit by
+padding with ones.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

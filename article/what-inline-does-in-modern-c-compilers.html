@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Inline Does in Modern C Compilers - c</title>
+    <meta name="description" content="In the C programming language, the inline function specifier serves primarily as a linkage and code-organization tool rather than a direct command to optimize function calls. While historically introduced to suggest that a compiler replace function calls">
+    <link rel="canonical" href="https://salivity.github.io/c/article/what-inline-does-in-modern-c-compilers">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Inline Does in Modern C Compilers - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/what-inline-does-in-modern-c-compilers" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, the inline function specifier serves primarily as a linkage and code-organization tool rather than a direct command to optimize function calls. While historically introduced to suggest that a compiler replace function calls" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="what-inline-does-in-modern-c-compilers">What Inline Does in
+Modern C Compilers</h1>
+<p>In the C programming language, the <code>inline</code> function
+specifier serves primarily as a linkage and code-organization tool
+rather than a direct command to optimize function calls. While
+historically introduced to suggest that a compiler replace function
+calls with the function's actual body to eliminate overhead, modern
+optimizing compilers treat <code>inline</code> as a weak hint for
+inlining decisions while relying on it strictly to govern symbol
+resolution and avoid multiple-definition errors across translation
+units.</p>
+<h3 id="the-optimization-hint-vs-modern-heuristics">The Optimization
+Hint vs. Modern Heuristics</h3>
+<p>Originally, declaring a function <code>inline</code> instructed the
+compiler to bypass the standard call sequence—saving registers,
+allocating stack frames, and jumping to code—by embedding the function's
+machine instructions directly at the call site.</p>
+<p>Modern optimizing compilers (such as GCC, Clang, and MSVC) largely
+disregard <code>inline</code> when deciding whether to inline code.
+Compilers employ sophisticated heuristic models that evaluate:</p>
+<ul>
+<li>Function body size versus the overhead of calling conventions.</li>
+<li>Loop nesting depth and execution frequency.</li>
+<li>The targeted optimization level (e.g., <code>-O2</code>,
+<code>-O3</code>, or <code>-Os</code> for code size).</li>
+<li>Profile-Guided Optimization (PGO) data.</li>
+</ul>
+<p>As a result, a compiler may inline a function that lacks the
+<code>inline</code> keyword if it deems it beneficial, or decline to
+inline a function explicitly marked <code>inline</code> if doing so
+causes register pressure, code bloat, or cache misses. Standard C
+compilers typically disable inlining entirely at debug levels (such as
+<code>-O0</code>), regardless of the <code>inline</code> specifier.</p>
+<h3 id="linkage-and-the-one-definition-rule">Linkage and the One
+Definition Rule</h3>
+<p>The standardized role of <code>inline</code> in modern C (defined
+since C99) is to allow function definitions to reside inside header
+files without violating the rule against duplicate symbols at link time.
+Its exact behavior depends on accompanying storage-class specifiers:</p>
+<ul>
+<li><strong><code>static inline</code></strong>: Restricts the function
+definition to the single translation unit (source file) including it. If
+the compiler decides not to inline the function, it generates a local
+copy private to that object file. This is the most common idiom for
+utility functions in C headers.</li>
+<li><strong><code>inline</code> (without <code>static</code> or
+<code>extern</code>)</strong>: Provides an inline definition for that
+translation unit. The compiler may inline calls to it, but it does not
+emit an externally linkable symbol. If the compiler decides not to
+inline a call, an external definition must be provided elsewhere in the
+program; otherwise, a linker error occurs.</li>
+<li><strong><code>extern inline</code></strong>: Instructs the compiler
+to use the definition for inlining within that translation unit and to
+emit a globally visible, external symbol that other translation units
+can link against.</li>
+</ul>
+<h3 id="forcing-inlining">Forcing Inlining</h3>
+<p>Because standard <code>inline</code> is merely advisory, standard C
+provides no guaranteed mechanism to force code substitution. Developers
+requiring guaranteed substitution must use compiler-specific extensions,
+such as <code>__attribute__((always_inline))</code> in GCC and Clang or
+<code>__forceinline</code> in MSVC, though even these attributes may be
+ignored under certain conditions (such as recursive calls or
+variable-argument functions).</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C setlocale Numeric and Monetary Formatting Guide - c</title>
+    <meta name="description" content="In C programming, internationalization allows software to adapt seamlessly to regional conventions across different cultures. This guide examines how the setlocale function operates as the foundational control mechanism for regional preferences, focusing">
+    <link rel="canonical" href="https://salivity.github.io/c/article/c-setlocale-numeric-and-monetary-formatting-guide">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C setlocale Numeric and Monetary Formatting Guide - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/c-setlocale-numeric-and-monetary-formatting-guide" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C programming, internationalization allows software to adapt seamlessly to regional conventions across different cultures. This guide examines how the setlocale function operates as the foundational control mechanism for regional preferences, focusing" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-setlocale-numeric-and-monetary-formatting-guide">C setlocale
+Numeric and Monetary Formatting Guide</h1>
+<p>In C programming, internationalization allows software to adapt
+seamlessly to regional conventions across different cultures. This guide
+examines how the <code>setlocale</code> function operates as the
+foundational control mechanism for regional preferences, focusing
+specifically on how it governs numeric representations through
+<code>LC_NUMERIC</code> and currency formatting through
+<code>LC_MONETARY</code> in conjunction with standard library routines
+and data structures.</p>
+<h2 id="the-role-of-setlocale">The Role of setlocale</h2>
+<p>The <code>setlocale</code> function, declared in the
+<code>&lt;locale.h&gt;</code> header, sets or queries a program's
+current locale settings. By default, every C program begins execution in
+the minimal <code>"C"</code> (or POSIX) locale, which relies on standard
+American formatting rules—such as using a period for the decimal
+point.</p>
+<p>The signature of the function is:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">char</span> <span class="op">*</span>setlocale<span class="op">(</span><span class="dt">int</span> category<span class="op">,</span> <span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>locale<span class="op">);</span></span></code></pre></div>
+<p>Passing an empty string (<code>""</code>) as the <code>locale</code>
+argument instructs the C runtime to read the environment variables (such
+as <code>LC_ALL</code>, <code>LC_NUMERIC</code>, or <code>LANG</code>)
+from the host operating system, enabling system-native formatting
+rules.</p>
+<h2 id="configuring-numeric-formatting-with-lc_numeric">Configuring
+Numeric Formatting with LC_NUMERIC</h2>
+<p>The <code>LC_NUMERIC</code> category dictates non-monetary numeric
+parsing and formatting. When <code>setlocale</code> is configured for
+numeric formatting, it fundamentally alters how functions like
+<code>printf</code>, <code>scanf</code>, <code>atof</code>, and
+<code>strtod</code> parse and display floating-point values.</p>
+<p>Key aspects controlled by <code>LC_NUMERIC</code> include:</p>
+<ul>
+<li><strong>Decimal Separator:</strong> Determines whether a period
+(<code>.</code>) or comma (<code>,</code>) is used to separate the
+integer and fractional parts of a number. For instance, in German or
+French locales, <code>10.5</code> is rendered as <code>10,5</code>.</li>
+<li><strong>Thousands Grouping:</strong> Governs the character used to
+group digits (such as commas, periods, or spaces) and defines how many
+digits appear between grouping separators.</li>
+</ul>
+<p>When <code>LC_NUMERIC</code> is modified, any subsequent calls to
+standard I/O routines format output and expect input matching the chosen
+locale's decimal separator.</p>
+<h2 id="configuring-monetary-formatting-with-lc_monetary">Configuring
+Monetary Formatting with LC_MONETARY</h2>
+<p>The <code>LC_MONETARY</code> category regulates the presentation of
+financial values, including currency signs, precision, and placement
+conventions.</p>
+<p>Unlike <code>LC_NUMERIC</code>, setting <code>LC_MONETARY</code> does
+not automatically alter standard <code>printf</code> specifiers, because
+standard C does not have a native currency specifier. Instead,
+<code>LC_MONETARY</code> configures the formatting rules stored in a
+global structure, which developers query using the
+<code>localeconv</code> function.</p>
+<h3 id="the-lconv-structure">The lconv Structure</h3>
+<p>Calling <code>localeconv()</code> returns a pointer to a
+<code>struct lconv</code>, which contains specific members populated by
+<code>LC_MONETARY</code>:</p>
+<ul>
+<li><code>currency_symbol</code>: The local currency symbol (e.g.,
+<code>$</code> or <code>€</code>).</li>
+<li><code>int_curr_symbol</code>: The international currency code (e.g.,
+<code>USD </code> or <code>EUR </code>).</li>
+<li><code>mon_decimal_point</code>: The character used as the decimal
+point in monetary amounts.</li>
+<li><code>mon_thousands_sep</code>: The separator used to group digits
+left of the decimal point.</li>
+<li><code>frac_digits</code>: The number of fractional digits (cents) to
+display.</li>
+<li><code>p_cs_precedes</code> / <code>n_cs_precedes</code>: Flags
+indicating whether the currency symbol precedes or succeeds positive and
+negative values.</li>
+<li><code>p_sign_posn</code> / <code>n_sign_posn</code>: The positioning
+of positive and negative signs relative to the currency symbol and
+quantity.</li>
+</ul>
+<h2 id="example-implementation">Example Implementation</h2>
+<p>The following example demonstrates setting the locale and reading
+both numeric and monetary attributes:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;locale.h&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Adopt the user&#39;s system default locale for both numeric and monetary categories</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    setlocale<span class="op">(</span>LC_NUMERIC<span class="op">,</span> <span class="st">&quot;&quot;</span><span class="op">);</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    setlocale<span class="op">(</span>LC_MONETARY<span class="op">,</span> <span class="st">&quot;&quot;</span><span class="op">);</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Numeric formatting: printf now uses the local decimal separator</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Formatted float: </span><span class="sc">%f\n</span><span class="st">&quot;</span><span class="op">,</span> <span class="fl">1234.56</span><span class="op">);</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Monetary formatting: Query rules via struct lconv</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> lconv <span class="op">*</span>lc <span class="op">=</span> localeconv<span class="op">();</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Local Currency: </span><span class="sc">%s\n</span><span class="st">&quot;</span><span class="op">,</span> lc<span class="op">-&gt;</span>currency_symbol<span class="op">);</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Monetary Decimal Point: </span><span class="sc">%s\n</span><span class="st">&quot;</span><span class="op">,</span> lc<span class="op">-&gt;</span>mon_decimal_point<span class="op">);</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Fractional Digits: </span><span class="sc">%d\n</span><span class="st">&quot;</span><span class="op">,</span> lc<span class="op">-&gt;</span>frac_digits<span class="op">);</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Through <code>LC_NUMERIC</code> and <code>LC_MONETARY</code>,
+<code>setlocale</code> gives C applications predictable,
+standards-compliant control over regional data representations, ensuring
+numbers and financial figures conform correctly to end-user
+expectations.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

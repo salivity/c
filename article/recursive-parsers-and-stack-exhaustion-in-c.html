@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recursive Parsers and Stack Exhaustion in C - c</title>
+    <meta name="description" content="Recursive descent parsers implemented in the C programming language are inherently susceptible to Denial of Service (DoS) attacks caused by stack exhaustion when handling deeply nested data structures like JSON, XML, or nested arithmetic expressions. Bec">
+    <link rel="canonical" href="https://salivity.github.io/c/article/recursive-parsers-and-stack-exhaustion-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Recursive Parsers and Stack Exhaustion in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/recursive-parsers-and-stack-exhaustion-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Recursive descent parsers implemented in the C programming language are inherently susceptible to Denial of Service (DoS) attacks caused by stack exhaustion when handling deeply nested data structures like JSON, XML, or nested arithmetic expressions. Bec" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="recursive-parsers-and-stack-exhaustion-in-c">Recursive Parsers
+and Stack Exhaustion in C</h1>
+<p>Recursive descent parsers implemented in the C programming language
+are inherently susceptible to Denial of Service (DoS) attacks caused by
+stack exhaustion when handling deeply nested data structures like JSON,
+XML, or nested arithmetic expressions. Because these parsers map grammar
+nesting directly to native C function call stacks, an attacker can craft
+an input with excessive nesting levels that outgrows the operating
+system's allocated call stack space. This article examines the mechanics
+of the C call stack, how recursive parsing logic interacts with memory,
+and why unbounded nesting inevitably causes fatal process
+termination.</p>
+<h3 id="the-mechanics-of-recursive-descent-parsing-in-c">The Mechanics
+of Recursive Descent Parsing in C</h3>
+<p>A recursive descent parser breaks down structured text by dedicating
+distinct C functions to specific grammar rules. When the parser
+encounters an opening delimiter or an inner expression—such as an
+opening bracket <code>[</code> in JSON or a parenthesized sub-expression
+in math—it calls another function or recursively invokes itself to
+process the nested content.</p>
+<p>In C, each function invocation creates a new stack frame on the
+thread's call stack. This frame stores:</p>
+<ul>
+<li>The function's return address.</li>
+<li>Passed arguments.</li>
+<li>Local variables used for tracking tokens, flags, or intermediate
+parse trees.</li>
+<li>Saved CPU registers.</li>
+</ul>
+<p>Under normal workloads, recursion unwinds cleanly as closing tokens
+(e.g., <code>]</code>, <code>}</code>) are parsed, returning memory to
+the stack.</p>
+<h3 id="fixed-stack-limits-in-the-c-execution-model">Fixed Stack Limits
+in the C Execution Model</h3>
+<p>Unlike modern managed environments that support resizable segmented
+stacks or throw catchable exceptions on stack overflows, the C runtime
+model relies directly on the operating system's memory layout.</p>
+<p>Operating systems allocate a fixed, finite stack size for each
+process or thread. On Linux, this is typically 8 MB for the main thread
+and often much less (e.g., 512 KB to 2 MB) for worker threads in
+high-concurrency network servers. Embedded systems may restrict stack
+space to tens of kilobytes.</p>
+<p>The stack grows downward toward a designated guard page—an unmapped
+memory page placed directly beneath the stack boundary. When a program
+attempts to write beyond its allocated stack space, it attempts to write
+to this protected memory address.</p>
+<h3 id="the-attack-vector-adversarial-nesting">The Attack Vector:
+Adversarial Nesting</h3>
+<p>An attacker exploiting a recursive parser does not need to send a
+massive payload in terms of file size; the vulnerability depends on
+depth rather than length.</p>
+<p>Consider an input such as:</p>
+<pre class="text"><code>[[[[[[[[[[[[... (repeated tens of thousands of times) ...]]]]]]]]]]]]</code></pre>
+<p>When processing this input:</p>
+<ol type="1">
+<li>The parser reads an opening delimiter and calls the parsing function
+recursively.</li>
+<li>Each step deeper adds a new stack frame without completing prior
+calls.</li>
+<li>If each recursive call consumes 128 bytes of stack memory, an input
+nested 70,000 levels deep requires approximately 9 MB of stack
+space.</li>
+<li>Once the cumulative frame size exceeds the stack allocation, the
+stack pointer crosses into the guard page.</li>
+</ol>
+<h3 id="the-impact-uncontrolled-crashes-and-denial-of-service">The
+Impact: Uncontrolled Crashes and Denial of Service</h3>
+<p>C provides no native language mechanism to catch, handle, or recover
+from a stack overflow. When a thread accesses a guard page, the
+operating system kernel immediately raises a memory protection fault
+(such as <code>SIGSEGV</code> on Unix-like systems or an access
+violation <code>STATUS_STACK_OVERFLOW</code> on Windows).</p>
+<p>Because recursive parsers typically lack the ability to validate
+stack boundaries dynamically, the process terminates immediately. In
+multi-threaded network daemons, this can crash the entire service,
+dropping active connections for all users and preventing future requests
+until a supervisor restarts the daemon. If the parser operates inside an
+embedded or kernel context, stack exhaustion can lead to complete system
+halts or reboots.</p>
+<h3 id="preventing-stack-exhaustion">Preventing Stack Exhaustion</h3>
+<p>Securing C parsers against this vulnerability requires decoupling the
+input's nesting depth from the C execution stack:</p>
+<ul>
+<li><strong>Explicit Recursion Limits:</strong> Introduce a depth
+counter passed through the parsing functions. If the nesting level
+exceeds a predefined safety threshold (e.g., 500 levels), the parser
+halts gracefully and returns an error code.</li>
+<li><strong>Iterative Parsing:</strong> Replace recursive function calls
+with an iterative loop driven by a state machine.</li>
+<li><strong>Heap-Allocated Stacks:</strong> Store parsing state in
+dynamically allocated heap memory. The heap is significantly larger than
+the call stack, and memory allocation failures (<code>NULL</code>
+returned from <code>malloc</code>) can be caught and handled safely
+without terminating the process.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

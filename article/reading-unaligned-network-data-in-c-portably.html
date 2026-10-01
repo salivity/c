@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reading Unaligned Network Data in C Portably - c</title>
+    <meta name="description" content="Reading network packets often requires decoding multi-byte integers that do not sit on natural memory boundaries. Directly casting a raw network buffer to a structured type or multi-byte pointer triggers undefined behavior in C, leading to severe perform">
+    <link rel="canonical" href="https://salivity.github.io/c/article/reading-unaligned-network-data-in-c-portably">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Reading Unaligned Network Data in C Portably - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/reading-unaligned-network-data-in-c-portably" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Reading network packets often requires decoding multi-byte integers that do not sit on natural memory boundaries. Directly casting a raw network buffer to a structured type or multi-byte pointer triggers undefined behavior in C, leading to severe perform" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="reading-unaligned-network-data-in-c-portably">Reading Unaligned
+Network Data in C Portably</h1>
+<p>Reading network packets often requires decoding multi-byte integers
+that do not sit on natural memory boundaries. Directly casting a raw
+network buffer to a structured type or multi-byte pointer triggers
+undefined behavior in C, leading to severe performance penalties on
+architectures like modern x86 or fatal hardware exceptions (such as
+<code>SIGBUS</code>) on alignment-sensitive architectures like ARM,
+SPARC, and MIPS. This article details the standard, cross-platform
+techniques in the C programming language to read unaligned data reliably
+across any hardware platform without causing faults or violating
+language standards.</p>
+<h3 id="the-pitfall-of-pointer-casting">The Pitfall of Pointer
+Casting</h3>
+<p>A common anti-pattern is casting a byte pointer directly to an
+integer pointer:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">uint32_t</span> value <span class="op">=</span> <span class="op">*(</span><span class="dt">uint32_t</span> <span class="op">*)(</span>buffer <span class="op">+</span> offset<span class="op">);</span> <span class="co">// Dangerous and non-portable</span></span></code></pre></div>
+<p>This code violates two core C rules: the alignment requirement for
+the target type and the strict aliasing rule. On architectures requiring
+4-byte boundaries for 32-bit integers, this dereference immediately
+triggers a processor fault. Even on x86, which handles unaligned reads
+in hardware, the compiler may emit instructions (such as SSE/AVX vector
+operations) that crash if the pointer is unaligned.</p>
+<h3
+id="technique-1-using-memcpy-recommended-standard-approach">Technique 1:
+Using <code>memcpy</code> (Recommended Standard Approach)</h3>
+<p>The most portable, safe, and idiomatic technique in C is copying
+bytes via <code>memcpy</code> into an appropriately aligned local
+variable.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdint.h&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;arpa/inet.h&gt;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="dt">uint32_t</span> read_u32_unaligned<span class="op">(</span><span class="dt">const</span> <span class="dt">void</span> <span class="op">*</span>buffer<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint32_t</span> net_val<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    memcpy<span class="op">(&amp;</span>net_val<span class="op">,</span> buffer<span class="op">,</span> <span class="kw">sizeof</span><span class="op">(</span>net_val<span class="op">));</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> ntohl<span class="op">(</span>net_val<span class="op">);</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Because <code>memcpy</code> operates through
+<code>char*</code>-compatible semantics, it never violates alignment or
+aliasing rules. Modern optimizing compilers (GCC, Clang, MSVC) recognize
+fixed-size <code>memcpy</code> calls. On platforms supporting fast
+unaligned reads (such as x86-64), the compiler replaces
+<code>memcpy</code> with a single unaligned load instruction
+(<code>mov</code>), producing zero function-call overhead. On platforms
+requiring strict alignment, the compiler generates the necessary
+multi-instruction safe sequence automatically.</p>
+<h3 id="technique-2-manual-byte-extraction-and-shifting">Technique 2:
+Manual Byte Extraction and Shifting</h3>
+<p>Network protocols typically transmit data in Big-Endian (Network Byte
+Order). Extracting data byte-by-byte using bitwise operators guarantees
+memory safety, eliminates alignment requirements, and handles endian
+conversion in a single operation.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdint.h&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="dt">uint32_t</span> read_be32<span class="op">(</span><span class="dt">const</span> <span class="dt">uint8_t</span> <span class="op">*</span>p<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">((</span><span class="dt">uint32_t</span><span class="op">)</span>p<span class="op">[</span><span class="dv">0</span><span class="op">]</span> <span class="op">&lt;&lt;</span> <span class="dv">24</span><span class="op">)</span> <span class="op">|</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>           <span class="op">((</span><span class="dt">uint32_t</span><span class="op">)</span>p<span class="op">[</span><span class="dv">1</span><span class="op">]</span> <span class="op">&lt;&lt;</span> <span class="dv">16</span><span class="op">)</span> <span class="op">|</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>           <span class="op">((</span><span class="dt">uint32_t</span><span class="op">)</span>p<span class="op">[</span><span class="dv">2</span><span class="op">]</span> <span class="op">&lt;&lt;</span> <span class="dv">8</span><span class="op">)</span>  <span class="op">|</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>           <span class="op">((</span><span class="dt">uint32_t</span><span class="op">)</span>p<span class="op">[</span><span class="dv">3</span><span class="op">]);</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>This method is fully standard-compliant across all C revisions (C89
+through C23). It never reads past designated boundaries, avoids endian
+conversions like <code>ntohl()</code>, and works reliably regardless of
+host endianness or CPU alignment restrictions. Optimizing compilers
+frequently synthesize these shifts into single byte-swapping
+instructions (like <code>bswap</code> or <code>movbe</code>) where
+available.</p>
+<h3 id="technique-3-packed-structures">Technique 3: Packed
+Structures</h3>
+<p>When mapping complex protocols to C structures, compilers can be
+instructed to ignore natural alignment padding using vendor-specific
+attributes.</p>
+<p>For GCC and Clang:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> __attribute__<span class="op">((</span>packed<span class="op">))</span> PacketHeader <span class="op">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint8_t</span>  type<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint32_t</span> length<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>For MSVC:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#pragma pack(push, 1)</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> PacketHeader <span class="op">{</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint8_t</span>  type<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint32_t</span> length<span class="op">;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="pp">#pragma pack(pop)</span></span></code></pre></div>
+<p>While packed structs simplify accessing contiguous fields, they
+introduce risks. Taking the address of a packed member (e.g.,
+<code>&amp;header-&gt;length</code>) yields an unaligned pointer, and
+dereferencing it creates undefined behavior. To remain portable, read
+packed members by value rather than passing their addresses to
+functions.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

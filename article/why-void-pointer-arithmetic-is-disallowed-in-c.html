@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Void Pointer Arithmetic Is Disallowed in C - c</title>
+    <meta name="description" content="In the C programming language, the strict ISO standard forbids direct pointer arithmetic on void pointers because void is defined as an incomplete type with an indeterminate size. Because pointer arithmetic fundamentally relies on knowing the byte size o">
+    <link rel="canonical" href="https://salivity.github.io/c/article/why-void-pointer-arithmetic-is-disallowed-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Void Pointer Arithmetic Is Disallowed in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/why-void-pointer-arithmetic-is-disallowed-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, the strict ISO standard forbids direct pointer arithmetic on void pointers because void is defined as an incomplete type with an indeterminate size. Because pointer arithmetic fundamentally relies on knowing the byte size o" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-void-pointer-arithmetic-is-disallowed-in-c">Why Void Pointer
+Arithmetic Is Disallowed in C</h1>
+<p>In the C programming language, the strict ISO standard forbids direct
+pointer arithmetic on <code>void</code> pointers because
+<code>void</code> is defined as an incomplete type with an indeterminate
+size. Because pointer arithmetic fundamentally relies on knowing the
+byte size of the pointed-to object to compute memory address offsets, an
+expression like <code>ptr + 1</code> cannot be resolved without a
+concrete type. This article explains the technical mechanics behind
+pointer arithmetic in C, the concept of incomplete types, and the
+standard-compliant methods used to perform byte-level memory
+calculations.</p>
+<h3 id="the-mechanics-of-pointer-arithmetic">The Mechanics of Pointer
+Arithmetic</h3>
+<p>In C, pointer arithmetic is automatically scaled by the size of the
+type being pointed to. When an integer is added to a pointer, the
+compiler does not simply add that raw integer value to the memory
+address. Instead, it multiplies the integer by the size of the
+underlying data type.</p>
+<p>For example, given a pointer <code>T *ptr</code>:</p>
+<pre><code>ptr + n = (uintptr_t)ptr + (n * sizeof(T))</code></pre>
+<p>If <code>ptr</code> is an <code>int*</code> and
+<code>sizeof(int)</code> is 4 bytes, <code>ptr + 1</code> increases the
+address by 4 bytes. If <code>ptr</code> is a <code>double*</code> on an
+architecture where <code>sizeof(double)</code> is 8 bytes,
+<code>ptr + 1</code> increases the address by 8 bytes. This scaling
+ensures that incrementing a pointer advances it to the next logical
+element in an array rather than an arbitrary byte.</p>
+<h3 id="the-role-of-void-as-an-incomplete-type">The Role of
+<code>void</code> as an Incomplete Type</h3>
+<p>The <code>void</code> type represents the absence of value or an
+unknown type. Under the ISO C standard (ISO/IEC 9899), <code>void</code>
+is categorized as an incomplete type that cannot be completed.</p>
+<p>Because <code>void</code> represents no defined object or storage
+layout:</p>
+<ol type="1">
+<li>An object of type <code>void</code> cannot exist.</li>
+<li>The expression <code>sizeof(void)</code> is illegal and invalid in
+standard C.</li>
+</ol>
+<p>Without an established size, the formula <code>n * sizeof(T)</code>
+cannot evaluate. The compiler cannot determine whether
+<code>ptr + 1</code> should advance the memory address by 1 byte, 4
+bytes, 8 bytes, or any other interval. Consequently, standard C treats
+any attempt to perform additive or subtractive operations on a
+<code>void*</code> as a compile-time error.</p>
+<h3 id="intent-of-void-in-the-standard">Intent of <code>void*</code> in
+the Standard</h3>
+<p>The <code>void*</code> generic pointer was introduced in ANSI C to
+represent a raw memory address without imposing type constraints. It
+serves as a generic handle for passing data to functions like
+<code>malloc</code>, <code>memcpy</code>, and <code>qsort</code>.</p>
+<p>Allowing pointer arithmetic on <code>void*</code> would compromise
+the type-safety assumptions of the language. A <code>void*</code>
+explicitly signals that the compiler does not know what is stored at
+that location. Requiring the programmer to explicitly cast the pointer
+before manipulating it ensures that the programmer's intent regarding
+element size is clearly stated in the code.</p>
+<h3 id="the-gnu-c-extension">The GNU C Extension</h3>
+<p>Certain compilers, such as GCC and Clang, support a non-standard
+extension that assigns a size of 1 to <code>void</code>. Under this
+extension, <code>sizeof(void)</code> evaluates to <code>1</code>,
+allowing arithmetic on <code>void*</code> as if it were a pointer to
+bytes.</p>
+<p>However, relying on this behavior makes code non-portable. Compiling
+with strict standard compliance flags, such as
+<code>-std=c11 -pedantic-errors</code> in GCC, will reject pointer
+arithmetic on <code>void*</code> and generate an error.</p>
+<h3 id="standard-compliant-workarounds">Standard-Compliant
+Workarounds</h3>
+<p>To perform byte-wise pointer arithmetic in standard-compliant C, the
+<code>void*</code> must first be cast to a pointer of a type with a
+guaranteed size of 1 byte:</p>
+<ol type="1">
+<li><strong><code>char*</code></strong>: By definition in the C
+standard, <code>sizeof(char)</code> is always <code>1</code>.</li>
+<li><strong><code>uint8_t*</code></strong>: Defined in
+<code>&lt;stdint.h&gt;</code>, this explicitly documents that the memory
+is being manipulated as unsigned 8-bit bytes.</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> <span class="op">*</span>buffer <span class="op">=</span> get_raw_buffer<span class="op">();</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">/* Non-compliant: compilation error under strict ISO C */</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">/* void *next = buffer + 16; */</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">/* Compliant: explicit cast to a 1-byte type */</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="dt">char</span> <span class="op">*</span>next_char <span class="op">=</span> <span class="op">(</span><span class="dt">char</span> <span class="op">*)</span>buffer <span class="op">+</span> <span class="dv">16</span><span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="dt">uint8_t</span> <span class="op">*</span>next_byte <span class="op">=</span> <span class="op">(</span><span class="dt">uint8_t</span> <span class="op">*)</span>buffer <span class="op">+</span> <span class="dv">16</span><span class="op">;</span></span></code></pre></div>
+<p>By casting to a concrete 1-byte type, the pointer arithmetic formula
+resolves unambiguously, maintaining portability and adhering strictly to
+the ISO C standard.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

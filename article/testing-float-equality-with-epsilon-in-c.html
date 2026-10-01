@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Testing Float Equality with Epsilon in C - c</title>
+    <meta name="description" content="Due to the constraints of the IEEE 754 floating-point standard, calculating fractional values in the C programming language frequently introduces tiny rounding errors, making exact equality checks using == unreliable. To determine if two floating-point v">
+    <link rel="canonical" href="https://salivity.github.io/c/article/testing-float-equality-with-epsilon-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Testing Float Equality with Epsilon in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/testing-float-equality-with-epsilon-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Due to the constraints of the IEEE 754 floating-point standard, calculating fractional values in the C programming language frequently introduces tiny rounding errors, making exact equality checks using == unreliable. To determine if two floating-point v" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="testing-float-equality-with-epsilon-in-c">Testing Float Equality
+with Epsilon in C</h1>
+<p>Due to the constraints of the IEEE 754 floating-point standard,
+calculating fractional values in the C programming language frequently
+introduces tiny rounding errors, making exact equality checks using
+<code>==</code> unreliable. To determine if two floating-point values
+are practically identical, developers rely on epsilon-based comparison
+methods. This article covers the primary epsilon techniques used in
+C—absolute epsilon comparison, relative epsilon comparison, and a
+combined hybrid approach—explaining how each works, their limitations,
+and how to choose appropriate thresholds using standard C libraries.</p>
+<h2 id="the-problem-with-direct-equality">The Problem with Direct
+Equality</h2>
+<p>In C, variables of type <code>float</code> and <code>double</code>
+represent real numbers using binary fractions. Many decimal fractions
+cannot be represented exactly in binary (such as <code>0.1</code>),
+leading to minor inaccuracies after arithmetic operations. For instance,
+evaluating <code>(0.1 + 0.2) == 0.3</code> usually yields
+<code>false</code>. To solve this, you define a small tolerance value
+known as epsilon (<span class="math inline">\(\epsilon\)</span>) and
+evaluate whether the difference between two numbers falls within that
+bound.</p>
+<h2 id="1-absolute-epsilon-comparison">1. Absolute Epsilon
+Comparison</h2>
+<p>The absolute difference method checks if the absolute difference
+between two numbers is less than a fixed threshold.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdbool.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;math.h&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="dt">bool</span> nearly_equal_abs<span class="op">(</span><span class="dt">double</span> a<span class="op">,</span> <span class="dt">double</span> b<span class="op">,</span> <span class="dt">double</span> epsilon<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> fabs<span class="op">(</span>a <span class="op">-</span> b<span class="op">)</span> <span class="op">&lt;</span> epsilon<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="when-to-use">When to Use</h3>
+<ul>
+<li>Effective when the expected magnitude of the numbers is known in
+advance and remains close to 1.0 or near zero.</li>
+<li>Ideal for fixed-precision contexts, such as game physics coordinates
+constrained to a small bounding box.</li>
+</ul>
+<h3 id="limitations">Limitations</h3>
+<ul>
+<li><strong>Scale Sensitivity:</strong> If numbers are very large (e.g.,
+<span class="math inline">\(10^9\)</span>), standard precision gaps
+between representable floats are much larger than a tiny static epsilon
+like <code>0.00001</code>, causing valid approximations to fail.
+Conversely, for very small numbers (e.g., <span
+class="math inline">\(10^{-9}\)</span>), the static epsilon may be far
+too loose.</li>
+</ul>
+<h2 id="2-relative-epsilon-comparison">2. Relative Epsilon
+Comparison</h2>
+<p>To handle numbers across widely varying scales, compare the
+difference relative to the magnitude of the operands.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdbool.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;math.h&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="dt">bool</span> nearly_equal_rel<span class="op">(</span><span class="dt">double</span> a<span class="op">,</span> <span class="dt">double</span> b<span class="op">,</span> <span class="dt">double</span> epsilon<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">double</span> diff <span class="op">=</span> fabs<span class="op">(</span>a <span class="op">-</span> b<span class="op">);</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">double</span> largest <span class="op">=</span> fmax<span class="op">(</span>fabs<span class="op">(</span>a<span class="op">),</span> fabs<span class="op">(</span>b<span class="op">));</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> diff <span class="op">&lt;=</span> largest <span class="op">*</span> epsilon<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="when-to-use-1">When to Use</h3>
+<ul>
+<li>Effective for scientific calculations where numbers span multiple
+orders of magnitude.</li>
+<li>Scales automatically with the size of the inputs.</li>
+</ul>
+<h3 id="limitations-1">Limitations</h3>
+<ul>
+<li><strong>Failure Near Zero:</strong> When either <code>a</code> or
+<code>b</code> is zero (or both are close to zero),
+<code>largest * epsilon</code> shrinks to zero or near zero, causing the
+relative check to fail even when values are practically identical.</li>
+</ul>
+<h2 id="3-combined-hybrid-epsilon-comparison">3. Combined (Hybrid)
+Epsilon Comparison</h2>
+<p>The most robust general-purpose solution combines absolute and
+relative tolerance. It uses an absolute epsilon when numbers are close
+to zero and transitions to a relative epsilon as numbers scale up.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdbool.h&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;math.h&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;float.h&gt;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="dt">bool</span> nearly_equal_combined<span class="op">(</span><span class="dt">double</span> a<span class="op">,</span> <span class="dt">double</span> b<span class="op">,</span> <span class="dt">double</span> abs_epsilon<span class="op">,</span> <span class="dt">double</span> rel_epsilon<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">double</span> diff <span class="op">=</span> fabs<span class="op">(</span>a <span class="op">-</span> b<span class="op">);</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Check absolute difference for values near zero</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>diff <span class="op">&lt;=</span> abs_epsilon<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Fall back to relative difference for larger values</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">double</span> largest <span class="op">=</span> fmax<span class="op">(</span>fabs<span class="op">(</span>a<span class="op">),</span> fabs<span class="op">(</span>b<span class="op">));</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> diff <span class="op">&lt;=</span> largest <span class="op">*</span> rel_epsilon<span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="selecting-epsilon-values">Selecting Epsilon Values</h2>
+<p>C provides built-in machine epsilon constants in
+<code>&lt;float.h&gt;</code>:</p>
+<ul>
+<li><code>FLT_EPSILON</code> for single-precision <code>float</code>
+(approximately <span class="math inline">\(1.19 \times
+10^{-7}\)</span>)</li>
+<li><code>DBL_EPSILON</code> for double-precision <code>double</code>
+(approximately <span class="math inline">\(2.22 \times
+10^{-16}\)</span>)</li>
+</ul>
+<p>Machine epsilon defines the difference between <code>1.0</code> and
+the next representable value. Because rounding errors accumulate over
+multiple mathematical operations, using <code>DBL_EPSILON</code>
+directly is often too strict. A common practice is scaling the standard
+epsilon by an acceptable error factor (such as
+<code>10 * DBL_EPSILON</code> or <code>1e-9</code> for double precision)
+depending on the complexity and depth of the calculations involved.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

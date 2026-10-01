@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Difference Between malloc and calloc in C - c</title>
+    <meta name="description" content="In the C standard library, both malloc and calloc are built-in functions used to allocate memory dynamically on the heap during runtime. While both functions serve the primary purpose of reserving memory and returning a void pointer to the allocated spac">
+    <link rel="canonical" href="https://salivity.github.io/c/article/difference-between-malloc-and-calloc-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Difference Between malloc and calloc in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/difference-between-malloc-and-calloc-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C standard library, both malloc and calloc are built-in functions used to allocate memory dynamically on the heap during runtime. While both functions serve the primary purpose of reserving memory and returning a void pointer to the allocated spac" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="difference-between-malloc-and-calloc-in-c">Difference Between
+malloc and calloc in C</h1>
+<p>In the C standard library, both <code>malloc</code> and
+<code>calloc</code> are built-in functions used to allocate memory
+dynamically on the heap during runtime. While both functions serve the
+primary purpose of reserving memory and returning a <code>void*</code>
+pointer to the allocated space, they differ functionally in the
+arguments they accept, how they initialize the memory, and how they
+handle potential arithmetic overflows. Understanding these distinctions
+is critical for writing efficient, secure, and bug-free C programs.</p>
+<h3 id="syntax-and-parameters">Syntax and Parameters</h3>
+<p>The first functional distinction lies in their function signatures
+and how they accept allocation sizes:</p>
+<ul>
+<li><p><strong><code>malloc</code> (Memory Allocation):</strong> Accepts
+a single parameter representing the total number of bytes to
+allocate.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> <span class="op">*</span>malloc<span class="op">(</span><span class="dt">size_t</span> size<span class="op">);</span></span></code></pre></div>
+<p>Example: To allocate space for an array of 10 integers:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> <span class="op">*</span>arr <span class="op">=</span> <span class="op">(</span><span class="dt">int</span> <span class="op">*)</span>malloc<span class="op">(</span><span class="dv">10</span> <span class="op">*</span> <span class="kw">sizeof</span><span class="op">(</span><span class="dt">int</span><span class="op">));</span></span></code></pre></div></li>
+<li><p><strong><code>calloc</code> (Contiguous Allocation):</strong>
+Accepts two parameters: the number of elements and the size of each
+element in bytes.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> <span class="op">*</span>calloc<span class="op">(</span><span class="dt">size_t</span> num<span class="op">,</span> <span class="dt">size_t</span> size<span class="op">);</span></span></code></pre></div>
+<p>Example: To allocate the equivalent space:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> <span class="op">*</span>arr <span class="op">=</span> <span class="op">(</span><span class="dt">int</span> <span class="op">*)</span>calloc<span class="op">(</span><span class="dv">10</span><span class="op">,</span> <span class="kw">sizeof</span><span class="op">(</span><span class="dt">int</span><span class="op">));</span></span></code></pre></div></li>
+</ul>
+<h3 id="memory-initialization">Memory Initialization</h3>
+<p>The primary functional difference between the two functions is how
+the allocated memory is prepared before the pointer is returned:</p>
+<ul>
+<li><strong><code>malloc</code> does not initialize memory.</strong> The
+allocated memory block contains indeterminate data, commonly referred to
+as "garbage values." Reading from this memory before writing to it
+results in undefined behavior.</li>
+<li><strong><code>calloc</code> initializes all allocated bytes to
+zero.</strong> Every single bit in the requested memory block is cleared
+to <code>0</code>. This makes <code>calloc</code> safer for variables,
+counters, or pointer arrays that require default zero or null-pointer
+states.</li>
+</ul>
+<h3 id="arithmetic-overflow-protection">Arithmetic Overflow
+Protection</h3>
+<p>When allocating arrays with <code>malloc</code>, the developer
+typically multiplies the element count by the size of the type:
+<code>malloc(num * size)</code>. If this multiplication overflows the
+range of <code>size_t</code>, it can wrap around to a small number,
+resulting in an undersized buffer allocation and potential heap-based
+buffer overflows.</p>
+<p>Modern implementations of <code>calloc</code> handle the
+multiplication internally. If the product of <code>num * size</code>
+results in an integer overflow, <code>calloc</code> safely fails and
+returns <code>NULL</code>, providing built-in protection against
+overflow vulnerabilities.</p>
+<h3 id="performance-implications">Performance Implications</h3>
+<p>Because <code>calloc</code> clears the memory block, it can be
+slightly slower than <code>malloc</code> for small to moderately sized
+allocations. However, modern operating systems optimize this process.
+When allocating large memory blocks, the operating system's virtual
+memory manager often provides pages that are already zeroed out (via
+copy-on-write zero pages), meaning <code>calloc</code> can sometimes
+match the performance of <code>malloc</code> without explicit
+zero-filling by the CPU.</p>
+<h3 id="summary-of-use-cases">Summary of Use Cases</h3>
+<ul>
+<li><strong>Use <code>malloc</code></strong> when you intend to
+immediately overwrite or populate the entire memory buffer (such as
+copying a string, reading data from a file, or running an initialization
+loop), as zeroing the memory first is redundant.</li>
+<li><strong>Use <code>calloc</code></strong> when you need default
+values of zero (such as tracking counters, bitmaps, or arrays of null
+pointers) or when you require built-in protection against integer
+overflows during size calculations.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

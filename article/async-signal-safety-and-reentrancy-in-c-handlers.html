@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Async-Signal Safety and Reentrancy in C Handlers - c</title>
+    <meta name="description" content="Asynchronous signal handlers in the C programming language operate under strict execution constraints because they can interrupt a program at virtually any machine instruction. This article examines the constraints governing these handlers, focusing on w">
+    <link rel="canonical" href="https://salivity.github.io/c/article/async-signal-safety-and-reentrancy-in-c-handlers">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Async-Signal Safety and Reentrancy in C Handlers - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/async-signal-safety-and-reentrancy-in-c-handlers" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Asynchronous signal handlers in the C programming language operate under strict execution constraints because they can interrupt a program at virtually any machine instruction. This article examines the constraints governing these handlers, focusing on w" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="async-signal-safety-and-reentrancy-in-c-handlers">Async-Signal
+Safety and Reentrancy in C Handlers</h1>
+<p>Asynchronous signal handlers in the C programming language operate
+under strict execution constraints because they can interrupt a program
+at virtually any machine instruction. This article examines the
+constraints governing these handlers, focusing on why standard
+non-reentrant functions are unsafe, the concept of async-signal safety
+defined by POSIX, the dangers of internal state mutation and deadlocks,
+and the precise rules for safely managing data and system calls within a
+signal-handling context.</p>
+<p>When an operating system delivers an asynchronous signal (such as
+<code>SIGINT</code>, <code>SIGTERM</code>, or <code>SIGALRM</code>), the
+CPU suspends regular thread execution and transfers control directly to
+the registered signal handler. Because the interrupted thread may have
+been in the middle of executing a critical routine, modifying data, or
+holding a synchronization primitive, the signal handler inherits an
+unpredictable execution environment.</p>
+<h3 id="the-reentrancy-requirement">The Reentrancy Requirement</h3>
+<p>A function is reentrant if multiple executions can run concurrently
+or nested within the same thread without producing incorrect results or
+corrupting data. In the context of signal handlers, reentrancy requires
+that if a function is interrupted by a signal, calling that same
+function inside the signal handler will not corrupt the state of the
+original execution.</p>
+<p>Non-reentrant functions generally exhibit one or more of the
+following characteristics:</p>
+<ul>
+<li><strong>Static or Global Variables:</strong> Functions that maintain
+state across calls via internal static buffers (such as
+<code>strtok()</code>, <code>asctime()</code>, or
+<code>gethostbyname()</code>) are fundamentally unsafe. If the main
+program is interrupted while executing such a function, calling it
+within the signal handler overwrites the active static buffer, leading
+to data corruption once the signal handler returns.</li>
+<li><strong>Dynamic Memory Management:</strong> Standard memory
+allocation functions, including <code>malloc()</code>,
+<code>calloc()</code>, <code>realloc()</code>, and <code>free()</code>,
+maintain shared internal data structures (heap metadata) protected by
+mutexes. If an allocation routine is interrupted while modifying these
+structures, calling an allocation function inside the signal handler
+risks either corrupting heap metadata or triggering an immediate,
+unrecoverable deadlock.</li>
+<li><strong>Standard I/O Operations:</strong> High-level I/O functions
+such as <code>printf()</code>, <code>puts()</code>, and
+<code>fopen()</code> operate on <code>FILE</code> pointers that
+encapsulate internal buffers and locking mechanisms. Interrupted
+buffered I/O can produce corrupted output or cause the handler to hang
+indefinitely waiting for an internal lock held by the interrupted
+thread.</li>
+</ul>
+<h3 id="deadlocks-and-synchronization-primitives">Deadlocks and
+Synchronization Primitives</h3>
+<p>Signal handlers run within the context of the thread they interrupt.
+Consequently, traditional synchronization mechanisms cannot be used:</p>
+<ul>
+<li><strong>Mutexes:</strong> A handler must never attempt to acquire a
+standard, non-recursive mutex that might already be held by the
+interrupted code. Doing so causes an immediate self-deadlock, as the
+lock owner cannot proceed to release the mutex until the signal handler
+exits.</li>
+<li><strong>Condition Variables and Semaphores:</strong> Similar
+constraints apply to condition variables and semaphores. Blocking inside
+a signal handler is strictly forbidden because the handler cannot rely
+on the interrupted thread to execute the code necessary to wake it.</li>
+</ul>
+<h3 id="posix-async-signal-safe-functions">POSIX Async-Signal-Safe
+Functions</h3>
+<p>To mitigate these issues, POSIX defines a explicit set of
+<strong>async-signal-safe</strong> functions. An async-signal-safe
+function is guaranteed to be reentrant or non-interruptible with respect
+to signals.</p>
+<p>Safe operations generally consist of raw, low-level system calls that
+delegate synchronization to the kernel, such as:</p>
+<ul>
+<li>Direct I/O via file descriptors: <code>read()</code>,
+<code>write()</code></li>
+<li>Signal management: <code>sigaction()</code>,
+<code>sigprocmask()</code></li>
+<li>Process termination: <code>_exit()</code> (in contrast to
+<code>exit()</code>, which flushes standard I/O streams and runs
+<code>atexit</code> handlers)</li>
+</ul>
+<p>If a function does not appear on the POSIX list of async-signal-safe
+functions, invoking it from an asynchronous signal handler triggers
+undefined behavior.</p>
+<h3 id="safe-access-to-global-state">Safe Access to Global State</h3>
+<p>When an asynchronous signal handler needs to communicate with the
+rest of the application, it cannot read or modify arbitrary global
+variables. Instead, it must adhere to the following rules:</p>
+<ol type="1">
+<li><strong><code>volatile sig_atomic_t</code>:</strong> C provides the
+integer type <code>sig_atomic_t</code>, which guarantees atomic read and
+write operations that cannot be interrupted mid-access. The variable
+must also be qualified with <code>volatile</code> to prevent the
+compiler from optimizing reads into CPU registers, ensuring that changes
+made by the handler are immediately visible to the main program
+loop.</li>
+<li><strong>C11 Atomic Types:</strong> Under C11 and later, lock-free
+atomic operations (<code>stdatomic.h</code>) marked as address-free and
+lock-free can be safely modified within a signal handler. If an atomic
+operation relies internally on a lock, it is not async-signal-safe.</li>
+</ol>
+<h3 id="preserving-errno">Preserving <code>errno</code></h3>
+<p>Many async-signal-safe system calls alter the global
+<code>errno</code> variable on failure. If the main program is
+interrupted between a system call and its subsequent check of
+<code>errno</code>, any changes to <code>errno</code> caused by the
+signal handler will silently mask errors in the interrupted code.
+Therefore, if a signal handler calls any function that may modify
+<code>errno</code>, it must save the current value of <code>errno</code>
+upon entering the handler and restore it before returning.</p>
+<h3 id="summary-of-best-practices">Summary of Best Practices</h3>
+<p>The most reliable approach to signal handler design in C is to
+minimize the work performed inside the handler. A typical pattern
+involves having the signal handler perform a single action: setting a
+<code>volatile sig_atomic_t</code> flag, or writing a single byte to a
+self-pipe or <code>eventfd</code> to wake up an event loop. The main
+execution flow then detects this signal notification outside of the
+asynchronous handler context and safely processes the necessary logic
+using normal, non-reentrant C library functions.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

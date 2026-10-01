@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Designated Initializers in C for Arrays and Structs - c</title>
+    <meta name="description" content="Designated initializers, officially introduced into the C programming language with the ISO C99 standard, modernized how developers initialize aggregate data types. Prior to this enhancement, initializing arrays, structures, and unions required strict ad">
+    <link rel="canonical" href="https://salivity.github.io/c/article/designated-initializers-in-c-for-arrays-and-structs">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Designated Initializers in C for Arrays and Structs - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/designated-initializers-in-c-for-arrays-and-structs" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Designated initializers, officially introduced into the C programming language with the ISO C99 standard, modernized how developers initialize aggregate data types. Prior to this enhancement, initializing arrays, structures, and unions required strict ad" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="designated-initializers-in-c-for-arrays-and-structs">Designated
+Initializers in C for Arrays and Structs</h1>
+<p>Designated initializers, officially introduced into the C programming
+language with the ISO C99 standard, modernized how developers initialize
+aggregate data types. Prior to this enhancement, initializing arrays,
+structures, and unions required strict adherence to positional order,
+making code fragile, verbose, and difficult to maintain. By introducing
+explicit designators using field names for structures and bracketed
+indices for arrays, C dramatically improved code clarity, flexibility,
+and safety during initialization.</p>
+<h3 id="limitations-of-pre-c99-initialization">Limitations of Pre-C99
+Initialization</h3>
+<p>In the ANSI C (C89/C90) standard, aggregate initialization was
+strictly positional. Developers had to list initial values in the exact
+sequence in which structure members or array elements were defined:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Config <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> id<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> timeout<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> retries<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// C89: Values strictly bound to member declaration order</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Config cfg <span class="op">=</span> <span class="op">{</span> <span class="dv">1</span><span class="op">,</span> <span class="dv">30</span><span class="op">,</span> <span class="dv">3</span> <span class="op">};</span></span></code></pre></div>
+<p>This approach presented several critical issues:</p>
+<ul>
+<li><strong>Maintenance fragility</strong>: Reordering fields inside a
+struct definition or inserting a new field silently broke existing
+initializations or assigned values to the wrong members.</li>
+<li><strong>Sparse data verbosity</strong>: Initializing a specific
+array index (such as setting the 100th element) required explicitly
+writing out values or zeroes for all preceding elements.</li>
+<li><strong>Readability</strong>: Code review became harder because
+numerical values lacked context showing which field or index was being
+set.</li>
+</ul>
+<h3 id="syntax-improvements-for-structures">Syntax Improvements for
+Structures</h3>
+<p>C99 introduced member designators using a period prefix
+(<code>.member = value</code>). This allows developers to explicitly map
+an initial value to a specific structure member by name:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Config cfg <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>timeout <span class="op">=</span> <span class="dv">30</span><span class="op">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>id <span class="op">=</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>retries <span class="op">=</span> <span class="dv">3</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Key structural syntax benefits include:</p>
+<ul>
+<li><strong>Order independence</strong>: Members can appear in any order
+within the initializer list.</li>
+<li><strong>Selective initialization</strong>: Members not explicitly
+designated are automatically initialized to zero (or <code>NULL</code>
+for pointers), eliminating the need for boilerplate default values.</li>
+<li><strong>Refactoring safety</strong>: Adding, removing, or reordering
+members within the <code>struct</code> definition does not misalign
+existing designated initializers.</li>
+</ul>
+<h3 id="syntax-improvements-for-arrays">Syntax Improvements for
+Arrays</h3>
+<p>For arrays, C99 introduced subscript designators using bracketed
+notation (<code>[index] = value</code>). This enables direct assignment
+to specific array positions without sequential zero-padding:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Initializes a 10-element array where only indices 0, 4, and 9 are non-zero</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> flags<span class="op">[</span><span class="dv">10</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">[</span><span class="dv">0</span><span class="op">]</span> <span class="op">=</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">[</span><span class="dv">4</span><span class="op">]</span> <span class="op">=</span> <span class="dv">2</span><span class="op">,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">[</span><span class="dv">9</span><span class="op">]</span> <span class="op">=</span> <span class="dv">3</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Key array syntax benefits include:</p>
+<ul>
+<li><strong>Sparse array initialization</strong>: Unspecified elements
+automatically default to zero.</li>
+<li><strong>Automatic sizing based on highest index</strong>: If the
+array size is omitted in the declaration, the compiler automatically
+sizes the array to accommodate the largest designated index:
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> sparse<span class="op">[]</span> <span class="op">=</span> <span class="op">{</span> <span class="op">[</span><span class="dv">99</span><span class="op">]</span> <span class="op">=</span> <span class="dv">1</span> <span class="op">};</span> <span class="co">// Creates an array of 100 integers</span></span></code></pre></div></li>
+<li><strong>Lookup table readability</strong>: Associating constants or
+enums with specific indices creates clear, self-documenting lookup
+tables:
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>status_strings<span class="op">[]</span> <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">[</span>STATUS_OK<span class="op">]</span> <span class="op">=</span> <span class="st">&quot;Success&quot;</span><span class="op">,</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">[</span>STATUS_ERR<span class="op">]</span> <span class="op">=</span> <span class="st">&quot;Generic Error&quot;</span><span class="op">,</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">[</span>STATUS_TIMEOUT<span class="op">]</span> <span class="op">=</span> <span class="st">&quot;Timed Out&quot;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div></li>
+</ul>
+<h3 id="nesting-and-combined-designators">Nesting and Combined
+Designators</h3>
+<p>Designators can be nested to initialize complex, multidimensional
+types or structures containing arrays. Syntax designators can be chained
+together without extra braces:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Device <span class="op">{</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> id<span class="op">;</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> ports<span class="op">[</span><span class="dv">4</span><span class="op">];</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Device dev <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>id <span class="op">=</span> <span class="dv">101</span><span class="op">,</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>ports<span class="op">[</span><span class="dv">0</span><span class="op">]</span> <span class="op">=</span> <span class="dv">80</span><span class="op">,</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">.</span>ports<span class="op">[</span><span class="dv">3</span><span class="op">]</span> <span class="op">=</span> <span class="dv">443</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>When standard positional values follow a designator, they initialize
+sequential elements or members immediately following that
+designator:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> sequence<span class="op">[</span><span class="dv">6</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="op">[</span><span class="dv">2</span><span class="op">]</span> <span class="op">=</span> <span class="dv">10</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> <span class="dv">30</span> <span class="op">};</span> <span class="co">// Indices 2, 3, and 4 are set to 10, 20, and 30</span></span></code></pre></div>
+<p>If an element or member is initialized more than once in the same
+initializer list, the last designation takes precedence, allowing
+specific overrides of prior values.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

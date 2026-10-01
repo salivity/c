@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Key Language Features Introduced in C99 - c</title>
+    <meta name="description" content="The C99 standard (ISO/IEC 9899:1999) substantially modernized the C programming language by adopting useful elements from C++ and numerical computing while retaining low-level efficiency. This overview explores the core features introduced in C99, includ">
+    <link rel="canonical" href="https://salivity.github.io/c/article/key-language-features-introduced-in-c-99">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Key Language Features Introduced in C99 - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/key-language-features-introduced-in-c-99" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The C99 standard (ISO/IEC 9899:1999) substantially modernized the C programming language by adopting useful elements from C++ and numerical computing while retaining low-level efficiency. This overview explores the core features introduced in C99, includ" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="key-language-features-introduced-in-c99">Key Language Features
+Introduced in C99</h1>
+<p>The C99 standard (ISO/IEC 9899:1999) substantially modernized the C
+programming language by adopting useful elements from C++ and numerical
+computing while retaining low-level efficiency. This overview explores
+the core features introduced in C99, including new data types, syntax
+enhancements, variable-length arrays, designated initializers, and
+compiler optimization directives that continue to define modern C
+development.</p>
+<h3 id="1-new-primitive-data-types">1. New Primitive Data Types</h3>
+<p>C99 expanded native type support to better handle modern hardware
+architectures and numerical calculations:</p>
+<ul>
+<li><strong><code>long long int</code></strong>: Guarantees an integer
+type of at least 64 bits in size, along with an unsigned variant
+(<code>unsigned long long int</code>).</li>
+<li><strong><code>_Bool</code></strong>: A native boolean type. The
+standard also introduced the <code>&lt;stdbool.h&gt;</code> header,
+which defines convenient macros like <code>bool</code>,
+<code>true</code>, and <code>false</code>.</li>
+<li><strong>Complex Numbers</strong>: Native support for complex
+arithmetic was added via the <code>_Complex</code> keyword and the
+<code>&lt;complex.h&gt;</code> library.</li>
+</ul>
+<h3 id="2-standard-fixed-width-integers-stdinth">2. Standard Fixed-Width
+Integers (<code>&lt;stdint.h&gt;</code>)</h3>
+<p>To eliminate portability issues related to platform-dependent integer
+sizes, C99 introduced <code>&lt;stdint.h&gt;</code>. This header
+provides exact-width integer types such as <code>int8_t</code>,
+<code>int16_t</code>, <code>int32_t</code>, and <code>int64_t</code>,
+along with their unsigned counterparts (<code>uint32_t</code>, etc.),
+and limit macros like <code>INT32_MAX</code>.</p>
+<h3 id="3-flexible-declarations">3. Flexible Declarations</h3>
+<p>C89 strictly required all variable declarations within a block to
+appear before any executable statements. C99 relaxed this rule:</p>
+<ul>
+<li><strong>Intermingled Declarations</strong>: Variables can be
+declared anywhere inside a block prior to their first use.</li>
+<li><strong>Loop-Header Declarations</strong>: Variables can be declared
+directly inside <code>for</code> loop initializers (e.g.,
+<code>for (int i = 0; i &lt; 10; i++)</code>), scoping the loop counter
+solely to the loop body.</li>
+</ul>
+<h3 id="4-variable-length-arrays-vlas">4. Variable-Length Arrays
+(VLAs)</h3>
+<p>C99 allowed array sizes to be evaluated at runtime rather than
+compile time. While still allocated automatically on the stack, the
+dimensions of a variable-length array can be determined by an expression
+during execution:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process_buffer<span class="op">(</span><span class="dt">int</span> size<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> buffer<span class="op">[</span>size<span class="op">];</span> <span class="co">// Allocated dynamically based on &#39;size&#39;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="5-designated-initializers">5. Designated Initializers</h3>
+<p>Designated initializers allow developers to initialize specific
+elements of arrays or fields of structures and unions by name or index,
+regardless of order. Unspecified elements are implicitly
+zero-initialized.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Point <span class="op">{</span> <span class="dt">int</span> x<span class="op">;</span> <span class="dt">int</span> y<span class="op">;</span> <span class="dt">int</span> z<span class="op">;</span> <span class="op">};</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Point p <span class="op">=</span> <span class="op">{</span> <span class="op">.</span>z <span class="op">=</span> <span class="dv">10</span><span class="op">,</span> <span class="op">.</span>x <span class="op">=</span> <span class="dv">5</span> <span class="op">};</span> <span class="co">// y is initialized to 0</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> flags<span class="op">[</span><span class="dv">100</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="op">[</span><span class="dv">0</span><span class="op">]</span> <span class="op">=</span> <span class="dv">1</span><span class="op">,</span> <span class="op">[</span><span class="dv">99</span><span class="op">]</span> <span class="op">=</span> <span class="dv">2</span> <span class="op">};</span> <span class="co">// Remaining elements are 0</span></span></code></pre></div>
+<h3 id="6-the-restrict-type-qualifier">6. The <code>restrict</code> Type
+Qualifier</h3>
+<p>C99 added the <code>restrict</code> keyword to pointer declarations.
+It acts as a hint to the compiler that the pointer is the sole means of
+accessing the pointed-to memory within the current scope. This allows
+optimizing compilers to aggressively reorder instructions and
+register-cache memory values without worrying about pointer
+aliasing.</p>
+<h3 id="7-inline-functions">7. Inline Functions</h3>
+<p>Functions can be declared with the <code>inline</code> specifier.
+This advises the compiler to replace function calls with the actual
+function code where beneficial, reducing call overhead while preserving
+the type checking and readability of modular code.</p>
+<h3 id="8-variadic-macros">8. Variadic Macros</h3>
+<p>Macros can accept a variable number of arguments using the ellipsis
+(<code>...</code>) syntax and the <code>__VA_ARGS__</code> identifier,
+mimicking the behavior of variadic functions:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#define LOG_PRINT</span><span class="op">(</span><span class="pp">fmt</span><span class="op">,</span><span class="pp"> </span><span class="op">...)</span><span class="pp"> printf</span><span class="op">(</span><span class="st">&quot;[LOG] &quot;</span><span class="pp"> fmt</span><span class="op">,</span><span class="pp"> __VA_ARGS__</span><span class="op">)</span></span></code></pre></div>
+<h3 id="9-single-line-comments">9. Single-Line Comments</h3>
+<p>The standard officially incorporated double-slash (<code>//</code>)
+line comments, which originated in BCPL and C++, as standard C syntax
+alongside traditional block comments (<code>/* ... */</code>).</p>
+<h3 id="10-additional-library-and-math-features">10. Additional Library
+and Math Features</h3>
+<ul>
+<li><strong>Flexible Array Members</strong>: A structure's final element
+can be an unsized array (<code>int data[];</code>), standardizing
+dynamic payload sizing.</li>
+<li><strong>IEC 60559 / IEEE 754 Floating-Point</strong>: Improved
+floating-point semantics, including <code>&lt;fenv.h&gt;</code> for
+controlling rounding modes and handling floating-point exceptions.</li>
+<li><strong>Universal Character Names</strong>: Support for Unicode
+identifiers and strings via <code>\u</code> and <code>\U</code> escape
+sequences.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why OS Boot Code Transitions CPU Modes for C - c</title>
+    <meta name="description" content="Early-stage operating system boot code must transition CPU modes because modern C compilers generate machine instructions that depend on architectural features—such as flat memory addressing, 32-bit or 64-bit registers, and standard runtime stacks—th">
+    <link rel="canonical" href="https://salivity.github.io/c/article/why-os-boot-code-transitions-cpu-modes-for-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why OS Boot Code Transitions CPU Modes for C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/why-os-boot-code-transitions-cpu-modes-for-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Early-stage operating system boot code must transition CPU modes because modern C compilers generate machine instructions that depend on architectural features—such as flat memory addressing, 32-bit or 64-bit registers, and standard runtime stacks—th" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-os-boot-code-transitions-cpu-modes-for-c">Why OS Boot Code
+Transitions CPU Modes for C</h1>
+<p>Early-stage operating system boot code must transition CPU modes
+because modern C compilers generate machine instructions that depend on
+architectural features—such as flat memory addressing, 32-bit or 64-bit
+registers, and standard runtime stacks—that do not exist in a
+processor's default power-on state. On architectures like x86, CPUs
+initialize in backward-compatible legacy states that strictly limit
+memory access and register width. Boot code written in assembly must
+initialize the CPU into a protected or long mode to provide the hardware
+environment that standard C code requires to execute.</p>
+<h3 id="the-hardware-reset-state">The Hardware Reset State</h3>
+<p>When an x86 processor powers on or resets, it starts in 16-bit Real
+Mode to maintain backward compatibility with original 8086 processors.
+In Real Mode:</p>
+<ul>
+<li>Register widths are restricted to 16 bits.</li>
+<li>Memory addressing relies on a segmented scheme
+(<code>segment * 16 + offset</code>), limiting addressable physical RAM
+to a maximum of 1 megabyte (MB).</li>
+<li>Hardware interrupts and memory protection mechanisms like paging and
+privilege rings are absent.</li>
+</ul>
+<p>Standard C compilers, such as GCC or Clang, do not generate code for
+16-bit segmented real-mode environments by default. Instead, they
+compile code assuming a flat, contiguous memory architecture where a
+pointer corresponds directly to a linear memory address.</p>
+<h3 id="the-requirements-of-the-c-runtime-environment">The Requirements
+of the C Runtime Environment</h3>
+<p>Before executing compiled C code, the underlying hardware must
+fulfill several baseline assumptions made by the C abstract machine and
+target Application Binary Interfaces (ABIs):</p>
+<ol type="1">
+<li><strong>A Flat Memory Model:</strong> Modern C treats pointers as
+linear, uniform integers indexing across memory (e.g., 32-bit or 64-bit
+addresses). Segmented real mode requires explicitly manipulating segment
+registers (<code>CS</code>, <code>DS</code>, <code>SS</code>,
+<code>ES</code>) to access data beyond 64-kilobyte boundaries, which
+breaks standard C pointer arithmetic and data structures.</li>
+<li><strong>Standard Stack Operations:</strong> Function calls in C rely
+on an active call stack to push stack frames, pass arguments, allocate
+local variables, and store return addresses. While a stack can exist in
+16-bit mode, it is restricted to 16-bit alignment and boundaries. Modern
+C ABIs (such as the System V ABI) mandate 32-bit or 64-bit aligned
+stacks handled via dedicated stack pointer registers (<code>ESP</code>
+or <code>RSP</code>).</li>
+<li><strong>Register Width and Datatypes:</strong> Standard C datatypes
+like <code>int</code>, <code>long</code>, and pointers are expected to
+match native processor widths (32 or 64 bits). In Real Mode,
+manipulating these types requires multi-instruction emulation,
+drastically reducing efficiency and breaking assumptions built into
+modern kernel toolchains.</li>
+</ol>
+<h3 id="the-role-of-early-assembly-bootstrapping">The Role of Early
+Assembly Bootstrapping</h3>
+<p>To bridge the gap between hardware reset and high-level language
+execution, the bootloader or early kernel executes a sequence of
+low-level assembly tasks:</p>
+<ul>
+<li><strong>Enabling the A20 Line:</strong> Clears the legacy memory
+wrap-around at the 1 MB boundary to access extended memory.</li>
+<li><strong>Loading the Global Descriptor Table (GDT):</strong> Defines
+segment descriptors to create a basic flat memory model where code and
+data segments span the entire addressable space.</li>
+<li><strong>Switching the CPU Mode:</strong> Modifies control registers
+(such as setting the <code>PE</code> bit in <code>CR0</code> for 32-bit
+Protected Mode, or enabling <code>LME</code> in <code>EFER</code> and
+activating paging for 64-bit Long Mode).</li>
+<li><strong>Setting Up the Stack:</strong> Explicitly sets the stack
+segment and loads a valid memory address into the stack pointer register
+(<code>ESP</code> or <code>RSP</code>).</li>
+<li><strong>Zeroing BSS:</strong> Initializes uninitialized global
+variables defined in C code to zero.</li>
+</ul>
+<p>Once the processor operates in the appropriate 32-bit or 64-bit mode
+with a valid stack and flat addressing, the assembly code performs an
+indirect jump or call into the entry function of the C program (such as
+<code>kernel_main</code>), handing execution over to the compiled C
+environment.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

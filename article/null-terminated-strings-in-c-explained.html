@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Null-Terminated Strings in C Explained - c</title>
+    <meta name="description" content="In the C programming language, strings are not a distinct primitive data type, but rather contiguous sequences of characters stored in memory and terminated by a special character called the null terminator ('\0'). This article examines the internal repr">
+    <link rel="canonical" href="https://salivity.github.io/c/article/null-terminated-strings-in-c-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Null-Terminated Strings in C Explained - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/null-terminated-strings-in-c-explained" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, strings are not a distinct primitive data type, but rather contiguous sequences of characters stored in memory and terminated by a special character called the null terminator ('\0'). This article examines the internal repr" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="null-terminated-strings-in-c-explained">Null-Terminated Strings
+in C Explained</h1>
+<p>In the C programming language, strings are not a distinct primitive
+data type, but rather contiguous sequences of characters stored in
+memory and terminated by a special character called the null terminator
+(<code>'\0'</code>). This article examines the internal representation
+of null-terminated strings in C, explaining how memory is allocated for
+them, how standard library functions interact with the null byte, and
+the operational trade-offs associated with this design choice.</p>
+<h3 id="internal-memory-layout">Internal Memory Layout</h3>
+<p>A C string is represented as a contiguous one-dimensional array of
+<code>char</code> values. The end of the string is explicitly marked by
+a null character—a byte with an ASCII/binary value of zero
+(<code>0x00</code>), denoted in code as <code>'\0'</code>.</p>
+<p>When you declare a string literal such as:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">char</span> greeting<span class="op">[]</span> <span class="op">=</span> <span class="st">&quot;Hello&quot;</span><span class="op">;</span></span></code></pre></div>
+<p>The compiler reserves six consecutive bytes in memory:</p>
+<table>
+<thead>
+<tr>
+<th>Index</th>
+<th>0</th>
+<th>1</th>
+<th>2</th>
+<th>3</th>
+<th>4</th>
+<th>5</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Character</strong></td>
+<td>'H'</td>
+<td>'e'</td>
+<td>'l'</td>
+<td>'l'</td>
+<td>'o'</td>
+<td>'\0'</td>
+</tr>
+<tr>
+<td><strong>Hex Value</strong></td>
+<td>0x48</td>
+<td>0x65</td>
+<td>0x6C</td>
+<td>0x6C</td>
+<td>0x6F</td>
+<td>0x00</td>
+</tr>
+</tbody>
+</table>
+<p>Even though the human-readable text contains five characters, the
+internal representation requires <code>N + 1</code> bytes, where
+<code>N</code> is the length of the string.</p>
+<h3 id="purpose-of-the-sentinel-byte">Purpose of the Sentinel Byte</h3>
+<p>The null byte acts as an in-band sentinel value. Because the array
+does not store explicit metadata regarding its length, functions must
+scan the memory sequentially, element by element, until they encounter
+the <code>'\0'</code> byte.</p>
+<p>Standard library functions in <code>&lt;string.h&gt;</code> rely
+entirely on this contract:</p>
+<ul>
+<li><strong><code>strlen(s)</code></strong>: Increments a counter while
+iterating through memory addresses starting at <code>s</code> until the
+current byte equals <code>0</code>.</li>
+<li><strong><code>strcpy(dest, src)</code></strong>: Copies bytes
+sequentially from the source address to the destination address, halting
+immediately after copying the null byte.</li>
+<li><strong><code>printf("%s", s)</code></strong>: Outputs characters
+sequentially until reaching the null character.</li>
+</ul>
+<h3 id="performance-and-safety-implications">Performance and Safety
+Implications</h3>
+<p>Using a null-terminated representation introduces specific
+performance characteristics and safety considerations:</p>
+<ol type="1">
+<li><strong>Linear Time Complexity for Length:</strong> Determining
+string length requires an <span class="math inline">\(O(n)\)</span>
+traversal. Languages that use length-prefixed strings (like Pascal or
+modern languages such as Rust and Go) store the size separately,
+allowing <span class="math inline">\(O(1)\)</span> length lookups.</li>
+<li><strong>Buffer Overruns:</strong> If a string array is not properly
+terminated—either due to insufficient buffer allocation or improper
+manual manipulation—functions like <code>strlen</code> and
+<code>strcpy</code> will read past the allocated buffer bounds until an
+arbitrary zero byte is found in memory. This leads to undefined
+behavior, data corruption, or segmentation faults.</li>
+<li><strong>Binary Data Restrictions:</strong> Because the byte
+<code>0x00</code> is reserved to signify the end of the string,
+null-terminated strings cannot contain raw binary data or embedded null
+characters. Handling binary data in C requires a separate byte array
+(<code>unsigned char*</code>) paired with an explicit length
+variable.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Risks of Using dlopen for Plugins in C - c</title>
+    <meta name="description" content="Loading dynamic plugins at runtime using dlopen in C allows applications to be extensible and modular, but it introduces severe security vulnerabilities by executing external compiled binaries inside the host application's address space. This article exa">
+    <link rel="canonical" href="https://salivity.github.io/c/article/security-risks-of-using-dlopen-for-plugins-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Security Risks of Using dlopen for Plugins in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/security-risks-of-using-dlopen-for-plugins-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Loading dynamic plugins at runtime using dlopen in C allows applications to be extensible and modular, but it introduces severe security vulnerabilities by executing external compiled binaries inside the host application's address space. This article exa" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="security-risks-of-using-dlopen-for-plugins-in-c">Security Risks
+of Using dlopen for Plugins in C</h1>
+<p>Loading dynamic plugins at runtime using <code>dlopen</code> in C
+allows applications to be extensible and modular, but it introduces
+severe security vulnerabilities by executing external compiled binaries
+inside the host application's address space. This article examines the
+primary security hazards associated with <code>dlopen</code>, including
+arbitrary code execution, shared object hijacking, privilege escalation,
+symbol collisions, and the fundamental absence of memory isolation
+between the host and its plugins.</p>
+<h2 id="arbitrary-code-execution-and-immediate-initialization">Arbitrary
+Code Execution and Immediate Initialization</h2>
+<p>When <code>dlopen</code> loads a shared object (<code>.so</code>),
+the operating system maps the binary directly into the host process's
+virtual memory. Any function defined with the GCC
+<code>__attribute__((constructor))</code> attribute executes
+automatically during the <code>dlopen</code> call—before the host
+application can even inspect or invoke functions using
+<code>dlsym</code>. If an attacker substitutes or injects a malicious
+shared library, they gain immediate and arbitrary code execution within
+the host context.</p>
+<h2 id="shared-object-hijacking-and-insecure-search-paths">Shared Object
+Hijacking and Insecure Search Paths</h2>
+<p>If <code>dlopen</code> is called with a relative path or a plain
+filename (e.g., <code>dlopen("plugin.so", RTLD_NOW)</code>), the dynamic
+linker relies on default library search paths, environment variables
+such as <code>LD_LIBRARY_PATH</code>, and embedded binary tags such as
+<code>RPATH</code> or <code>RUNPATH</code>. Attackers with local
+filesystem access can place malicious files in writable directories
+(such as <code>/tmp</code> or poorly secured installation paths) that
+take precedence over the intended plugin location, leading to library
+hijacking.</p>
+<h2 id="privilege-escalation">Privilege Escalation</h2>
+<p>Plugins inherit all permissions, capabilities, and file descriptors
+belonging to the host application. If an application runs with elevated
+privileges (such as a root service or a <code>setuid</code> binary) and
+loads plugins from a directory writable by non-privileged users, an
+unprivileged user can drop a custom <code>.so</code> file into the
+target directory to instantly gain the host’s elevated access
+rights.</p>
+<h2 id="lack-of-process-isolation-and-memory-espionage">Lack of Process
+Isolation and Memory Espionage</h2>
+<p>Because dynamic libraries operate inside the same memory space as the
+host process, there is no isolation boundary:</p>
+<ul>
+<li><strong>Sensitive Data Exposure:</strong> Plugins can freely read
+pointers, heap memory, stack variables, cryptographic keys,
+authentication tokens, and user credentials stored anywhere in the
+application.</li>
+<li><strong>Host Memory Corruption:</strong> A compromised or buggy
+plugin can overwrite critical application data structures, manipulate
+function pointers, or corrupt heap metadata, causing undefined behavior
+or exploitable vulnerabilities.</li>
+</ul>
+<h2 id="global-symbol-pollution-rtld_global">Global Symbol Pollution
+(<code>RTLD_GLOBAL</code>)</h2>
+<p>Using the <code>RTLD_GLOBAL</code> flag makes symbols defined in the
+loaded plugin available to resolve references in subsequently loaded
+libraries and the host program. This introduces two major hazards:</p>
+<ul>
+<li><strong>Symbol Interposition:</strong> A plugin can intentionally
+shadow or override standard library functions (such as
+<code>malloc</code>, <code>free</code>, or authentication checks) to
+redirect control flow.</li>
+<li><strong>Symbol Collisions:</strong> Accidental naming conflicts
+between independent plugins or the host application can silently alter
+application logic, producing instability and security flaws.</li>
+</ul>
+<h2 id="type-insecurity-and-missing-abi-guarantees">Type Insecurity and
+Missing ABI Guarantees</h2>
+<p>The <code>dlsym</code> function returns an untyped pointer
+(<code>void*</code>). C performs no runtime type checking or signature
+verification on symbols loaded dynamically. If the host expects a
+function pointer with specific arguments and the plugin provides
+mismatched parameters, the execution results in stack corruption,
+register mismatches, or invalid jumps, creating exploitable memory
+vulnerabilities.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

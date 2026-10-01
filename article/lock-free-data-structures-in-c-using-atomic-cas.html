@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lock-Free Data Structures in C Using Atomic CAS - c</title>
+    <meta name="description" content="A lock-free data structure is a thread-safe data format that allows concurrent access and modification without using traditional mutual exclusion primitives like mutexes. Instead of blocking competing threads, lock-free algorithms guarantee that at least">
+    <link rel="canonical" href="https://salivity.github.io/c/article/lock-free-data-structures-in-c-using-atomic-cas">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Lock-Free Data Structures in C Using Atomic CAS - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/lock-free-data-structures-in-c-using-atomic-cas" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="A lock-free data structure is a thread-safe data format that allows concurrent access and modification without using traditional mutual exclusion primitives like mutexes. Instead of blocking competing threads, lock-free algorithms guarantee that at least" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="lock-free-data-structures-in-c-using-atomic-cas">Lock-Free Data
+Structures in C Using Atomic CAS</h1>
+<p>A lock-free data structure is a thread-safe data format that allows
+concurrent access and modification without using traditional mutual
+exclusion primitives like mutexes. Instead of blocking competing
+threads, lock-free algorithms guarantee that at least one thread makes
+system-wide progress in a finite number of steps. This article explains
+the fundamentals of lock-free architecture, how the hardware-level
+atomic compare-and-swap (CAS) operation works, and how to implement a
+practical lock-free stack in the C programming language using the
+standard <code>&lt;stdatomic.h&gt;</code> library.</p>
+<h3 id="what-is-a-lock-free-data-structure">What Is a Lock-Free Data
+Structure?</h3>
+<p>Traditional concurrent data structures rely on locks to protect
+shared state. While simple to implement, locks introduce issues such as
+deadlocks, priority inversion, and significant latency overhead caused
+by operating system context switches when threads block.</p>
+<p>A data structure is considered lock-free if the suspension or failure
+of any arbitrary thread cannot prevent other threads from making
+progress. Lock-free systems achieve this by using atomic
+read-modify-write CPU instructions, allowing threads to execute
+speculative updates and commit them only if the underlying data has not
+been modified by another thread in the interim.</p>
+<h3 id="the-compare-and-swap-cas-operation">The Compare-and-Swap (CAS)
+Operation</h3>
+<p>Compare-and-swap is the fundamental atomic building block for most
+lock-free data structures. It performs an atomic comparison and
+conditional assignment:</p>
+<ol type="1">
+<li>It reads a memory location.</li>
+<li>It compares the current value with an expected value.</li>
+<li>If the values match, it writes a new value to that memory location
+and returns success.</li>
+<li>If the values do not match, the memory location remains untouched,
+and the operation returns failure (often updating the expected value
+with the actual current value).</li>
+</ol>
+<p>In C11 and later, the standard library provides this functionality
+via <code>&lt;stdatomic.h&gt;</code> through functions such as
+<code>atomic_compare_exchange_weak</code> and
+<code>atomic_compare_exchange_strong</code>. The <code>weak</code>
+variant is permitted to fail spuriously on architectures like ARM,
+making it ideal inside retry loops, while <code>strong</code> guarantees
+success if the values match.</p>
+<h3 id="implementing-a-lock-free-treiber-stack-in-c">Implementing a
+Lock-Free Treiber Stack in C</h3>
+<p>The classic lock-free data structure is the Treiber stack. It is a
+singly linked list where additions (push) and removals (pop) are
+performed exclusively at the top node using CAS operations.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdlib.h&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdbool.h&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdatomic.h&gt;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">typedef</span> <span class="kw">struct</span> Node <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> value<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> Node<span class="op">*</span> next<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> Node<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">typedef</span> <span class="kw">struct</span> <span class="op">{</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">_Atomic</span><span class="op">(</span>Node<span class="op">*)</span> top<span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> LockFreeStack<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> init_stack<span class="op">(</span>LockFreeStack<span class="op">*</span> stack<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    atomic_init<span class="op">(&amp;</span>stack<span class="op">-&gt;</span>top<span class="op">,</span> NULL<span class="op">);</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> push<span class="op">(</span>LockFreeStack<span class="op">*</span> stack<span class="op">,</span> <span class="dt">int</span> value<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    Node<span class="op">*</span> new_node <span class="op">=</span> <span class="op">(</span>Node<span class="op">*)</span>malloc<span class="op">(</span><span class="kw">sizeof</span><span class="op">(</span>Node<span class="op">));</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    new_node<span class="op">-&gt;</span>value <span class="op">=</span> value<span class="op">;</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Read the current top pointer</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    Node<span class="op">*</span> current_top <span class="op">=</span> atomic_load<span class="op">(&amp;</span>stack<span class="op">-&gt;</span>top<span class="op">);</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Loop until the top pointer is successfully updated to new_node</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    <span class="cf">do</span> <span class="op">{</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>        new_node<span class="op">-&gt;</span>next <span class="op">=</span> current_top<span class="op">;</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">while</span> <span class="op">(!</span>atomic_compare_exchange_weak<span class="op">(&amp;</span>stack<span class="op">-&gt;</span>top<span class="op">,</span> <span class="op">&amp;</span>current_top<span class="op">,</span> new_node<span class="op">));</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a><span class="dt">bool</span> pop<span class="op">(</span>LockFreeStack<span class="op">*</span> stack<span class="op">,</span> <span class="dt">int</span><span class="op">*</span> result<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>    Node<span class="op">*</span> current_top <span class="op">=</span> atomic_load<span class="op">(&amp;</span>stack<span class="op">-&gt;</span>top<span class="op">);</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Loop until we either determine the stack is empty or successfully pop</span></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> <span class="op">(</span>current_top <span class="op">!=</span> NULL<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>        Node<span class="op">*</span> next_node <span class="op">=</span> current_top<span class="op">-&gt;</span>next<span class="op">;</span></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>atomic_compare_exchange_weak<span class="op">(&amp;</span>stack<span class="op">-&gt;</span>top<span class="op">,</span> <span class="op">&amp;</span>current_top<span class="op">,</span> next_node<span class="op">))</span> <span class="op">{</span></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>            <span class="op">*</span>result <span class="op">=</span> current_top<span class="op">-&gt;</span>value<span class="op">;</span></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Note: Immediate free() is unsafe in production concurrent code</span></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>            <span class="co">// due to the ABA problem and concurrent read races.</span></span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>            free<span class="op">(</span>current_top<span class="op">);</span> </span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>        <span class="co">// If CAS fails, current_top is automatically updated with the latest stack-&gt;top</span></span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">false</span><span class="op">;</span> <span class="co">// Stack is empty</span></span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="how-the-implementation-works">How the Implementation Works</h3>
+<p>In the <code>push</code> routine, a new node is allocated, and its
+<code>next</code> pointer is set to the current <code>top</code>. The
+<code>atomic_compare_exchange_weak</code> function evaluates whether
+<code>stack-&gt;top</code> still equals <code>current_top</code>. If no
+other thread has pushed or popped an item, <code>stack-&gt;top</code> is
+atomically swapped to <code>new_node</code>. If another thread modified
+the stack in the meantime, the CAS fails, <code>current_top</code>
+receives the newly updated top value, and the loop retries.</p>
+<p>In the <code>pop</code> routine, the thread reads
+<code>current_top</code>. If non-null, it attempts to atomically replace
+<code>current_top</code> with <code>current_top-&gt;next</code>. If the
+CAS succeeds, the top node is detached, and the value is returned.</p>
+<h3
+id="real-world-considerations-the-aba-problem-and-memory-reclamation">Real-World
+Considerations: The ABA Problem and Memory Reclamation</h3>
+<p>While the core mechanics of CAS are straightforward, production
+lock-free code in C must address two primary challenges:</p>
+<ol type="1">
+<li><strong>The ABA Problem:</strong> A thread reads value
+<code>A</code>, gets preempted, and another thread changes
+<code>A</code> to <code>B</code> and back to <code>A</code>. When the
+original thread resumes, the CAS succeeds because the value is still
+<code>A</code>, even though the intermediate changes may have rendered
+structural pointers invalid. This is typically solved using tagged
+pointers (coupling a pointer with a monotonic modification counter) or
+double-word CAS (<code>atomic_compare_exchange_strong</code> on
+architectures supporting 128-bit atomics).</li>
+<li><strong>Safe Memory Reclamation (SMR):</strong> In the provided
+<code>pop</code> example, calling <code>free()</code> immediately can
+cause a segmentation fault if another concurrent thread reads
+<code>current_top-&gt;next</code> simultaneously. To safely release
+memory without locks, developers use techniques like Hazard Pointers,
+Read-Copy-Update (RCU), or Epoch-Based Reclamation (EBR).</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

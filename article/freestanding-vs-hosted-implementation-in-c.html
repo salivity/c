@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Freestanding vs Hosted Implementation in C - c</title>
+    <meta name="description" content="The C programming language standard defines two distinct execution environments: hosted implementations and freestanding implementations. A hosted implementation is designed for standard application programming where an underlying operating system manage">
+    <link rel="canonical" href="https://salivity.github.io/c/article/freestanding-vs-hosted-implementation-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Freestanding vs Hosted Implementation in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/freestanding-vs-hosted-implementation-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The C programming language standard defines two distinct execution environments: hosted implementations and freestanding implementations. A hosted implementation is designed for standard application programming where an underlying operating system manage" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="freestanding-vs-hosted-implementation-in-c">Freestanding vs
+Hosted Implementation in C</h1>
+<p>The C programming language standard defines two distinct execution
+environments: hosted implementations and freestanding implementations. A
+hosted implementation is designed for standard application programming
+where an underlying operating system manages resources and provides the
+complete C standard library. Conversely, a freestanding implementation
+is built for environments running without an operating system, such as
+firmware, bootloaders, or kernel development, providing only a minimal
+subset of standard headers and language features.</p>
+<h3 id="hosted-implementation">Hosted Implementation</h3>
+<p>A hosted implementation represents the typical C development
+environment on modern operating systems like Linux, Windows, or
+macOS.</p>
+<p>Key characteristics include:</p>
+<ul>
+<li><strong>Operating System Dependency:</strong> The compiled binary
+relies on the underlying OS for resource management, memory allocation,
+process scheduling, and input/output handling.</li>
+<li><strong>Standard Entry Point:</strong> The execution starts at a
+designated function named <code>main</code>, typically declared as
+<code>int main(void)</code> or
+<code>int main(int argc, char *argv[])</code>.</li>
+<li><strong>Full Standard Library:</strong> Developers have access to
+the entire C standard library, including I/O facilities
+(<code>&lt;stdio.h&gt;</code>), dynamic heap allocation
+(<code>&lt;stdlib.h&gt;</code>), math operations
+(<code>&lt;math.h&gt;</code>), string manipulation
+(<code>&lt;string.h&gt;</code>), and time handling
+(<code>&lt;time.h&gt;</code>).</li>
+<li><strong>Common Use Cases:</strong> Desktop software, web servers,
+CLI utilities, and standard user-space applications.</li>
+</ul>
+<h3 id="freestanding-implementation">Freestanding Implementation</h3>
+<p>A freestanding implementation operates without the support of an
+underlying operating system, often referred to as running on "bare
+metal."</p>
+<p>Key characteristics include:</p>
+<ul>
+<li><strong>No Operating System:</strong> The program interacts directly
+with the target hardware or minimal platform firmware.</li>
+<li><strong>Implementation-Defined Entry Point:</strong> The execution
+does not require a <code>main</code> function. The starting point is
+implementation-defined and can be a reset vector, an interrupt service
+routine, or a custom symbol such as <code>_start</code>.</li>
+<li><strong>Restricted Standard Library:</strong> Because there is no OS
+to provide filesystem, memory, or process abstractions, a freestanding
+implementation is only required to supply a limited subset of headers.
+These primarily define platform types, fixed-width integers, limits, and
+compiler intrinsics:
+<ul>
+<li><code>&lt;float.h&gt;</code> (floating-point limits)</li>
+<li><code>&lt;iso646.h&gt;</code> (alternative spellings for
+operators)</li>
+<li><code>&lt;limits.h&gt;</code> (integer limits)</li>
+<li><code>&lt;stdalign.h&gt;</code> (alignment macros)</li>
+<li><code>&lt;stdarg.h&gt;</code> (variable arguments handling)</li>
+<li><code>&lt;stdbool.h&gt;</code> (boolean types)</li>
+<li><code>&lt;stddef.h&gt;</code> (standard definitions like
+<code>size_t</code> and <code>NULL</code>)</li>
+<li><code>&lt;stdint.h&gt;</code> (fixed-width integer types)</li>
+<li><code>&lt;stdnoreturn.h&gt;</code> (non-returning functions)</li>
+</ul></li>
+<li><strong>Common Use Cases:</strong> Microcontroller firmware, device
+drivers, real-time operating systems (RTOS), and operating system
+kernels.</li>
+</ul>
+<h3 id="key-differences-summary">Key Differences Summary</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;">Hosted Implementation</th>
+<th style="text-align: left;">Freestanding Implementation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Target Environment</strong></td>
+<td style="text-align: left;">Runs under an operating system</td>
+<td style="text-align: left;">Runs on bare metal or custom
+environments</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Program Entry Point</strong></td>
+<td style="text-align: left;">Must be <code>main</code></td>
+<td style="text-align: left;">Implementation-defined (e.g.,
+<code>_start</code>, reset handler)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Standard Library</strong></td>
+<td style="text-align: left;">Full library access</td>
+<td style="text-align: left;">Minimal type/macro headers only</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Dynamic Memory/IO</strong></td>
+<td style="text-align: left;">Built-in via <code>malloc</code>,
+<code>printf</code>, etc.</td>
+<td style="text-align: left;">None by default; must be
+custom-implemented</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Macro Indicator</strong></td>
+<td style="text-align: left;"><code>__STDC_HOSTED__</code> evaluates to
+<code>1</code></td>
+<td style="text-align: left;"><code>__STDC_HOSTED__</code> evaluates to
+<code>0</code></td>
+</tr>
+</tbody>
+</table></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

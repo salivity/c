@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Floating-Point Equality Fails in C - c</title>
+    <meta name="description" content="Directly comparing floating-point numbers using the equality operator (==) in C frequently produces incorrect results due to how fractional numbers are stored in hardware. Because computers represent floating-point values using finite binary representati">
+    <link rel="canonical" href="https://salivity.github.io/c/article/why-floating-point-equality-fails-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Floating-Point Equality Fails in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/why-floating-point-equality-fails-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Directly comparing floating-point numbers using the equality operator (==) in C frequently produces incorrect results due to how fractional numbers are stored in hardware. Because computers represent floating-point values using finite binary representati" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-floating-point-equality-fails-in-c">Why Floating-Point
+Equality Fails in C</h1>
+<p>Directly comparing floating-point numbers using the equality operator
+(<code>==</code>) in C frequently produces incorrect results due to how
+fractional numbers are stored in hardware. Because computers represent
+floating-point values using finite binary representations defined by the
+IEEE 754 standard, simple decimal fractions cannot always be represented
+with complete precision. This limitation introduces minute rounding
+errors during calculation, causing two mathematically identical values
+to possess slightly different bit patterns in memory. Consequently,
+exact bitwise comparisons fail, making direct equality checks unreliable
+for floating-point arithmetic.</p>
+<h3 id="binary-representation-limits-ieee-754">Binary Representation
+Limits (IEEE 754)</h3>
+<p>Standard C data types like <code>float</code> and <code>double</code>
+rely on the IEEE 754 standard, which encodes numbers into three
+components: a sign bit, an exponent, and a mantissa (fraction). While
+integers and powers of two can be represented exactly, base-10 fractions
+like <code>0.1</code>, <code>0.2</code>, or <code>0.3</code> translate
+into recurring binary fractions that require an infinite sequence of
+bits.</p>
+<p>Because a 32-bit <code>float</code> or a 64-bit <code>double</code>
+allocates a finite number of bits to the mantissa, the infinite binary
+representation must be truncated and rounded. For instance, storing
+<code>0.1</code> in a <code>double</code> does not store the exact value
+<span class="math inline">\(0.1\)</span>, but rather an approximation
+close to <code>0.100000000000000005551115123126</code>.</p>
+<h3 id="rounding-errors-and-operator-behavior">Rounding Errors and
+Operator Behavior</h3>
+<p>The equality operator (<code>==</code>) in C evaluates whether two
+operands have the exact same bitwise value. It does not account for
+minor discrepancies caused by rounding.</p>
+<p>Consider this classic example:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">double</span> a <span class="op">=</span> <span class="fl">0.1</span> <span class="op">+</span> <span class="fl">0.2</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">double</span> b <span class="op">=</span> <span class="fl">0.3</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>a <span class="op">==</span> b<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        printf<span class="op">(</span><span class="st">&quot;Equal</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">);</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        printf<span class="op">(</span><span class="st">&quot;Not Equal</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">);</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>This program outputs <code>Not Equal</code>. The sum
+<code>0.1 + 0.2</code> produces
+<code>0.300000000000000044408920985006</code>, whereas <code>0.3</code>
+is stored as <code>0.299999999999999988897769753748</code>. Because the
+bit sequences differ at the least significant bits, <code>==</code>
+evaluates to false.</p>
+<h3 id="compiler-optimizations-and-register-precision">Compiler
+Optimizations and Register Precision</h3>
+<p>Discrepancies can also arise from how compilers optimize code and use
+processor registers. On architectures such as x86, intermediate
+calculations may be held in 80-bit extended-precision registers (the x87
+FPU) instead of standard 64-bit memory locations. If one value is
+truncated to 64 bits in memory and another remains at 80 bits in a
+register, an equality check between the two values will fail, even if
+both originated from the same computation.</p>
+<h3 id="the-correct-approach-epsilon-comparison">The Correct Approach:
+Epsilon Comparison</h3>
+<p>To safely compare two floating-point values in C, you must check
+whether their absolute difference falls within an acceptable tolerance
+threshold, commonly referred to as an "epsilon" (<span
+class="math inline">\(\epsilon\)</span>).</p>
+<p>For numbers near <span class="math inline">\(1.0\)</span>, an
+absolute epsilon check using <code>fabs()</code> from
+<code>&lt;math.h&gt;</code> is typically sufficient:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;math.h&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#define EPSILON </span><span class="fl">0.00001</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">double</span> a <span class="op">=</span> <span class="fl">0.1</span> <span class="op">+</span> <span class="fl">0.2</span><span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">double</span> b <span class="op">=</span> <span class="fl">0.3</span><span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>fabs<span class="op">(</span>a <span class="op">-</span> b<span class="op">)</span> <span class="op">&lt;</span> EPSILON<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        printf<span class="op">(</span><span class="st">&quot;Equal within tolerance</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">);</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>For numbers that span drastically different magnitudes (very large or
+very small values), a relative epsilon check is preferred:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> are_close<span class="op">(</span><span class="dt">double</span> a<span class="op">,</span> <span class="dt">double</span> b<span class="op">,</span> <span class="dt">double</span> epsilon<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> fabs<span class="op">(</span>a <span class="op">-</span> b<span class="op">)</span> <span class="op">&lt;=</span> <span class="op">(</span> <span class="op">(</span>fabs<span class="op">(</span>a<span class="op">)</span> <span class="op">&lt;</span> fabs<span class="op">(</span>b<span class="op">)</span> <span class="op">?</span> fabs<span class="op">(</span>b<span class="op">)</span> <span class="op">:</span> fabs<span class="op">(</span>a<span class="op">))</span> <span class="op">*</span> epsilon <span class="op">);</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>This method scales the threshold relative to the magnitude of the
+inputs, ensuring reliable comparisons across wide numerical ranges.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

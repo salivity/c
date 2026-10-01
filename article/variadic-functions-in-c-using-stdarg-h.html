@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Variadic Functions in C Using stdarg.h - c</title>
+    <meta name="description" content="This article provides a concise guide to variadic functions in the C programming language and how the stdarg.h library manages them. It explains the concept of variable-length argument lists, breaks down the core macros defined in <stdarg.h> (valist, vas">
+    <link rel="canonical" href="https://salivity.github.io/c/article/variadic-functions-in-c-using-stdarg-h">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Variadic Functions in C Using stdarg.h - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/variadic-functions-in-c-using-stdarg-h" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a concise guide to variadic functions in the C programming language and how the stdarg.h library manages them. It explains the concept of variable-length argument lists, breaks down the core macros defined in <stdarg.h> (valist, vas" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="variadic-functions-in-c-using-stdargh">Variadic Functions in C
+Using stdarg.h</h1>
+<p>This article provides a concise guide to variadic functions in the C
+programming language and how the <code>stdarg.h</code> library manages
+them. It explains the concept of variable-length argument lists, breaks
+down the core macros defined in <code>&lt;stdarg.h&gt;</code>
+(<code>va_list</code>, <code>va_start</code>, <code>va_arg</code>, and
+<code>va_end</code>), demonstrates their practical implementation with a
+code example, and outlines crucial best practices and safety
+considerations.</p>
+<hr />
+<h3 id="what-are-variadic-functions">What Are Variadic Functions?</h3>
+<p>In C, a variadic function is a function that accepts a varying number
+of arguments. The most familiar examples of variadic functions are
+standard I/O functions like <code>printf()</code> and
+<code>scanf()</code>.</p>
+<p>A variadic function requires at least one named, fixed parameter
+before an ellipsis (<code>...</code>), which indicates to the compiler
+that additional arguments of unspecified types and counts may
+follow.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>return_type function_name<span class="op">(</span>data_type fixed_arg<span class="op">,</span> <span class="op">...);</span></span></code></pre></div>
+<p>Because C lacks built-in runtime reflection, the function cannot
+automatically determine the count or types of the variadic arguments.
+The programmer must provide a mechanism to track them, such as passing a
+count as a fixed argument (e.g., <code>sum(3, 10, 20, 30)</code>) or
+using a format string (e.g.,
+<code>printf("%d %s", 1, "text")</code>).</p>
+<hr />
+<h3 id="the-stdargh-header">The <code>stdarg.h</code> Header</h3>
+<p>The <code>&lt;stdarg.h&gt;</code> header provides a set of type
+definitions and macros designed to safely step through an unknown number
+of function arguments stored on the call stack.</p>
+<p>The four primary components are:</p>
+<ol type="1">
+<li><strong><code>va_list</code></strong>: A data type used to declare a
+pointer or iterator representing the current position within the
+argument list.</li>
+<li><strong><code>va_start(va_list ap, last_fixed_arg)</code></strong>:
+Initializes the <code>va_list</code> variable <code>ap</code>. It
+requires the name of the last fixed parameter before the ellipsis to
+determine where the variadic arguments start in memory.</li>
+<li><strong><code>va_arg(va_list ap, type)</code></strong>: Retrieves
+the next argument from the list and advances the <code>va_list</code>
+pointer. You must explicitly pass the expected data type of the
+argument.</li>
+<li><strong><code>va_end(va_list ap)</code></strong>: Performs cleanup
+on the <code>va_list</code> object when argument processing is
+complete.</li>
+</ol>
+<p>An additional macro,
+<strong><code>va_copy(va_list dest, va_list src)</code></strong>, is
+available to duplicate the state of an argument list iterator if the
+arguments need to be read more than once.</p>
+<hr />
+<h3 id="implementation-example">Implementation Example</h3>
+<p>The following program defines a function <code>calculate_sum</code>
+that adds a variable number of integers. The first argument specifies
+how many integers follow.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdarg.h&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> calculate_sum<span class="op">(</span><span class="dt">int</span> count<span class="op">,</span> <span class="op">...)</span> <span class="op">{</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> total <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Declare the argument pointer</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">va_list</span> args<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Initialize the argument pointer with the last fixed argument</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    va_start<span class="op">(</span>args<span class="op">,</span> count<span class="op">);</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Extract each argument using va_arg</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> count<span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        total <span class="op">+=</span> va_arg<span class="op">(</span>args<span class="op">,</span> <span class="dt">int</span><span class="op">);</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 4. Clean up the va_list</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    va_end<span class="op">(</span>args<span class="op">);</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> total<span class="op">;</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Sum 1: </span><span class="sc">%d\n</span><span class="st">&quot;</span><span class="op">,</span> calculate_sum<span class="op">(</span><span class="dv">3</span><span class="op">,</span> <span class="dv">10</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> <span class="dv">30</span><span class="op">));</span>       <span class="co">// Outputs 60</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Sum 2: </span><span class="sc">%d\n</span><span class="st">&quot;</span><span class="op">,</span> calculate_sum<span class="op">(</span><span class="dv">5</span><span class="op">,</span> <span class="dv">1</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">3</span><span class="op">,</span> <span class="dv">4</span><span class="op">,</span> <span class="dv">5</span><span class="op">));</span>    <span class="co">// Outputs 15</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<hr />
+<h3 id="essential-rules-and-safety-considerations">Essential Rules and
+Safety Considerations</h3>
+<ul>
+<li><strong>Type Promotions</strong>: When arguments are passed through
+<code>...</code>, default argument promotions apply:
+<ul>
+<li>Types smaller than <code>int</code> (such as <code>char</code> and
+<code>short</code>) are automatically promoted to <code>int</code>.</li>
+<li><code>float</code> is automatically promoted to
+<code>double</code>.</li>
+<li>Passing <code>char</code> or <code>float</code> into
+<code>va_arg</code> causes undefined behavior. Always retrieve them
+using <code>int</code> or <code>double</code>.</li>
+</ul></li>
+<li><strong>Out-of-Bounds Access</strong>: If <code>va_arg</code> is
+called more times than there are arguments provided, the program reads
+invalid memory, resulting in undefined behavior or crashes.</li>
+<li><strong>Type Mismatches</strong>: Requesting the wrong type in
+<code>va_arg</code> will misinterpret stack data and yield corrupted
+values.</li>
+<li><strong>Mandatory Cleanup</strong>: Every invocation of
+<code>va_start</code> must have a corresponding <code>va_end</code> call
+before the function returns to maintain stack integrity and avoid memory
+issues across different platforms.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

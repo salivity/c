@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text Mode vs Binary Mode in C File Handling - c</title>
+    <meta name="description" content="In the C programming language, the distinction between text mode and binary mode determines how data is translated and interpreted when read from or written to a file. Opening a file in text mode applies operating-system-specific transformations, primari">
+    <link rel="canonical" href="https://salivity.github.io/c/article/text-mode-vs-binary-mode-in-c-file-handling">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Text Mode vs Binary Mode in C File Handling - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/text-mode-vs-binary-mode-in-c-file-handling" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, the distinction between text mode and binary mode determines how data is translated and interpreted when read from or written to a file. Opening a file in text mode applies operating-system-specific transformations, primari" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="text-mode-vs-binary-mode-in-c-file-handling">Text Mode vs Binary
+Mode in C File Handling</h1>
+<p>In the C programming language, the distinction between text mode and
+binary mode determines how data is translated and interpreted when read
+from or written to a file. Opening a file in text mode applies
+operating-system-specific transformations, primarily affecting newline
+characters and end-of-file markers, while binary mode processes raw,
+uninterpreted bytes exactly as they exist in memory or on the disk.</p>
+<h3 id="mode-specifiers-in-fopen">Mode Specifiers in
+<code>fopen</code></h3>
+<p>When opening a file using the <code>fopen()</code> function, the
+access mode string dictates whether text or binary processing is
+used:</p>
+<ul>
+<li><strong>Text Mode:</strong> Specifiers such as <code>"r"</code>,
+<code>"w"</code>, <code>"a"</code>, <code>"r+"</code>,
+<code>"w+"</code>, and <code>"a+"</code>.</li>
+<li><strong>Binary Mode:</strong> Specifiers appending the letter
+<code>b</code>, such as <code>"rb"</code>, <code>"wb"</code>,
+<code>"ab"</code>, <code>"r+b"</code> (or <code>"rb+"</code>),
+<code>"w+b"</code>, and <code>"a+b"</code>.</li>
+</ul>
+<h3 id="key-differences">Key Differences</h3>
+<h4 id="1-newline-character-translation">1. Newline Character
+Translation</h4>
+<p>The most significant operational difference occurs in how newline
+characters are handled across different operating systems:</p>
+<ul>
+<li><strong>Text Mode:</strong> On Windows, lines conventionally end
+with a carriage return followed by a line feed (<code>\r\n</code>, ASCII
+values <code>13</code> and <code>10</code>). When writing to a text
+file, C translates a single newline character (<code>\n</code>) into the
+two-character sequence <code>\r\n</code>. Conversely, when reading,
+<code>\r\n</code> is translated back into <code>\n</code>. On POSIX
+systems (Linux and macOS), line endings are already represented by a
+single <code>\n</code>, so this translation is effectively a no-op,
+though relying on this behavior causes platform-dependency bugs.</li>
+<li><strong>Binary Mode:</strong> No character translations take place.
+If you write a <code>\n</code> (<code>0x0A</code>), exactly one byte is
+written to the storage medium. If you read data, every byte is returned
+unchanged.</li>
+</ul>
+<h4 id="2-end-of-file-eof-detection">2. End-of-File (EOF) Detection</h4>
+<ul>
+<li><strong>Text Mode:</strong> On certain operating systems like
+Windows and DOS, the byte <code>0x1A</code> (Control-Z) is historically
+interpreted as an end-of-file marker. Reading a file in text mode may
+cause input functions like <code>fgetc()</code> or <code>fgets()</code>
+to signal EOF upon encountering <code>0x1A</code>, regardless of whether
+additional bytes remain in the file.</li>
+<li><strong>Binary Mode:</strong> The <code>0x1A</code> byte is treated
+as regular numerical data. The file stream only reaches EOF when it hits
+the physical end of the file as reported by the filesystem.</li>
+</ul>
+<h4 id="3-byte-alignment-and-seeking-fseek-and-ftell">3. Byte Alignment
+and Seeking (<code>fseek</code> and <code>ftell</code>)</h4>
+<ul>
+<li><strong>Text Mode:</strong> Because newline sequences can change
+length between disk and memory, positions returned by
+<code>ftell()</code> are not guaranteed to be exact byte offsets. Using
+<code>fseek()</code> with arbitrary offsets in text mode can result in
+undefined behavior unless using <code>SEEK_SET</code> with a value
+previously returned by <code>ftell()</code>, or seeking to the beginning
+(<code>0</code>) or end (<code>0</code>) of the file.</li>
+<li><strong>Binary Mode:</strong> <code>ftell()</code> consistently
+returns the exact byte offset from the start of the file.
+<code>fseek()</code> allows precise byte-level navigation using
+<code>SEEK_SET</code>, <code>SEEK_CUR</code>, and
+<code>SEEK_END</code>.</li>
+</ul>
+<h3 id="when-to-use-each-mode">When to Use Each Mode</h3>
+<ul>
+<li><strong>Use Text Mode</strong> for human-readable content such as
+configuration files, plain text documents (<code>.txt</code>), CSV
+files, and source code.</li>
+<li><strong>Use Binary Mode</strong> for non-text formats such as images
+(<code>.png</code>, <code>.jpg</code>), audio/video files, compiled
+executables, and serialized C <code>struct</code> data written via
+<code>fwrite()</code> and read via <code>fread()</code>. Reading binary
+files in text mode risks data corruption due to unwanted newline
+translations and premature termination.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

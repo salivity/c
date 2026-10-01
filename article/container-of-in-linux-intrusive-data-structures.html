@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>container_of in Linux Intrusive Data Structures - c</title>
+    <meta name="description" content="This article explores how the Linux kernel uses the containerof macro to power intrusive data structures. In traditional data structures, a generic node wraps a pointer to the payload, whereas intrusive structures embed generic links directly inside doma">
+    <link rel="canonical" href="https://salivity.github.io/c/article/container-of-in-linux-intrusive-data-structures">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="container_of in Linux Intrusive Data Structures - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/container-of-in-linux-intrusive-data-structures" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how the Linux kernel uses the containerof macro to power intrusive data structures. In traditional data structures, a generic node wraps a pointer to the payload, whereas intrusive structures embed generic links directly inside doma" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="container_of-in-linux-intrusive-data-structures">container_of in
+Linux Intrusive Data Structures</h1>
+<p>This article explores how the Linux kernel uses the
+<code>container_of</code> macro to power intrusive data structures. In
+traditional data structures, a generic node wraps a pointer to the
+payload, whereas intrusive structures embed generic links directly
+inside domain-specific objects. The <code>container_of</code> macro is
+the foundational mechanism that allows kernel code to recover the outer
+enclosing structure from a pointer to an internal embedded member,
+providing memory efficiency, cache locality, and compile-time type
+safety.</p>
+<h3 id="the-problem-with-non-intrusive-structures">The Problem with
+Non-Intrusive Structures</h3>
+<p>In standard C development, generic data structures—such as linked
+lists—are typically non-intrusive. A list node usually contains pointers
+to the next and previous nodes, along with a generic <code>void *</code>
+pointer referencing the user data:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> list_node <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> list_node <span class="op">*</span>next<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> list_node <span class="op">*</span>prev<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> <span class="op">*</span>data<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>This model has major drawbacks for an operating system kernel:</p>
+<ol type="1">
+<li><strong>Dynamic Allocation Overhead:</strong> Adding an item to a
+list requires allocating memory for both the item and the list
+node.</li>
+<li><strong>Cache Misses:</strong> Navigating the structure requires
+dereferencing multiple disjoint pointers in memory.</li>
+<li><strong>Redundant Metadata:</strong> Managing multiple independent
+list memberships requires allocating multiple wrappers.</li>
+</ol>
+<h3 id="intrusive-data-structures-in-the-linux-kernel">Intrusive Data
+Structures in the Linux Kernel</h3>
+<p>The Linux kernel avoids these overheads by turning the model inside
+out using intrusive data structures. Instead of placing the payload
+inside a container node, the link node is placed inside the payload.</p>
+<p>The canonical example is the kernel's circular doubly linked list,
+represented by <code>struct list_head</code>:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> list_head <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> list_head <span class="op">*</span>next<span class="op">,</span> <span class="op">*</span>prev<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>A kernel developer embeds <code>struct list_head</code> directly into
+their custom struct:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> task_struct <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    pid_t pid<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">/* ... other fields ... */</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> list_head tasks<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>List traversal operations (<code>list_add</code>,
+<code>list_del</code>, <code>list_for_each</code>) only operate on the
+<code>struct list_head</code> pointers. Consequently, list operations do
+not need to know the type or memory layout of the outer object.</p>
+<h3 id="the-role-of-container_of">The Role of
+<code>container_of</code></h3>
+<p>While intrusive structures simplify generic list manipulation, they
+introduce a fundamental challenge: when traversing a list, the algorithm
+only has access to a pointer to the embedded member
+(<code>struct list_head *</code>), not the enclosing structure
+(<code>struct task_struct *</code>).</p>
+<p>The <code>container_of</code> macro bridges this gap. It calculates
+the base address of the enclosing structure given:</p>
+<ol type="1">
+<li>A pointer to the embedded member.</li>
+<li>The type of the outer container structure.</li>
+<li>The name of the member within that container structure.</li>
+</ol>
+<h3 id="how-container_of-operates">How <code>container_of</code>
+Operates</h3>
+<p>The <code>container_of</code> macro is defined in
+<code>&lt;linux/kernel.h&gt;</code> (derived from
+<code>build_bug.h</code> and <code>stddef.h</code>) as follows:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#define container_of</span><span class="op">(</span><span class="pp">ptr</span><span class="op">,</span><span class="pp"> type</span><span class="op">,</span><span class="pp"> member</span><span class="op">)</span><span class="pp"> </span><span class="op">({</span><span class="pp">                      </span><span class="op">\</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="pp">    </span><span class="dt">void</span><span class="pp"> </span><span class="op">*</span><span class="pp">__mptr </span><span class="op">=</span><span class="pp"> </span><span class="op">(</span><span class="dt">void</span><span class="pp"> </span><span class="op">*)(</span><span class="pp">ptr</span><span class="op">);</span><span class="pp">                               </span><span class="op">\</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="pp">    BUILD_BUG_ON_MSG</span><span class="op">(!</span><span class="pp">__same_type</span><span class="op">(*(</span><span class="pp">ptr</span><span class="op">),</span><span class="pp"> </span><span class="op">((</span><span class="pp">type </span><span class="op">*)</span><span class="dv">0</span><span class="op">)-&gt;</span><span class="pp">member</span><span class="op">)</span><span class="pp"> </span><span class="op">&amp;&amp;\</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="pp">                     </span><span class="op">!</span><span class="pp">__same_type</span><span class="op">(*(</span><span class="pp">ptr</span><span class="op">),</span><span class="pp"> </span><span class="dt">void</span><span class="op">),</span><span class="pp">                </span><span class="op">\</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="pp">                     </span><span class="st">&quot;pointer type mismatch in container_of()&quot;</span><span class="op">);\</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="pp">    </span><span class="op">((</span><span class="pp">type </span><span class="op">*)(</span><span class="pp">__mptr </span><span class="op">-</span><span class="pp"> offsetof</span><span class="op">(</span><span class="pp">type</span><span class="op">,</span><span class="pp"> member</span><span class="op">)));</span><span class="pp"> </span><span class="op">})</span></span></code></pre></div>
+<p>The macro functions in two key phases:</p>
+<ol type="1">
+<li><p><strong>Compile-Time Type Verification:</strong> The macro uses
+compiler intrinsics (<code>__same_type</code>) and
+<code>BUILD_BUG_ON_MSG</code> to verify that the pointer passed in
+actually matches the type of the declared member (or is a generic
+<code>void *</code>). If an incorrect pointer type is supplied,
+compilation fails immediately, preventing silent memory
+corruption.</p></li>
+<li><p><strong>Pointer Arithmetic via <code>offsetof</code>:</strong>
+The <code>offsetof(type, member)</code> macro computes the byte distance
+from the start of <code>type</code> to <code>member</code>. By
+subtracting this byte offset from the memory address of the member
+(<code>__mptr</code>), the macro yields the exact starting address of
+the enclosing container. Finally, it casts that address to
+<code>type *</code>.</p></li>
+</ol>
+<h3 id="architectural-benefits">Architectural Benefits</h3>
+<p>The symbiotic relationship between intrusive structures and
+<code>container_of</code> provides several architectural guarantees
+essential for high-performance systems programming:</p>
+<ul>
+<li><strong>Zero Allocation Costs:</strong> Inserting an object into a
+list, red-black tree, or hash table involves no secondary memory
+allocations. Nodes cannot fail insertion due to out-of-memory
+errors.</li>
+<li><strong>Multiple Simultaneous Collections:</strong> A single object
+can contain multiple <code>struct list_head</code> members, allowing it
+to reside on multiple lists simultaneously (e.g., an active task list
+and a sleep queue) without extra memory tracking.</li>
+<li><strong>Cache Locality:</strong> Because node pointers are embedded
+directly in the data block, traversing and accessing object fields
+minimizes CPU cache line loads.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

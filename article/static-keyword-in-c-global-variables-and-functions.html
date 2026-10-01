@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Static Keyword in C: Global Variables and Functions - c</title>
+    <meta name="description" content="In the C programming language, applying the static keyword to a global variable or a function changes its linkage from external to internal. This restricts the visibility of that identifier strictly to the translation unit (source file) in which it is de">
+    <link rel="canonical" href="https://salivity.github.io/c/article/static-keyword-in-c-global-variables-and-functions">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Static Keyword in C: Global Variables and Functions - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/static-keyword-in-c-global-variables-and-functions" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, applying the static keyword to a global variable or a function changes its linkage from external to internal. This restricts the visibility of that identifier strictly to the translation unit (source file) in which it is de" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="static-keyword-in-c-global-variables-and-functions">Static
+Keyword in C: Global Variables and Functions</h1>
+<p>In the C programming language, applying the <code>static</code>
+keyword to a global variable or a function changes its linkage from
+external to internal. This restricts the visibility of that identifier
+strictly to the translation unit (source file) in which it is declared.
+By enforcing internal linkage, <code>static</code> prevents naming
+collisions across different files, limits unintended access, and
+provides a mechanism for data hiding and modular encapsulation in C
+programs.</p>
+<h3 id="internal-linkage-vs-external-linkage">Internal Linkage vs.
+External Linkage</h3>
+<p>By default, global variables and functions in C have external
+linkage. This means the linker makes their names available to all object
+files during the compilation process, allowing other source files to
+access them using the <code>extern</code> keyword.</p>
+<p>Preceding a global variable or function with <code>static</code>
+assigns it internal linkage. The linker will not export the identifier
+to the global symbol table, making it invisible and inaccessible to any
+other source file.</p>
+<h3 id="static-global-variables">Static Global Variables</h3>
+<p>When applied to a variable declared outside of any function,
+<code>static</code> provides two key characteristics:</p>
+<ol type="1">
+<li><strong>File Scope (Visibility):</strong> The variable can only be
+accessed by functions within the same file. Attempting to access it from
+another file using <code>extern</code> results in a linker error.</li>
+<li><strong>Static Storage Duration:</strong> Like regular global
+variables, a static global variable persists for the entire lifetime of
+the program, retaining its value between function calls and residing in
+the data or BSS segment of memory.</li>
+</ol>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// file_a.c</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">static</span> <span class="dt">int</span> file_counter <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> <span class="co">// Accessible only within file_a.c</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> increment<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    file_counter<span class="op">++;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="static-functions">Static Functions</h3>
+<p>Applying <code>static</code> to a function definition restricts its
+invocation strictly to the file in which it is defined:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// math_utils.c</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="dt">static</span> <span class="dt">int</span> validate_input<span class="op">(</span><span class="dt">int</span> value<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> value <span class="op">&gt;=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> calculate_square<span class="op">(</span><span class="dt">int</span> value<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>validate_input<span class="op">(</span>value<span class="op">))</span> <span class="op">{</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> value <span class="op">*</span> value<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In this scenario, <code>calculate_square</code> can be called from
+other files (if prototyped in a header), while
+<code>validate_input</code> acts as a private helper function that
+cannot be linked or executed from the outside.</p>
+<h3 id="key-benefits">Key Benefits</h3>
+<ul>
+<li><strong>Name Collision Prevention:</strong> Multiple <code>.c</code>
+files can declare <code>static</code> functions or global variables with
+identical names (such as <code>init</code> or <code>buffer</code>)
+without causing "multiple definition" errors during linking.</li>
+<li><strong>Encapsulation:</strong> It simulates private member
+functions and private variables found in object-oriented languages,
+enforcing clean application programming interface (API) boundaries.</li>
+<li><strong>Compiler Optimization:</strong> Because the compiler knows
+the static symbol cannot be accessed outside the current file, it has
+greater freedom to optimize the code, such as automatically inlining
+static functions or eliminating unused variables.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

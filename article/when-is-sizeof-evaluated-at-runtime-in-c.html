@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>When Is sizeof Evaluated at Runtime in C? - c</title>
+    <meta name="description" content="In the C programming language, the sizeof operator is almost universally resolved at compile time, yielding an integer constant with zero runtime performance cost. However, there is exactly one exception to this rule introduced in the C99 standard: sizeo">
+    <link rel="canonical" href="https://salivity.github.io/c/article/when-is-sizeof-evaluated-at-runtime-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="When Is sizeof Evaluated at Runtime in C? - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/when-is-sizeof-evaluated-at-runtime-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, the sizeof operator is almost universally resolved at compile time, yielding an integer constant with zero runtime performance cost. However, there is exactly one exception to this rule introduced in the C99 standard: sizeo" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="when-is-sizeof-evaluated-at-runtime-in-c">When Is sizeof
+Evaluated at Runtime in C?</h1>
+<p>In the C programming language, the <code>sizeof</code> operator is
+almost universally resolved at compile time, yielding an integer
+constant with zero runtime performance cost. However, there is exactly
+one exception to this rule introduced in the C99 standard:
+<code>sizeof</code> is evaluated at runtime when its operand is a
+<strong>Variable Length Array (VLA)</strong> or an expression of a VLA
+type. Under these circumstances, the compiler cannot predict the array's
+dimension during compilation and must generate code to determine the
+size dynamically while the program executes.</p>
+<h3 id="the-standard-behavior-compile-time-evaluation">The Standard
+Behavior: Compile-Time Evaluation</h3>
+<p>For standard types (primitives, structs, unions, pointers, and
+fixed-size arrays), <code>sizeof</code> inspects only the type of the
+operand. The expression itself is unevaluated.</p>
+<p>For instance:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> x <span class="op">=</span> <span class="dv">5</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">size_t</span> s <span class="op">=</span> <span class="kw">sizeof</span><span class="op">(</span>x<span class="op">++);</span></span></code></pre></div>
+<p>In this scenario, <code>x++</code> is never executed. The expression
+is discarded, the compiler replaces <code>sizeof(x++)</code> with the
+constant size of an <code>int</code> (typically 4 bytes), and
+<code>x</code> remains <code>5</code>.</p>
+<h3 id="the-exception-variable-length-arrays-vlas">The Exception:
+Variable Length Arrays (VLAs)</h3>
+<p>Under ISO C99 and later standards (ISO/IEC 9899 §6.5.3.4),
+<code>sizeof</code> operates dynamically if the operand designates an
+entity with a variable length array type:</p>
+<blockquote>
+<p><em>"If the type of the operand is a variable length array type, the
+operand is evaluated; otherwise, the operand is not evaluated and the
+result is an integer constant."</em></p>
+</blockquote>
+<p>A VLA is an array whose size specifier is not an integer constant
+expression known at compile time, but rather a variable, function call,
+or runtime calculation.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> compute_size<span class="op">(</span><span class="dt">int</span> n<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> vla<span class="op">[</span>n<span class="op">];</span> <span class="co">// Size depends on runtime parameter &#39;n&#39;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">size_t</span> bytes <span class="op">=</span> <span class="kw">sizeof</span><span class="op">(</span>vla<span class="op">);</span> </span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In this code, the compiler cannot replace <code>sizeof(vla)</code>
+with a fixed numeric literal. Instead, it emits instructions to multiply
+the runtime value of <code>n</code> by <code>sizeof(int)</code> to
+calculate the total byte size at that exact point of execution.</p>
+<h3 id="side-effects-in-vla-dimension-expressions">Side Effects in VLA
+Dimension Expressions</h3>
+<p>Because VLAs require runtime evaluation, any side effects inside the
+size expression defining the VLA's dimensions will execute.</p>
+<p>Consider this example:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> get_dimension<span class="op">(</span><span class="dt">int</span> <span class="op">*</span>count<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">(*</span>count<span class="op">)++;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> count <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// sizeof applied to a VLA type name directly</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">size_t</span> size <span class="op">=</span> <span class="kw">sizeof</span><span class="op">(</span><span class="dt">int</span><span class="op">[</span>get_dimension<span class="op">(&amp;</span>count<span class="op">)]);</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Count: </span><span class="sc">%d\n</span><span class="st">&quot;</span><span class="op">,</span> count<span class="op">);</span> <span class="co">// Prints: Count: 1</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>When evaluating <code>sizeof(int[get_dimension(&amp;count)])</code>,
+the function <code>get_dimension()</code> must be called at runtime so
+the program knows the array's length. Consequently, the side effect
+(<code>count++</code>) executes.</p>
+<h3 id="pointers-to-variable-length-arrays">Pointers to Variable Length
+Arrays</h3>
+<p>Runtime evaluation also applies to pointer-to-VLA types:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> inspect_pointer<span class="op">(</span><span class="dt">int</span> rows<span class="op">,</span> <span class="dt">int</span> cols<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> <span class="op">(*</span>matrix_ptr<span class="op">)[</span>cols<span class="op">];</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Evaluated at runtime because (*matrix_ptr) has a VLA type</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">size_t</span> row_size <span class="op">=</span> <span class="kw">sizeof</span><span class="op">(*</span>matrix_ptr<span class="op">);</span> </span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Here, <code>*matrix_ptr</code> dereferences to an array of size
+<code>cols</code>. Since <code>cols</code> is determined at runtime,
+<code>sizeof(*matrix_ptr)</code> evaluates
+<code>cols * sizeof(int)</code> dynamically. Note that
+<code>sizeof(matrix_ptr)</code> alone remains a compile-time constant
+because <code>matrix_ptr</code> is simply a pointer.</p>
+<h3 id="modern-c-standard-considerations">Modern C Standard
+Considerations</h3>
+<ul>
+<li><strong>C99:</strong> VLAs were mandatory.</li>
+<li><strong>C11 and C17:</strong> VLAs became optional. Implementations
+defining the macro <code>__STDC_NO_VLA__</code> do not support VLAs,
+meaning <code>sizeof</code> is purely a compile-time operator in those
+environments.</li>
+<li><strong>C23:</strong> VLAs remain conditionally supported,
+maintaining runtime evaluation for implementations that support
+them.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

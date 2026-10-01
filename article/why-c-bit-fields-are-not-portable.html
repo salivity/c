@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why C Bit-Fields Are Not Portable - c</title>
+    <meta name="description" content="Bit-fields in C allow developers to declare structure members that occupy specific numbers of bits, often intended to model hardware registers or compact binary protocols. However, the ISO C standard leaves the majority of bit-field implementation detail">
+    <link rel="canonical" href="https://salivity.github.io/c/article/why-c-bit-fields-are-not-portable">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why C Bit-Fields Are Not Portable - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/why-c-bit-fields-are-not-portable" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Bit-fields in C allow developers to declare structure members that occupy specific numbers of bits, often intended to model hardware registers or compact binary protocols. However, the ISO C standard leaves the majority of bit-field implementation detail" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-c-bit-fields-are-not-portable">Why C Bit-Fields Are Not
+Portable</h1>
+<p>Bit-fields in C allow developers to declare structure members that
+occupy specific numbers of bits, often intended to model hardware
+registers or compact binary protocols. However, the ISO C standard
+leaves the majority of bit-field implementation details to compiler
+vendors and hardware architectures. Because critical factors such as bit
+ordering, allocation unit sizing, signedness defaults, and
+boundary-straddling rules are implementation-defined, structs containing
+bit-fields rarely produce the same memory layout across different
+compilers, target platforms, or even compiler optimization flags.</p>
+<h3 id="1-indeterminate-bit-ordering-bit-endianness">1. Indeterminate
+Bit Ordering (Bit Endianness)</h3>
+<p>While byte endianness dictates the order of bytes in memory,
+bit-fields introduce the concept of bit-level ordering within a storage
+unit. The C standard does not mandate whether bits are allocated from
+the least-significant bit (LSB) to the most-significant bit (MSB), or
+vice versa. For example, if you declare an 8-bit allocation unit
+containing a 3-bit field and a 5-bit field, Compiler A might place the
+3-bit field at the lowest bits (bits 0–2), while Compiler B might place
+it at the highest bits (bits 5–7). Even on the same CPU, switching
+compilers can reverse your data layout.</p>
+<h3 id="2-allocation-unit-sizing-and-straddling">2. Allocation Unit
+Sizing and Straddling</h3>
+<p>Compilers pack adjacent bit-fields into implementation-defined
+storage units (typically the size of an <code>int</code>,
+<code>char</code>, or other integer type). When an added bit-field does
+not fit into the remaining space of the current allocation unit, the
+standard does not require consistent behavior. One compiler might split
+the bit-field across two adjacent allocation units, while another will
+leave the remaining bits unused as padding and place the entire
+bit-field into a fresh allocation unit. This discrepancy alters the
+total byte size of the structure and shifts the byte offsets of
+subsequent members.</p>
+<h3 id="3-ambiguous-signedness-of-plain-int">3. Ambiguous Signedness of
+Plain <code>int</code></h3>
+<p>In standard C, declaring a standard variable as <code>int</code>
+guarantees a signed integer. However, declaring a bit-field as
+<code>int field : 3;</code> leaves signedness implementation-defined; a
+compiler is free to treat it as either <code>signed int</code> or
+<code>unsigned int</code>. This ambiguity creates severe bugs. For
+instance, a 1-bit field declared as plain <code>int</code> on a compiler
+treating it as signed can only store <code>0</code> and <code>-1</code>
+in two's complement, making any assignment of <code>1</code> cause
+unintended sign extension or overflow.</p>
+<h3 id="4-differing-application-binary-interfaces-abis">4. Differing
+Application Binary Interfaces (ABIs)</h3>
+<p>Every hardware architecture and operating system pair defines an
+Application Binary Interface (ABI) that dictates memory alignment rules.
+ABIs vary widely in how they align the storage units that contain
+bit-fields. Some ABIs require 32-bit alignment for bit-field containers,
+introducing unexpected padding bytes, while others pack them tightly.
+Consequently, transferring raw binary structs over a network or sharing
+them between different CPU architectures (such as x86 and ARM) results
+in corrupted data.</p>
+<h3 id="the-portable-alternative">The Portable Alternative</h3>
+<p>Because bit-fields provide no standardized memory mapping, production
+code that interacts with external hardware, file headers, or network
+protocols should avoid them. The reliable, portable alternative is to
+use standard fixed-width integer types from
+<code>&lt;stdint.h&gt;</code> (such as <code>uint8_t</code> or
+<code>uint32_t</code>) combined with explicit bitwise shifts
+(<code>&lt;&lt;</code>, <code>&gt;&gt;</code>) and bitmasks
+(<code>&amp;</code>, <code>|</code>). Explicit bit masking guarantees
+that bits are manipulated in the exact positions intended, regardless of
+the compiler, ABI, or underlying architecture.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

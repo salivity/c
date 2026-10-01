@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wrap POSIX File Descriptors to C FILE Streams - c</title>
+    <meta name="description" content="This article explains how to bridge low-level POSIX I/O and standard C library buffered I/O by converting raw file descriptors into FILE streams. In C, while POSIX operations like open(), pipe(), or socket() yield integer file descriptors, higher-level s">
+    <link rel="canonical" href="https://salivity.github.io/c/article/wrap-posix-file-descriptors-to-c-file-streams">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Wrap POSIX File Descriptors to C FILE Streams - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/wrap-posix-file-descriptors-to-c-file-streams" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to bridge low-level POSIX I/O and standard C library buffered I/O by converting raw file descriptors into FILE streams. In C, while POSIX operations like open(), pipe(), or socket() yield integer file descriptors, higher-level s" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="wrap-posix-file-descriptors-to-c-file-streams">Wrap POSIX File
+Descriptors to C FILE Streams</h1>
+<p>This article explains how to bridge low-level POSIX I/O and standard
+C library buffered I/O by converting raw file descriptors into
+<code>FILE*</code> streams. In C, while POSIX operations like
+<code>open()</code>, <code>pipe()</code>, or <code>socket()</code> yield
+integer file descriptors, higher-level stream functions like
+<code>fprintf()</code> or <code>fgets()</code> require <code>FILE</code>
+pointers. The POSIX standard provides the dedicated function
+<code>fdopen()</code> to achieve this association without duplicating
+system resources.</p>
+<h3 id="the-primary-function-fdopen">The Primary Function:
+<code>fdopen()</code></h3>
+<p>The standard function used to wrap an open POSIX file descriptor into
+a buffered <code>FILE</code> stream is <code>fdopen()</code>. It is
+declared in <code>&lt;stdio.h&gt;</code> as part of the POSIX standard
+specification:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">FILE</span> <span class="op">*</span>fdopen<span class="op">(</span><span class="dt">int</span> fd<span class="op">,</span> <span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>mode<span class="op">);</span></span></code></pre></div>
+<p>The function takes two parameters:</p>
+<ul>
+<li><code>fd</code>: An existing, valid open file descriptor returned by
+system calls such as <code>open()</code>, <code>socket()</code>,
+<code>pipe()</code>, or <code>accept()</code>.</li>
+<li><code>mode</code>: A string specifying the stream access mode (e.g.,
+<code>"r"</code>, <code>"w"</code>, <code>"a"</code>, <code>"r+"</code>,
+<code>"w+"</code>, <code>"a+"</code>).</li>
+</ul>
+<p>If successful, <code>fdopen()</code> returns a pointer to a valid
+<code>FILE</code> object. If it fails, it returns <code>NULL</code> and
+sets <code>errno</code> to indicate the error.</p>
+<h3 id="mode-compatibility">Mode Compatibility</h3>
+<p>The <code>mode</code> argument supplied to <code>fdopen()</code> must
+match the access permissions of the underlying file descriptor:</p>
+<ul>
+<li>If the descriptor was opened read-only (<code>O_RDONLY</code>), the
+mode must begin with <code>"r"</code>.</li>
+<li>If the descriptor was opened write-only (<code>O_WRONLY</code>), the
+mode must begin with <code>"w"</code> or <code>"a"</code>.</li>
+<li>If the descriptor was opened read/write (<code>O_RDWR</code>), the
+mode can include <code>"+"</code>.</li>
+</ul>
+<p>Providing a mode incompatible with the file descriptor's open flags
+results in undefined behavior or failure.</p>
+<h3 id="resource-ownership-and-lifecycle">Resource Ownership and
+Lifecycle</h3>
+<p>When a stream is created using <code>fdopen()</code>, the resulting
+<code>FILE*</code> object assumes ownership of the file descriptor:</p>
+<ul>
+<li>Calling <code>fclose(stream)</code> will automatically close the
+underlying integer file descriptor <code>fd</code>. You should not
+manually invoke <code>close(fd)</code> after <code>fclose()</code>.</li>
+<li>If the program needs to retain direct descriptor access alongside
+stream access, avoid calling <code>fclose()</code>, or duplicate the
+descriptor using <code>dup()</code> prior to wrapping it.</li>
+</ul>
+<h3 id="extracting-descriptors-with-fileno">Extracting Descriptors with
+<code>fileno()</code></h3>
+<p>To perform the reverse operation—extracting the raw POSIX file
+descriptor from an active <code>FILE*</code> stream—use the POSIX
+function <code>fileno()</code>:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> fileno<span class="op">(</span><span class="dt">FILE</span> <span class="op">*</span>stream<span class="op">);</span></span></code></pre></div>
+<p>This returns the integer file descriptor associated with the given
+stream, enabling seamless transitions between buffered stream operations
+and low-level system calls when necessary.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

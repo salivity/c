@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guide to constexpr in C23 for Immutable Values - c</title>
+    <meta name="description" content="The C23 revision of the ISO C standard introduces the constexpr specifier, providing a standardized mechanism to declare named, type-safe, compile-time constant objects. This article examines how constexpr operates in C23, how it differs from traditional">
+    <link rel="canonical" href="https://salivity.github.io/c/article/guide-to-constexpr-in-c-23-for-immutable-values">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Guide to constexpr in C23 for Immutable Values - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/guide-to-constexpr-in-c-23-for-immutable-values" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The C23 revision of the ISO C standard introduces the constexpr specifier, providing a standardized mechanism to declare named, type-safe, compile-time constant objects. This article examines how constexpr operates in C23, how it differs from traditional" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="guide-to-constexpr-in-c23-for-immutable-values">Guide to
+constexpr in C23 for Immutable Values</h1>
+<p>The C23 revision of the ISO C standard introduces the
+<code>constexpr</code> specifier, providing a standardized mechanism to
+declare named, type-safe, compile-time constant objects. This article
+examines how <code>constexpr</code> operates in C23, how it differs from
+traditional <code>const</code> variables and <code>#define</code>
+preprocessor macros, its syntax and initialization rules, and the
+practical advantages it brings to modern C development.</p>
+<h2 id="the-purpose-of-constexpr-in-c23">The Purpose of constexpr in
+C23</h2>
+<p>Historically, the C language lacked a way to define a strictly typed,
+scoped, compile-time constant. Developers relied on <code>#define</code>
+preprocessor macros or <code>enum</code> declarations to establish
+values known at translation time.</p>
+<p>The standard <code>const</code> qualifier in C merely designates an
+identifier as "read-only" at runtime. A <code>const</code> variable does
+not constitute a constant expression under standard C rules;
+consequently, it cannot reliably be used for array dimensions in non-VLA
+(Variable Length Array) contexts, <code>case</code> labels in
+<code>switch</code> statements, or static assertions.</p>
+<p>C23 resolves this limitation by adopting the <code>constexpr</code>
+specifier for object declarations. Unlike C++, C23 limits
+<code>constexpr</code> strictly to object declarations—it cannot be
+applied to functions.</p>
+<h2 id="defining-immutable-values-with-constexpr">Defining Immutable
+Values with constexpr</h2>
+<p>When an object is declared with <code>constexpr</code>, it becomes an
+immutable value evaluated strictly at compile time.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">constexpr</span> <span class="dt">int</span> MAX_BUFFER <span class="op">=</span> <span class="dv">1024</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">constexpr</span> <span class="dt">double</span> PI <span class="op">=</span> <span class="fl">3.141592653589793</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Used as a standard integer constant expression</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> buffer<span class="op">[</span>MAX_BUFFER<span class="op">];</span> </span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">switch</span> <span class="op">(</span>getchar<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">case</span> MAX_BUFFER<span class="op">:</span> <span class="co">// Valid in C23</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>            <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">default</span><span class="op">:</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>            <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Because <code>MAX_BUFFER</code> is a genuine constant expression, the
+array <code>buffer</code> is a fixed-size array rather than a VLA,
+ensuring predictable stack allocation.</p>
+<h2 id="key-rules-and-semantics">Key Rules and Semantics</h2>
+<p>The <code>constexpr</code> specifier enforces several constraints to
+guarantee that the declared object remains fully immutable and
+resolvable during compilation:</p>
+<ol type="1">
+<li><strong>Mandatory Initializer</strong>: Every <code>constexpr</code>
+object must be defined with an explicit initializer. Tentative or
+uninitialized declarations are forbidden.</li>
+<li><strong>Constant Expression Requirement</strong>: The initializer
+must evaluate to a translation-time constant expression. It cannot
+depend on runtime variables, dynamic function calls, or side
+effects.</li>
+<li><strong>Implicit <code>const</code> Qualification</strong>: Applying
+<code>constexpr</code> to an object automatically imparts the
+<code>const</code> qualifier to its type. Attempting to modify a
+<code>constexpr</code> object results in a compilation error.</li>
+<li><strong>Scope and Storage</strong>: Unlike preprocessor macros,
+<code>constexpr</code> symbols respect lexical scoping rules. Storage
+for a <code>constexpr</code> object is only allocated if the program
+explicitly takes its address (e.g., <code>&amp;MAX_BUFFER</code>),
+allowing the compiler to optimize the symbol away entirely in standard
+evaluation paths.</li>
+<li><strong>Composite Types</strong>: Structures and arrays can be
+declared with <code>constexpr</code>, provided all members or elements
+are initialized with constant expressions:</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Point <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> x<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> y<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">constexpr</span> <span class="kw">struct</span> Point ORIGIN <span class="op">=</span> <span class="op">{</span> <span class="op">.</span>x <span class="op">=</span> <span class="dv">0</span><span class="op">,</span> <span class="op">.</span>y <span class="op">=</span> <span class="dv">0</span> <span class="op">};</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">constexpr</span> <span class="dt">int</span> MATRIX<span class="op">[</span><span class="dv">2</span><span class="op">][</span><span class="dv">2</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="op">{</span><span class="dv">1</span><span class="op">,</span> <span class="dv">0</span><span class="op">},</span> <span class="op">{</span><span class="dv">0</span><span class="op">,</span> <span class="dv">1</span><span class="op">}</span> <span class="op">};</span></span></code></pre></div>
+<h2 id="constexpr-vs-const-vs-define">constexpr vs. const vs.
+#define</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;"><code>#define</code></th>
+<th style="text-align: left;"><code>const</code></th>
+<th style="text-align: left;"><code>constexpr</code> (C23)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Evaluation Time</strong></td>
+<td style="text-align: left;">Preprocessing phase</td>
+<td style="text-align: left;">Runtime (read-only)</td>
+<td style="text-align: left;">Compile time</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Type Safety</strong></td>
+<td style="text-align: left;">None (textual replacement)</td>
+<td style="text-align: left;">Full</td>
+<td style="text-align: left;">Full</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Scope Rules</strong></td>
+<td style="text-align: left;">Global (file-level)</td>
+<td style="text-align: left;">Block / File scope</td>
+<td style="text-align: left;">Block / File scope</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Usable in <code>case</code>
+labels</strong></td>
+<td style="text-align: left;">Yes</td>
+<td style="text-align: left;">No</td>
+<td style="text-align: left;">Yes</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Usable in
+<code>_Static_assert</code></strong></td>
+<td style="text-align: left;">Yes</td>
+<td style="text-align: left;">No</td>
+<td style="text-align: left;">Yes</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Debugger Friendly</strong></td>
+<td style="text-align: left;">Poor (often stripped)</td>
+<td style="text-align: left;">Good</td>
+<td style="text-align: left;">Good</td>
+</tr>
+</tbody>
+</table>
+<h2 id="summary">Summary</h2>
+<p>The C23 <code>constexpr</code> specifier bridges a long-standing gap
+in the C language by unifying the type safety and scoping of
+<code>const</code> with the compile-time evaluation guarantees of
+preprocessor macros. By utilizing <code>constexpr</code>, developers can
+write safer, cleaner, and more optimizable code without depending on
+untyped <code>#define</code> directives for compile-time constants.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Trigger Software Interrupts in C Inline Assembly - c</title>
+    <meta name="description" content="This article explains how to manually generate software interrupts using inline assembly within the C programming language. You will learn the underlying mechanics of software interrupts, see architecture-specific implementations for both x86 and ARM pro">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-to-trigger-software-interrupts-in-c-inline-assembly">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Trigger Software Interrupts in C Inline Assembly - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-to-trigger-software-interrupts-in-c-inline-assembly" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to manually generate software interrupts using inline assembly within the C programming language. You will learn the underlying mechanics of software interrupts, see architecture-specific implementations for both x86 and ARM pro" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-trigger-software-interrupts-in-c-inline-assembly">How to
+Trigger Software Interrupts in C Inline Assembly</h1>
+<p>This article explains how to manually generate software interrupts
+using inline assembly within the C programming language. You will learn
+the underlying mechanics of software interrupts, see
+architecture-specific implementations for both x86 and ARM processors
+using standard GCC inline assembly syntax, and understand the necessary
+precautions regarding privilege levels and operating system
+handling.</p>
+<hr />
+<h3 id="understanding-software-interrupts">Understanding Software
+Interrupts</h3>
+<p>A software interrupt is an instruction executed by a program that
+forces the CPU to pause execution, save its current state, and transfer
+control to an interrupt service routine (ISR) mapped in an interrupt
+vector table. Unlike hardware interrupts triggered by external
+peripherals, software interrupts are synchronous and explicitly invoked
+by running code. Common uses include transitioning between user mode and
+kernel mode (system calls), debugging (breakpoints), and triggering
+specific firmware routines.</p>
+<h3 id="triggering-interrupts-on-x86-and-x86-64">Triggering Interrupts
+on x86 and x86-64</h3>
+<p>On x86 and x86-64 platforms, software interrupts are triggered using
+the <code>INT</code> instruction, followed by an immediate 8-bit vector
+number (from 0 to 255).</p>
+<p>In GCC or Clang, you can insert this instruction using extended
+inline assembly:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> trigger_interrupt<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Triggers interrupt vector 0x80 (traditionally used for 32-bit Linux syscalls)</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    __asm__ <span class="dt">volatile</span> <span class="op">(</span><span class="st">&quot;int $0x80&quot;</span> <span class="op">:</span> <span class="op">:</span> <span class="op">:</span> <span class="st">&quot;memory&quot;</span><span class="op">);</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> trigger_breakpoint<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Triggers interrupt vector 3 (standard x86 debug breakpoint)</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    __asm__ <span class="dt">volatile</span> <span class="op">(</span><span class="st">&quot;int $3&quot;</span><span class="op">);</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Triggering breakpoint...</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">);</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    trigger_breakpoint<span class="op">();</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<ul>
+<li>The <code>volatile</code> qualifier prevents the compiler from
+optimizing out, reordering, or caching the assembly block.</li>
+<li>The <code>$0x80</code> syntax indicates an immediate value in
+AT&amp;T assembly syntax.</li>
+<li>The <code>"memory"</code> clobber informs the compiler that the
+instruction might modify memory, forcing memory caches to flush.</li>
+</ul>
+<h3 id="triggering-interrupts-on-arm-architectures">Triggering
+Interrupts on ARM Architectures</h3>
+<p>ARM processors do not use the <code>INT</code> instruction. Instead,
+they implement the <code>SVC</code> (Supervisor Call) instruction,
+previously known as <code>SWI</code> (Software Interrupt).</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> trigger_arm_svc<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Triggers a supervisor call with an immediate value of 0</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    __asm__ <span class="dt">volatile</span> <span class="op">(</span><span class="st">&quot;svc #0&quot;</span> <span class="op">:</span> <span class="op">:</span> <span class="op">:</span> <span class="st">&quot;memory&quot;</span><span class="op">);</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> trigger_arm_bkpt<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Triggers a hardware-assisted breakpoint</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    __asm__ <span class="dt">volatile</span> <span class="op">(</span><span class="st">&quot;bkpt #0&quot;</span><span class="op">);</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>On ARM Cortex-M microcontrollers, software interrupts can also be
+triggered at the hardware level by writing directly to the Interrupt
+Control and State Register (ICSR) or the Software Triggered Interrupt
+Register (STIR) in addition to using <code>svc</code>.</p>
+<h3 id="compiler-portability-gcc-vs-msvc">Compiler Portability: GCC vs.
+MSVC</h3>
+<ul>
+<li><strong>GCC/Clang:</strong> Supports the
+<code>__asm__ volatile (...)</code> syntax on all supported targets and
+architectures.</li>
+<li><strong>MSVC (Microsoft Visual C++):</strong> Only supports the
+legacy <code>__asm { ... }</code> block on 32-bit x86 targets. On 64-bit
+Windows, MSVC disables inline assembly entirely. Instead, you must use
+compiler intrinsics such as <code>__debugbreak()</code> to raise an
+interrupt 3, or implement the assembly routine in a separate
+<code>.asm</code> file assembled via MASM.</li>
+</ul>
+<h3
+id="execution-permissions-and-operating-system-constraints">Execution
+Permissions and Operating System Constraints</h3>
+<p>Executing arbitrary software interrupts in modern, protected-mode
+operating systems (such as Linux or Windows) requires proper
+permissions:</p>
+<ol type="1">
+<li><strong>Privilege Violations:</strong> In user space, calling an
+interrupt vector that has a descriptor privilege level (DPL) set to
+kernel mode without proper gating triggers a General Protection Fault
+(<code>#GP</code>), typically terminating the program with a
+segmentation fault.</li>
+<li><strong>Safe Vectors:</strong> Vector <code>3</code>
+(<code>int $3</code> / <code>bkpt</code>) is safe in user space because
+the OS configures its descriptor to allow user-mode execution for
+debuggers.</li>
+<li><strong>Register Context:</strong> When using software interrupts
+for system calls, arguments must be placed into specific general-purpose
+registers before calling the interrupt, adhering to the platform's
+Application Binary Interface (ABI).</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

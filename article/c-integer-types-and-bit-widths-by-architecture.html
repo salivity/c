@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C Integer Types and Bit Widths by Architecture - c</title>
+    <meta name="description" content="In the C programming language, the exact bit width of basic integer types is not strictly fixed by the language standard; instead, it varies based on target processor architecture, operating system design, and the compiler's Application Binary Interface">
+    <link rel="canonical" href="https://salivity.github.io/c/article/c-integer-types-and-bit-widths-by-architecture">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C Integer Types and Bit Widths by Architecture - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/c-integer-types-and-bit-widths-by-architecture" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, the exact bit width of basic integer types is not strictly fixed by the language standard; instead, it varies based on target processor architecture, operating system design, and the compiler's Application Binary Interface" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-integer-types-and-bit-widths-by-architecture">C Integer Types
+and Bit Widths by Architecture</h1>
+<p>In the C programming language, the exact bit width of basic integer
+types is not strictly fixed by the language standard; instead, it varies
+based on target processor architecture, operating system design, and the
+compiler's Application Binary Interface (ABI). To balance hardware
+efficiency with software portability, the ISO C standard dictates only
+minimum value ranges and relative size relationships rather than
+explicit bit lengths. As a result, identical C code can allocate
+differing numbers of bits for types like <code>int</code> and
+<code>long</code> depending on whether it runs on an 8-bit
+microcontroller, a 32-bit processor, or a 64-bit desktop CPU.</p>
+<h3 id="the-c-standard-guarantees">The C Standard Guarantees</h3>
+<p>Rather than specifying exact bit widths, the C standard guarantees
+relative size constraints:</p>
+<p><code>sizeof(char) &lt;= sizeof(short) &lt;= sizeof(int) &lt;= sizeof(long) &lt;= sizeof(long long)</code></p>
+<p>It also specifies minimum storage capacities for each type:</p>
+<ul>
+<li><strong><code>char</code></strong>: At least 8 bits (defined as 1
+byte in C terms).</li>
+<li><strong><code>short</code></strong>: At least 16 bits.</li>
+<li><strong><code>int</code></strong>: At least 16 bits.</li>
+<li><strong><code>long</code></strong>: At least 32 bits.</li>
+<li><strong><code>long long</code></strong>: At least 64 bits
+(introduced in C99).</li>
+</ul>
+<p>Because these are minimum requirements, a compiler targeting a
+specific platform is free to expand any type to align with the
+processor's natural register width or memory bus.</p>
+<h3 id="data-models-across-architectures">Data Models Across
+Architectures</h3>
+<p>Hardware architectures generally determine the word size—the native
+amount of data a CPU processes in a single register operation. Operating
+systems configure compilers to use specific "data models" to define how
+standard types map onto these register widths.</p>
+<h4 id="16-bit-architectures-eg-ms-dos-embedded-microcontrollers">16-Bit
+Architectures (e.g., MS-DOS, Embedded Microcontrollers)</h4>
+<p>Historically common in older PCs and still present in low-power
+microcontrollers (such as 16-bit PIC or MSP430):</p>
+<ul>
+<li><strong>Model</strong>: Often referred to as <strong>IP16</strong>
+or <strong>LP32</strong>.</li>
+<li><strong><code>int</code></strong>: 16 bits.</li>
+<li><strong><code>long</code></strong>: 32 bits.</li>
+<li><strong>Pointer</strong>: 16 bits (or segment-offset pairs up to 32
+bits).</li>
+</ul>
+<h4 id="32-bit-architectures-eg-x86-arm32">32-Bit Architectures (e.g.,
+x86, ARM32)</h4>
+<p>Common in 32-bit desktop platforms, mobile devices, and embedded
+systems:</p>
+<ul>
+<li><strong>Model</strong>: <strong>ILP32</strong> (Integer, Long, and
+Pointer are 32-bit).</li>
+<li><strong><code>short</code></strong>: 16 bits.</li>
+<li><strong><code>int</code></strong>: 32 bits.</li>
+<li><strong><code>long</code></strong>: 32 bits.</li>
+<li><strong><code>long long</code></strong>: 64 bits.</li>
+<li><strong>Pointer</strong>: 32 bits.</li>
+</ul>
+<h4 id="64-bit-architectures-eg-x86-64-aarch64">64-Bit Architectures
+(e.g., x86-64, AArch64)</h4>
+<p>In modern 64-bit systems, the implementation splits significantly
+between Unix-like environments and Microsoft Windows.</p>
+<ul>
+<li><p><strong>LP64 (Linux, macOS, BSD, Solaris)</strong>:</p>
+<ul>
+<li><strong><code>int</code></strong>: 32 bits.</li>
+<li><strong><code>long</code></strong>: 64 bits.</li>
+<li><strong><code>long long</code></strong>: 64 bits.</li>
+<li><strong>Pointer</strong>: 64 bits.</li>
+<li>In LP64, <code>long</code> scales to the native 64-bit register
+size, making <code>sizeof(long) == sizeof(void*)</code>.</li>
+</ul></li>
+<li><p><strong>LLP64 (Microsoft Windows 64-bit)</strong>:</p>
+<ul>
+<li><strong><code>int</code></strong>: 32 bits.</li>
+<li><strong><code>long</code></strong>: 32 bits.</li>
+<li><strong><code>long long</code></strong>: 64 bits.</li>
+<li><strong>Pointer</strong>: 64 bits.</li>
+<li>Microsoft preserved 32-bit <code>long</code> types to maintain
+backward compatibility with legacy 32-bit Windows codebases, requiring
+developers to use <code>long long</code> for native 64-bit
+integers.</li>
+</ul></li>
+</ul>
+<h3 id="summary-comparison-table">Summary Comparison Table</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Data Model</th>
+<th style="text-align: left;">Target Systems</th>
+<th style="text-align: left;"><code>short</code></th>
+<th style="text-align: left;"><code>int</code></th>
+<th style="text-align: left;"><code>long</code></th>
+<th style="text-align: left;"><code>long long</code></th>
+<th style="text-align: left;">Pointer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>LP32</strong></td>
+<td style="text-align: left;">16-bit DOS / Microcontrollers</td>
+<td style="text-align: left;">16-bit</td>
+<td style="text-align: left;">16-bit</td>
+<td style="text-align: left;">32-bit</td>
+<td style="text-align: left;">64-bit</td>
+<td style="text-align: left;">16-bit</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>ILP32</strong></td>
+<td style="text-align: left;">32-bit Unix, Windows 32</td>
+<td style="text-align: left;">16-bit</td>
+<td style="text-align: left;">32-bit</td>
+<td style="text-align: left;">32-bit</td>
+<td style="text-align: left;">64-bit</td>
+<td style="text-align: left;">32-bit</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>LLP64</strong></td>
+<td style="text-align: left;">64-bit Windows</td>
+<td style="text-align: left;">16-bit</td>
+<td style="text-align: left;">32-bit</td>
+<td style="text-align: left;">32-bit</td>
+<td style="text-align: left;">64-bit</td>
+<td style="text-align: left;">64-bit</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>LP64</strong></td>
+<td style="text-align: left;">64-bit Linux, macOS, Unix</td>
+<td style="text-align: left;">16-bit</td>
+<td style="text-align: left;">32-bit</td>
+<td style="text-align: left;">64-bit</td>
+<td style="text-align: left;">64-bit</td>
+<td style="text-align: left;">64-bit</td>
+</tr>
+</tbody>
+</table>
+<h3 id="achieving-fixed-bit-widths-with-stdinth">Achieving Fixed Bit
+Widths with <code>&lt;stdint.h&gt;</code></h3>
+<p>Because relying on <code>int</code> or <code>long</code> introduces
+portability issues across architectures, the C99 revision introduced the
+<code>&lt;stdint.h&gt;</code> header. When an application requires
+unambiguous, cross-platform sizes—such as in binary serialization,
+network protocols, or hardware register manipulation—standard
+fixed-width types should be used:</p>
+<ul>
+<li><code>int8_t</code> / <code>uint8_t</code>: Exactly 8 bits.</li>
+<li><code>int16_t</code> / <code>uint16_t</code>: Exactly 16 bits.</li>
+<li><code>int32_t</code> / <code>uint32_t</code>: Exactly 32 bits.</li>
+<li><code>int64_t</code> / <code>uint64_t</code>: Exactly 64 bits.</li>
+<li><code>intptr_t</code> / <code>uintptr_t</code>: An integer type
+guaranteed to be the exact same width as a pointer on that
+platform.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

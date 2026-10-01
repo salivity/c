@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Use POSIX Shared Memory in C - c</title>
+    <meta name="description" content="Shared memory is an efficient Inter-Process Communication (IPC) mechanism that enables separate processes to access the same physical memory segment. By mapping a common region of physical memory into the distinct virtual address spaces of multiple proce">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-to-use-posix-shared-memory-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Use POSIX Shared Memory in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-to-use-posix-shared-memory-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Shared memory is an efficient Inter-Process Communication (IPC) mechanism that enables separate processes to access the same physical memory segment. By mapping a common region of physical memory into the distinct virtual address spaces of multiple proce" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-use-posix-shared-memory-in-c">How to Use POSIX Shared
+Memory in C</h1>
+<p>Shared memory is an efficient Inter-Process Communication (IPC)
+mechanism that enables separate processes to access the same physical
+memory segment. By mapping a common region of physical memory into the
+distinct virtual address spaces of multiple processes, data can be
+exchanged directly without the overhead of copying information through
+the operating system kernel. In C, POSIX APIs provide a standardized,
+file-descriptor-based interface—utilizing functions such as
+<code>shm_open</code>, <code>ftruncate</code>, and <code>mmap</code>—to
+create, size, and map these shared segments across process
+boundaries.</p>
+<h2 id="understanding-shared-memory-architecture">Understanding Shared
+Memory Architecture</h2>
+<p>Operating systems enforce memory isolation by default. Every process
+operates within its own private virtual address space, translated into
+physical RAM through page tables managed by the Memory Management Unit
+(MMU) and the OS kernel. Under normal circumstances, one process cannot
+read or write to the virtual address space of another.</p>
+<p>Shared memory bypasses this restriction by mapping the exact same
+physical pages of RAM into the page tables of two or more independent
+processes. While each process may assign a different virtual address to
+this region, the underlying physical storage is identical. As a result,
+writes executed by one process are instantly visible to all other
+processes mapping that segment, eliminating the data copying inherent to
+pipes, message queues, and sockets.</p>
+<h2 id="key-posix-shared-memory-apis">Key POSIX Shared Memory APIs</h2>
+<p>POSIX shared memory objects are referenced by names (typically
+starting with a forward slash, such as <code>/my_shm</code>) and handled
+via standard file descriptor paradigms. The core functions include:</p>
+<ul>
+<li><strong><code>shm_open(const char *name, int oflag, mode_t mode)</code></strong>:
+Creates or opens a POSIX shared memory object. It returns an integer
+file descriptor, similar to <code>open()</code>. Objects exist in a
+virtual file system (often mounted at <code>/dev/shm</code> on
+Linux).</li>
+<li><strong><code>ftruncate(int fd, off_t length)</code></strong>: Sets
+the size of the shared memory object in bytes. Newly created shared
+memory objects initially have a size of zero.</li>
+<li><strong><code>mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)</code></strong>:
+Maps the shared memory file descriptor directly into the calling
+process's virtual address space, returning a pointer to the mapped
+memory.</li>
+<li><strong><code>munmap(void *addr, size_t length)</code></strong>:
+Unmaps the designated address range from the process's address
+space.</li>
+<li><strong><code>shm_unlink(const char *name)</code></strong>: Removes
+the shared memory object name from the system. The physical memory is
+released once all processes close and unmap the region.</li>
+</ul>
+<h2 id="mapping-shared-memory-across-processes">Mapping Shared Memory
+Across Processes</h2>
+<p>Establishing a shared memory region requires a coordinated workflow
+between a producing process and a consuming process.</p>
+<h3 id="step-1-writing-process-creating-and-mapping">Step 1: Writing
+Process (Creating and Mapping)</h3>
+<p>The creating process generates the shared object, assigns its storage
+capacity, and maps it into its address space to write data.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdlib.h&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string.h&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;fcntl.h&gt;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;sys/mman.h&gt;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;unistd.h&gt;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="pp">#define SHM_NAME </span><span class="st">&quot;/example_shm&quot;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="pp">#define SHM_SIZE </span><span class="dv">4096</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Create the shared memory object</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> fd <span class="op">=</span> shm_open<span class="op">(</span>SHM_NAME<span class="op">,</span> O_CREAT <span class="op">|</span> O_RDWR<span class="op">,</span> <span class="bn">0666</span><span class="op">);</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>fd <span class="op">==</span> <span class="op">-</span><span class="dv">1</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>        perror<span class="op">(</span><span class="st">&quot;shm_open failed&quot;</span><span class="op">);</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Configure the size</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>ftruncate<span class="op">(</span>fd<span class="op">,</span> SHM_SIZE<span class="op">)</span> <span class="op">==</span> <span class="op">-</span><span class="dv">1</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>        perror<span class="op">(</span><span class="st">&quot;ftruncate failed&quot;</span><span class="op">);</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>        close<span class="op">(</span>fd<span class="op">);</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Map the object into virtual memory</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> <span class="op">*</span>ptr <span class="op">=</span> mmap<span class="op">(</span>NULL<span class="op">,</span> SHM_SIZE<span class="op">,</span> PROT_READ <span class="op">|</span> PROT_WRITE<span class="op">,</span> MAP_SHARED<span class="op">,</span> fd<span class="op">,</span> <span class="dv">0</span><span class="op">);</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>ptr <span class="op">==</span> MAP_FAILED<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>        perror<span class="op">(</span><span class="st">&quot;mmap failed&quot;</span><span class="op">);</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>        close<span class="op">(</span>fd<span class="op">);</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 4. Write data to the shared memory region</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>    <span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>message <span class="op">=</span> <span class="st">&quot;Hello from the producing process!&quot;</span><span class="op">;</span></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>    strncpy<span class="op">(</span>ptr<span class="op">,</span> message<span class="op">,</span> SHM_SIZE<span class="op">);</span></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Data written to shared memory: </span><span class="sc">%s\n</span><span class="st">&quot;</span><span class="op">,</span> ptr<span class="op">);</span></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Keep memory accessible until unmapped</span></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>    munmap<span class="op">(</span>ptr<span class="op">,</span> SHM_SIZE<span class="op">);</span></span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>    close<span class="op">(</span>fd<span class="op">);</span></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="step-2-reading-process-opening-and-mapping">Step 2: Reading
+Process (Opening and Mapping)</h3>
+<p>The receiving process opens the existing object by its name and maps
+it into its own address space to read the contents.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdlib.h&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;fcntl.h&gt;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;sys/mman.h&gt;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;unistd.h&gt;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="pp">#define SHM_NAME </span><span class="st">&quot;/example_shm&quot;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="pp">#define SHM_SIZE </span><span class="dv">4096</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Open the existing shared memory object</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> fd <span class="op">=</span> shm_open<span class="op">(</span>SHM_NAME<span class="op">,</span> O_RDONLY<span class="op">,</span> <span class="bn">0666</span><span class="op">);</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>fd <span class="op">==</span> <span class="op">-</span><span class="dv">1</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        perror<span class="op">(</span><span class="st">&quot;shm_open failed&quot;</span><span class="op">);</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Map the object into this process&#39;s address space</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> <span class="op">*</span>ptr <span class="op">=</span> mmap<span class="op">(</span>NULL<span class="op">,</span> SHM_SIZE<span class="op">,</span> PROT_READ<span class="op">,</span> MAP_SHARED<span class="op">,</span> fd<span class="op">,</span> <span class="dv">0</span><span class="op">);</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>ptr <span class="op">==</span> MAP_FAILED<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>        perror<span class="op">(</span><span class="st">&quot;mmap failed&quot;</span><span class="op">);</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>        close<span class="op">(</span>fd<span class="op">);</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Read the data</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Data read from shared memory: </span><span class="sc">%s\n</span><span class="st">&quot;</span><span class="op">,</span> ptr<span class="op">);</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 4. Clean up resources</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>    munmap<span class="op">(</span>ptr<span class="op">,</span> SHM_SIZE<span class="op">);</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>    close<span class="op">(</span>fd<span class="op">);</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 5. Remove the shared object name from the system</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>    shm_unlink<span class="op">(</span>SHM_NAME<span class="op">);</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="important-considerations">Important Considerations</h2>
+<ul>
+<li><strong>Synchronization</strong>: POSIX shared memory does not
+supply intrinsic synchronization. If multiple processes read and write
+simultaneously, race conditions and memory corruption will occur.
+Processes typically coordinate access using POSIX named semaphores
+(<code>sem_open</code>) or process-shared mutexes
+(<code>pthread_mutexattr_setpshared</code>).</li>
+<li><strong>Flags in <code>mmap</code></strong>: The
+<code>MAP_SHARED</code> flag is critical. Using <code>MAP_PRIVATE</code>
+instead creates a copy-on-write mapping, meaning changes remain local to
+that process and are not propagated to other processes sharing the file
+descriptor.</li>
+<li><strong>Compilation</strong>: When compiling C programs using POSIX
+shared memory routines, link against the real-time library by passing
+the <code>-lrt</code> flag to the compiler (e.g.,
+<code>gcc producer.c -o producer -lrt</code>).</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

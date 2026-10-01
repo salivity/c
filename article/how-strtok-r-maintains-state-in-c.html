@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How strtok_r Maintains State in C - c</title>
+    <meta name="description" content="The strtokr function is the reentrant and thread-safe equivalent of the standard C library function strtok. While standard strtok tracks its position in a string using a hidden, shared static buffer—causing race conditions in multithreaded programs—s">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-strtok-r-maintains-state-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How strtok_r Maintains State in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-strtok-r-maintains-state-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The strtokr function is the reentrant and thread-safe equivalent of the standard C library function strtok. While standard strtok tracks its position in a string using a hidden, shared static buffer—causing race conditions in multithreaded programs—s" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-strtok_r-maintains-state-in-c">How strtok_r Maintains State
+in C</h1>
+<p>The <code>strtok_r</code> function is the reentrant and thread-safe
+equivalent of the standard C library function <code>strtok</code>. While
+standard <code>strtok</code> tracks its position in a string using a
+hidden, shared static buffer—causing race conditions in multithreaded
+programs—<code>strtok_r</code> avoids this by offloading the
+state-tracking responsibility to the caller. This article explains how
+<code>strtok_r</code> leverages an external pointer parameter to
+maintain parsing context reliably across multiple invocations without
+global state.</p>
+<h3 id="the-mechanism-of-saveptr">The Mechanism of
+<code>saveptr</code></h3>
+<p>The core difference between <code>strtok</code> and
+<code>strtok_r</code> lies in the function signatures. The prototype for
+<code>strtok_r</code> is:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">char</span> <span class="op">*</span>strtok_r<span class="op">(</span><span class="dt">char</span> <span class="op">*</span>str<span class="op">,</span> <span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>delim<span class="op">,</span> <span class="dt">char</span> <span class="op">**</span>saveptr<span class="op">);</span></span></code></pre></div>
+<p>The third argument, <code>saveptr</code>, is a pointer to a
+<code>char *</code> variable. This user-provided variable acts as the
+storage container for the function's internal state. Because the caller
+allocates this variable—typically as a local variable on the thread's
+execution stack—each thread or parsing task maintains its own isolated
+state context.</p>
+<h3 id="step-by-step-execution-lifecycle">Step-by-Step Execution
+Lifecycle</h3>
+<p>The parsing process with <code>strtok_r</code> follows a specific
+protocol across consecutive calls:</p>
+<ol type="1">
+<li><p><strong>Initial Call</strong>: On the first invocation, the
+caller supplies the address of the target string in <code>str</code> and
+the address of the tracking pointer in <code>saveptr</code> (e.g.,
+<code>&amp;saveptr</code>). The function scans <code>str</code> to
+locate the first token, skips any leading delimiters defined in
+<code>delim</code>, and determines the end of the token. It replaces the
+first delimiter character following the token with a null terminator
+(<code>\0</code>) and updates the memory location pointed to by
+<code>saveptr</code> to store the address of the next character in the
+buffer. The function then returns a pointer to the start of the found
+token.</p></li>
+<li><p><strong>Subsequent Calls</strong>: For subsequent tokens from the
+same string, the caller passes <code>NULL</code> as the <code>str</code>
+argument while continuing to pass the same <code>saveptr</code> address.
+Detecting that <code>str</code> is <code>NULL</code>,
+<code>strtok_r</code> reads the address stored inside
+<code>*saveptr</code> as its starting position rather than starting
+over. It repeats the process of scanning, null-terminating, advancing
+<code>*saveptr</code>, and returning the next token.</p></li>
+<li><p><strong>Termination</strong>: Once the end of the string is
+reached and no more tokens remain, <code>strtok_r</code> updates
+<code>*saveptr</code> to point to the end of the buffer (or sets it to
+<code>NULL</code>) and returns <code>NULL</code>. This signals to the
+calling loop that tokenization is complete.</p></li>
+</ol>
+<h3 id="code-example">Code Example</h3>
+<p>Below is a standard pattern demonstrating how the caller manages the
+parsing state:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string.h&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> input<span class="op">[]</span> <span class="op">=</span> <span class="st">&quot;apple,banana,cherry&quot;</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">const</span> <span class="dt">char</span> delim<span class="op">[]</span> <span class="op">=</span> <span class="st">&quot;,&quot;</span><span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> <span class="op">*</span>saveptr<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// First call: pass the string to tokenize</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> <span class="op">*</span>token <span class="op">=</span> strtok_r<span class="op">(</span>input<span class="op">,</span> delim<span class="op">,</span> <span class="op">&amp;</span>saveptr<span class="op">);</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Subsequent calls: pass NULL to continue using saveptr</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> <span class="op">(</span>token <span class="op">!=</span> NULL<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        printf<span class="op">(</span><span class="st">&quot;Token: </span><span class="sc">%s\n</span><span class="st">&quot;</span><span class="op">,</span> token<span class="op">);</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        token <span class="op">=</span> strtok_r<span class="op">(</span>NULL<span class="op">,</span> delim<span class="op">,</span> <span class="op">&amp;</span>saveptr<span class="op">);</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="why-this-design-ensures-thread-safety">Why This Design Ensures
+Thread Safety</h3>
+<p>Because standard <code>strtok</code> uses an internal
+<code>static char *</code> variable, concurrent calls from different
+threads overwrite each other's progress through their respective
+strings. By requiring the user to supply <code>saveptr</code>,
+<code>strtok_r</code> removes all global and static state from the
+function itself. Multiple threads can safely execute
+<code>strtok_r</code> simultaneously, provided each thread supplies its
+own distinct <code>char *</code> tracking variable.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Is a Bus Error (SIGBUS) vs SIGSEGV in C? - c</title>
+    <meta name="description" content="Both a bus error (SIGBUS) and a segmentation fault (SIGSEGV) are fatal signals triggered when a C program attempts an invalid memory operation, but they stem from fundamentally different issues within the computer's memory architecture. While a segmentat">
+    <link rel="canonical" href="https://salivity.github.io/c/article/what-is-a-bus-error-sigbus-vs-sigsegv-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Is a Bus Error (SIGBUS) vs SIGSEGV in C? - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/what-is-a-bus-error-sigbus-vs-sigsegv-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Both a bus error (SIGBUS) and a segmentation fault (SIGSEGV) are fatal signals triggered when a C program attempts an invalid memory operation, but they stem from fundamentally different issues within the computer's memory architecture. While a segmentat" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="what-is-a-bus-error-sigbus-vs-sigsegv-in-c">What Is a Bus Error
+(SIGBUS) vs SIGSEGV in C?</h1>
+<p>Both a bus error (<code>SIGBUS</code>) and a segmentation fault
+(<code>SIGSEGV</code>) are fatal signals triggered when a C program
+attempts an invalid memory operation, but they stem from fundamentally
+different issues within the computer's memory architecture. While a
+segmentation fault occurs when a program attempts to access a virtual
+memory address that is logically invalid or protected, a bus error
+occurs when the hardware physically cannot execute the requested memory
+transaction. This guide breaks down the mechanics of
+<code>SIGBUS</code>, its primary triggers, and the core differences
+separating it from a standard <code>SIGSEGV</code>.</p>
+<h2 id="what-is-a-bus-error-sigbus">What Is a Bus Error (SIGBUS)?</h2>
+<p>A bus error, represented by the signal <code>SIGBUS</code>, is raised
+by the operating system when the processor attempts to access memory
+over the physical data bus and fails due to hardware-level constraints.
+Instead of an operating system denying access because of permission
+rules, the CPU itself encounters a fault trying to carry out the
+physical read or write operation.</p>
+<p>In C, a <code>SIGBUS</code> is typically caused by two distinct
+scenarios:</p>
+<h3 id="1-unaligned-memory-access">1. Unaligned Memory Access</h3>
+<p>Most processor architectures expect multi-byte data types (like
+2-byte <code>short</code>, 4-byte <code>int</code>, or 8-byte
+<code>double</code>) to reside at memory addresses that are multiples of
+their size. For instance, a 4-byte integer is expected to start at an
+address divisible by 4.</p>
+<p>While modern x86 architectures often handle unaligned accesses
+gracefully in hardware at the cost of performance, many RISC
+architectures (such as SPARC, older ARM variants, and MIPS) strictly
+forbid it. If code casts a byte pointer to an integer pointer and
+dereferences an odd address, the CPU raises an alignment fault:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">char</span> buffer<span class="op">[</span><span class="dv">10</span><span class="op">];</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="co">// Misaligning an integer pointer to an odd address</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> <span class="op">*</span>bad_ptr <span class="op">=</span> <span class="op">(</span><span class="dt">int</span> <span class="op">*)(</span>buffer <span class="op">+</span> <span class="dv">1</span><span class="op">);</span> </span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">*</span>bad_ptr <span class="op">=</span> <span class="dv">42</span><span class="op">;</span> <span class="co">// Triggers SIGBUS on architectures requiring strict alignment</span></span></code></pre></div>
+<p>Specialized SIMD instructions on modern x86 processors (such as
+certain AVX or SSE instructions) can also trigger a bus error if the
+referenced memory is not aligned to 16, 32, or 64 bytes.</p>
+<h3 id="2-memory-mapped-files-mmap-past-eof">2. Memory-Mapped Files
+(mmap) Past EOF</h3>
+<p>The most common cause of <code>SIGBUS</code> on modern systems
+involves the <code>mmap()</code> system call. If you map a file into
+virtual memory and then attempt to access a portion of the memory that
+corresponds to a part of the file that does not exist (for example, if
+the file is truncated by another process while mapped), the virtual
+address exists, but the physical backing store cannot satisfy the page
+fault.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Mapping a file of size 100 bytes</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> fd <span class="op">=</span> open<span class="op">(</span><span class="st">&quot;file.txt&quot;</span><span class="op">,</span> O_RDWR<span class="op">);</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="dt">char</span> <span class="op">*</span>map <span class="op">=</span> mmap<span class="op">(</span>NULL<span class="op">,</span> <span class="dv">4096</span><span class="op">,</span> PROT_READ <span class="op">|</span> PROT_WRITE<span class="op">,</span> MAP_SHARED<span class="op">,</span> fd<span class="op">,</span> <span class="dv">0</span><span class="op">);</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co">// If file.txt is only 100 bytes, accessing byte 200 causes SIGBUS</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="dt">char</span> c <span class="op">=</span> map<span class="op">[</span><span class="dv">200</span><span class="op">];</span> </span></code></pre></div>
+<h2 id="what-is-a-segmentation-fault-sigsegv">What Is a Segmentation
+Fault (SIGSEGV)?</h2>
+<p>A segmentation fault, represented by the signal <code>SIGSEGV</code>,
+is handled primarily by the CPU's Memory Management Unit (MMU) in
+coordination with the OS kernel. It is a logical memory violation rather
+than a physical bus error.</p>
+<p>A <code>SIGSEGV</code> happens when:</p>
+<ul>
+<li>The address accessed is not mapped to any physical page in virtual
+memory (such as dereferencing a <code>NULL</code> pointer or an
+uninitialized pointer).</li>
+<li>The access violates memory permissions (such as attempting to write
+data to a read-only code or literal string section).</li>
+<li>A stack overflow exhausts the memory allocated for the call
+stack.</li>
+</ul>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Writing to read-only memory triggers SIGSEGV</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">char</span> <span class="op">*</span>str <span class="op">=</span> <span class="st">&quot;Hello World&quot;</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="op">*</span>str <span class="op">=</span> <span class="ch">&#39;h&#39;</span><span class="op">;</span> </span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Dereferencing NULL triggers SIGSEGV</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> <span class="op">*</span>ptr <span class="op">=</span> NULL<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="op">*</span>ptr <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span></code></pre></div>
+<h2 id="core-differences-sigbus-vs-sigsegv">Core Differences: SIGBUS vs.
+SIGSEGV</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;">Bus Error (<code>SIGBUS</code>)</th>
+<th style="text-align: left;">Segmentation Fault
+(<code>SIGSEGV</code>)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Origin</strong></td>
+<td style="text-align: left;">Hardware bus controller / Physical
+addressing failure</td>
+<td style="text-align: left;">MMU (Memory Management Unit) / Logical
+paging fault</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Root Cause</strong></td>
+<td style="text-align: left;">Alignment violation or non-existent
+physical backing store</td>
+<td style="text-align: left;">Invalid virtual address or permission
+violation</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Common Trigger</strong></td>
+<td style="text-align: left;">Dereferencing unaligned pointers or
+truncated <code>mmap</code> regions</td>
+<td style="text-align: left;">Dereferencing <code>NULL</code> or wild
+pointers; writing to read-only memory</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Platform Behavior</strong></td>
+<td style="text-align: left;">Highly architecture-dependent (strict RISC
+vs. tolerant CISC)</td>
+<td style="text-align: left;">Consistent across almost all
+virtual-memory platforms</td>
+</tr>
+</tbody>
+</table>
+<h2 id="summary">Summary</h2>
+<p>In C programming, the distinction boils down to <strong>logical
+validity versus physical feasibility</strong>.</p>
+<ul>
+<li>Use <strong><code>SIGSEGV</code></strong> to diagnose bugs related
+to pointer logic: dereferencing unmapped memory, walking off arrays into
+unmapped boundaries, or violating access permissions.</li>
+<li>Use <strong><code>SIGBUS</code></strong> to diagnose
+hardware-related constraints: pointer-casting misalignments on strict
+architectures, or inconsistencies between virtual memory pages and their
+physical backing storage via <code>mmap</code>.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

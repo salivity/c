@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Source Files vs Translation Units in C - c</title>
+    <meta name="description" content="In the C programming language, the distinction between a source file and a translation unit is fundamental to understanding the compilation model. A source file is a physical file stored on disk containing human-readable C code and preprocessor directive">
+    <link rel="canonical" href="https://salivity.github.io/c/article/source-files-vs-translation-units-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Source Files vs Translation Units in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/source-files-vs-translation-units-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, the distinction between a source file and a translation unit is fundamental to understanding the compilation model. A source file is a physical file stored on disk containing human-readable C code and preprocessor directive" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="source-files-vs-translation-units-in-c">Source Files vs
+Translation Units in C</h1>
+<p>In the C programming language, the distinction between a source file
+and a translation unit is fundamental to understanding the compilation
+model. A source file is a physical file stored on disk containing
+human-readable C code and preprocessor directives, whereas a translation
+unit is the fully expanded, monolithic representation of that code after
+the C preprocessor has resolved all inclusions, macros, and conditional
+directives. This article examines the definitions of both concepts, how
+the preprocessor transforms one into the other, and the structural
+differences that dictate scope and linkage.</p>
+<h2 id="what-is-a-source-file">What Is a Source File?</h2>
+<p>A source file is a physical entity with an extension such as
+<code>.c</code> (or <code>.h</code> for header files) stored within the
+file system. It contains:</p>
+<ul>
+<li>Standard C source code (functions, variable declarations,
+statements).</li>
+<li>Preprocessor directives (such as <code>#include</code>,
+<code>#define</code>, <code>#ifdef</code>, and
+<code>#pragma</code>).</li>
+<li>Comments and whitespace intended for human readability.</li>
+</ul>
+<p>Source files represent the modular structure of a project as
+maintained by the developer. They are physically separate from each
+other, allowing code to be organized into logical, manageable units
+across directories.</p>
+<h2 id="what-is-a-translation-unit">What Is a Translation Unit?</h2>
+<p>A translation unit (often abbreviated as TU) is the logical stream of
+C code that the compiler actually compiles into an object file
+(<code>.o</code> or <code>.obj</code>). It represents the state of a
+single <code>.c</code> file after the preprocessor has completed its
+work.</p>
+<p>During the preprocessing phase:</p>
+<ol type="1">
+<li>All <code>#include</code> directives are replaced recursively with
+the exact contents of the referenced header files.</li>
+<li>Conditional compilation blocks (<code>#if</code>,
+<code>#ifdef</code>, <code>#ifndef</code>) are evaluated, and
+non-matching code branches are stripped out.</li>
+<li>All macro invocations (<code>#define</code>) are expanded to their
+defined replacements.</li>
+<li>All comments are stripped and replaced with single spaces.</li>
+</ol>
+<p>Once preprocessing finishes, no preprocessor directives remain. The
+resulting single block of pure C code is the translation unit.</p>
+<h2 id="key-structural-differences">Key Structural Differences</h2>
+<h3 id="1-physical-vs-logical-existence">1. Physical vs. Logical
+Existence</h3>
+<p>A source file exists as an independent, physical asset on disk. A
+translation unit, by contrast, is primarily a transient, in-memory
+representation constructed during the build process. While you can
+instruct compilers to emit the preprocessed output (e.g., using the
+<code>-E</code> flag in GCC or Clang), a translation unit does not
+inherently exist as a distinct file in version control.</p>
+<h3 id="2-file-composition-and-boundaries">2. File Composition and
+Boundaries</h3>
+<ul>
+<li><strong>Source File:</strong> A single file with definite physical
+boundaries. An <code>#include &lt;stdio.h&gt;</code> directive in a
+<code>.c</code> file is merely a reference occupying one line of
+text.</li>
+<li><strong>Translation Unit:</strong> A composite structure. That
+single <code>#include &lt;stdio.h&gt;</code> line expands into thousands
+of lines of declarations, types, and prototypes. Consequently, a single
+translation unit is composed of the primary <code>.c</code> source file
+plus the cumulative contents of all headers directly or indirectly
+included by it.</li>
+</ul>
+<h3 id="3-cardinality">3. Cardinality</h3>
+<ul>
+<li><strong>Source Files to Translation Units:</strong> Many-to-one.
+Multiple source files (the <code>.c</code> implementation file and
+multiple <code>.h</code> header files) merge to form a single
+translation unit.</li>
+<li><strong>Translation Units to Object Files:</strong> One-to-one. The
+compiler processes exactly one translation unit to produce exactly one
+object file.</li>
+</ul>
+<h3 id="4-linkage-and-scope-impact">4. Linkage and Scope Impact</h3>
+<p>The structure of a translation unit directly defines the C concept of
+<em>internal linkage</em>:</p>
+<ul>
+<li>An identifier declared with the <code>static</code> specifier at
+file scope is accessible only within that specific translation
+unit.</li>
+<li>Because a translation unit incorporates all included header files, a
+<code>static</code> function or variable defined in a header file is
+duplicated into every translation unit that includes that header,
+creating distinct entities with independent memory locations in each
+compiled object file.</li>
+<li>File scope in C actually means <em>translation unit scope</em>.
+Identifiers declared outside functions are visible from their point of
+declaration to the end of the translation unit, spanning across included
+headers and the base source file indiscriminately.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

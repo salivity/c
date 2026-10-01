@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page Fault Handling in Virtual Memory Explained - c</title>
+    <meta name="description" content="A page fault is an essential hardware-software mechanism that occurs when a CPU attempts to access a virtual memory address not currently mapped to physical RAM. This article explores the nature of page faults, differentiates their types, and details the">
+    <link rel="canonical" href="https://salivity.github.io/c/article/page-fault-handling-in-virtual-memory-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Page Fault Handling in Virtual Memory Explained - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/page-fault-handling-in-virtual-memory-explained" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="A page fault is an essential hardware-software mechanism that occurs when a CPU attempts to access a virtual memory address not currently mapped to physical RAM. This article explores the nature of page faults, differentiates their types, and details the" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="page-fault-handling-in-virtual-memory-explained">Page Fault
+Handling in Virtual Memory Explained</h1>
+<p>A page fault is an essential hardware-software mechanism that occurs
+when a CPU attempts to access a virtual memory address not currently
+mapped to physical RAM. This article explores the nature of page faults,
+differentiates their types, and details the step-by-step process by
+which an operating system's Virtual Memory Manager (VMM)—implemented in
+the C programming language—resolves these faults to maintain seamless
+program execution.</p>
+<h2 id="what-is-a-page-fault">What Is a Page Fault?</h2>
+<p>When an application accesses memory, it references virtual addresses
+rather than physical memory locations. The Memory Management Unit (MMU)
+uses page tables to translate these virtual addresses into physical
+addresses.</p>
+<p>A <strong>page fault</strong> is an exception raised by the MMU when
+this translation cannot be completed. Common reasons include:</p>
+<ul>
+<li><strong>Demand Paging:</strong> The requested page has not yet been
+loaded from disk into physical memory (RAM).</li>
+<li><strong>Swapped Pages:</strong> The page was temporarily written to
+disk (swap space) to free up RAM.</li>
+<li><strong>Permission Violations:</strong> A process attempts to write
+to a read-only page (such as Copy-on-Write) or access kernel-level space
+from user mode.</li>
+<li><strong>Invalid Addresses:</strong> The virtual address does not
+belong to the process's allocated address space, leading to a
+segmentation fault.</li>
+</ul>
+<p>Page faults fall primarily into three categories:</p>
+<ol type="1">
+<li><strong>Minor Page Fault:</strong> The page is present in physical
+memory but lacks an active mapping in the process's page table (e.g.,
+shared libraries, or memory already cached by the kernel).</li>
+<li><strong>Major Page Fault:</strong> The required data must be read
+from secondary storage (such as an SSD or HDD), incurring I/O
+latency.</li>
+<li><strong>Invalid Page Fault:</strong> An access violation that causes
+the kernel to terminate the offending thread or process.</li>
+</ol>
+<h2 id="hardware-detection-and-the-cpu-trap">Hardware Detection and the
+CPU Trap</h2>
+<p>When an unmapped or restricted address is accessed:</p>
+<ol type="1">
+<li>The MMU halts instruction execution and saves the faulting virtual
+address to a dedicated CPU control register (such as <code>CR2</code> on
+x86 architectures).</li>
+<li>The CPU generates an interrupt/exception vector (e.g., Interrupt 14
+on x86).</li>
+<li>The CPU saves the current register state, pushes an error code to
+the kernel stack, and transfers execution to the kernel’s Interrupt
+Service Routine (ISR).</li>
+</ol>
+<h2 id="how-the-kernel-vmm-handles-the-fault-in-c">How the Kernel VMM
+Handles the Fault in C</h2>
+<p>Within an OS kernel written in C, the interrupt handler routes the
+execution flow to a core routine, commonly designated as
+<code>do_page_fault()</code>. The VMM resolves the issue through the
+following sequence:</p>
+<h3 id="1-extracting-fault-information">1. Extracting Fault
+Information</h3>
+<p>The handler retrieves the faulting address and the CPU error code to
+determine whether the access was a read or write operation, and whether
+it originated in user mode or kernel mode.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> pt_regs <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">long</span> ip<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">long</span> sp<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">long</span> flags<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">/* Architecture-specific register state */</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> do_page_fault<span class="op">(</span><span class="kw">struct</span> pt_regs <span class="op">*</span>regs<span class="op">,</span> <span class="dt">unsigned</span> <span class="dt">long</span> error_code<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">long</span> fault_address<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">/* Read the faulting address from the architecture register (e.g., CR2) */</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    __asm__ <span class="dt">volatile</span><span class="op">(</span><span class="st">&quot;mov </span><span class="sc">%%</span><span class="st">cr2, %0&quot;</span> <span class="op">:</span> <span class="st">&quot;=r&quot;</span><span class="op">(</span>fault_address<span class="op">));</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    handle_mm_fault<span class="op">(</span>current_process<span class="op">,</span> fault_address<span class="op">,</span> error_code<span class="op">);</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="2-validating-the-address-against-memory-regions">2. Validating
+the Address Against Memory Regions</h3>
+<p>The kernel checks if the address falls within a valid virtual memory
+area (VMA) associated with the current process.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> vm_area <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">long</span> vm_start<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">long</span> vm_end<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">int</span> vm_flags<span class="op">;</span> <span class="co">/* VM_READ, VM_WRITE, VM_EXEC */</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> vm_area <span class="op">*</span>vm_next<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> handle_mm_fault<span class="op">(</span><span class="kw">struct</span> task_struct <span class="op">*</span>task<span class="op">,</span> <span class="dt">unsigned</span> <span class="dt">long</span> address<span class="op">,</span> <span class="dt">unsigned</span> <span class="dt">long</span> error_code<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> vm_area <span class="op">*</span>vma <span class="op">=</span> find_vma<span class="op">(</span>task<span class="op">-&gt;</span>mm<span class="op">,</span> address<span class="op">);</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">/* Address is not allocated to the process */</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(!</span>vma <span class="op">||</span> address <span class="op">&lt;</span> vma<span class="op">-&gt;</span>vm_start<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        send_signal<span class="op">(</span>task<span class="op">,</span> SIGSEGV<span class="op">);</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">/* Check permissions (e.g., write to a read-only page) */</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">((</span>error_code <span class="op">&amp;</span> FAULT_WRITE<span class="op">)</span> <span class="op">&amp;&amp;</span> <span class="op">!(</span>vma<span class="op">-&gt;</span>vm_flags <span class="op">&amp;</span> VM_WRITE<span class="op">))</span> <span class="op">{</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>        send_signal<span class="op">(</span>task<span class="op">,</span> SIGSEGV<span class="op">);</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> resolve_page<span class="op">(</span>vma<span class="op">,</span> address<span class="op">,</span> error_code<span class="op">);</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="3-allocating-a-physical-frame">3. Allocating a Physical
+Frame</h3>
+<p>If the address is valid, the kernel must locate or allocate an
+available physical page frame using its internal page allocator.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> page <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">long</span> physical_address<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> ref_count<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> resolve_page<span class="op">(</span><span class="kw">struct</span> vm_area <span class="op">*</span>vma<span class="op">,</span> <span class="dt">unsigned</span> <span class="dt">long</span> address<span class="op">,</span> <span class="dt">unsigned</span> <span class="dt">long</span> error_code<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> page <span class="op">*</span>physical_page <span class="op">=</span> allocate_physical_frame<span class="op">();</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(!</span>physical_page<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="co">/* Run page-replacement algorithms (e.g., LRU) to swap pages to disk */</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        physical_page <span class="op">=</span> reclaim_or_swap_page<span class="op">();</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span></code></pre></div>
+<h3 id="4-reading-data-from-storage-demand-paging">4. Reading Data from
+Storage (Demand Paging)</h3>
+<p>For pages backed by a file (such as an executable binary) or swap
+space, the VMM initiates disk I/O to read the page content into the
+allocated physical frame. During this I/O operation, the requesting
+thread is moved to a sleeping state, allowing the scheduler to run other
+threads.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>is_file_backed<span class="op">(</span>vma<span class="op">))</span> <span class="op">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>        read_page_from_disk<span class="op">(</span>vma<span class="op">-&gt;</span>file<span class="op">,</span> address<span class="op">,</span> physical_page<span class="op">-&gt;</span>physical_address<span class="op">);</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>        <span class="co">/* For anonymous memory, zero the allocated frame to avoid leaking data */</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        memset<span class="op">((</span><span class="dt">void</span> <span class="op">*)</span>physical_page<span class="op">-&gt;</span>physical_address<span class="op">,</span> <span class="dv">0</span><span class="op">,</span> PAGE_SIZE<span class="op">);</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span></code></pre></div>
+<h3 id="5-updating-the-page-table-entry-pte">5. Updating the Page Table
+Entry (PTE)</h3>
+<p>Once the data resides in physical RAM, the VMM updates the process's
+page table hierarchy (PGD, PUD, PMD, PTE) to bind the virtual address to
+the new physical frame.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>    pte_t <span class="op">*</span>pte <span class="op">=</span> get_pte_entry<span class="op">(</span>vma<span class="op">-&gt;</span>mm<span class="op">-&gt;</span>pgd<span class="op">,</span> address<span class="op">);</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">/* Set physical address and mark the page as PRESENT and VALID */</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>pte <span class="op">=</span> physical_page<span class="op">-&gt;</span>physical_address <span class="op">|</span> PTE_PRESENT <span class="op">|</span> PTE_USER<span class="op">;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>vma<span class="op">-&gt;</span>vm_flags <span class="op">&amp;</span> VM_WRITE<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        <span class="op">*</span>pte <span class="op">|=</span> PTE_WRITABLE<span class="op">;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span></code></pre></div>
+<h3 id="6-invalidating-the-tlb-and-resuming-execution">6. Invalidating
+the TLB and Resuming Execution</h3>
+<p>Because the Translation Lookaside Buffer (TLB) caches
+virtual-to-physical mappings, the CPU might hold stale translation
+state. The kernel executes an architecture-specific invalidation
+instruction (such as <code>invlpg</code> on x86) for that address:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>    __asm__ <span class="dt">volatile</span><span class="op">(</span><span class="st">&quot;invlpg (%0)&quot;</span> <span class="op">::</span> <span class="st">&quot;r&quot;</span><span class="op">(</span>address<span class="op">)</span> <span class="op">:</span> <span class="st">&quot;memory&quot;</span><span class="op">);</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>After updating the page table and invalidating the TLB, the kernel
+restores the CPU registers and executes the return-from-interrupt
+instruction (<code>iret</code>). The processor re-executes the exact
+instruction that previously triggered the fault. This time, the MMU
+finds a valid page table entry and transparently completes the memory
+access without the user program ever knowing a fault occurred.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

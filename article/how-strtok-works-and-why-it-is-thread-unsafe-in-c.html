@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How strtok Works and Why It Is Thread-Unsafe in C - c</title>
+    <meta name="description" content="The strtok function in the C standard library is a utility used to split a string into a sequence of tokens based on specified delimiter characters. It functions by sequentially scanning the input string, replacing delimiter characters with null terminat">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-strtok-works-and-why-it-is-thread-unsafe-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How strtok Works and Why It Is Thread-Unsafe in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-strtok-works-and-why-it-is-thread-unsafe-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The strtok function in the C standard library is a utility used to split a string into a sequence of tokens based on specified delimiter characters. It functions by sequentially scanning the input string, replacing delimiter characters with null terminat" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-strtok-works-and-why-it-is-thread-unsafe-in-c">How strtok
+Works and Why It Is Thread-Unsafe in C</h1>
+<p>The <code>strtok</code> function in the C standard library is a
+utility used to split a string into a sequence of tokens based on
+specified delimiter characters. It functions by sequentially scanning
+the input string, replacing delimiter characters with null terminators
+(<code>'\0'</code>), and returning pointers to the beginning of each
+identified token. However, because <code>strtok</code> relies on a
+hidden static pointer to maintain its position between successive calls,
+it is inherently thread-unsafe, leading to race conditions and data
+corruption when accessed concurrently by multiple threads.</p>
+<h2 id="algorithmic-function-of-strtok">Algorithmic Function of
+strtok</h2>
+<p>The <code>strtok</code> function is declared as
+<code>char *strtok(char *str, const char *delim)</code>. It operates via
+a stateful, iterative mechanism:</p>
+<ol type="1">
+<li><strong>Initialization:</strong> On the initial call, the caller
+passes the target string via <code>str</code> and a set of delimiters
+via <code>delim</code>. On subsequent calls to retrieve further tokens
+from the same string, <code>str</code> must be passed as
+<code>NULL</code>.</li>
+<li><strong>Skipping Leading Delimiters:</strong> The function scans the
+string starting from the current position, skipping any characters that
+match any character in the <code>delim</code> set. If it encounters the
+end of the string (<code>'\0'</code>) without finding a non-delimiter
+character, it returns <code>NULL</code>.</li>
+<li><strong>Locating the Token Boundary:</strong> Once the start of a
+token is found, <code>strtok</code> advances through the string until it
+encounters the next character that matches any delimiter in
+<code>delim</code> or reaches the string's null terminator.</li>
+<li><strong>String Modification:</strong> If a delimiter is found,
+<code>strtok</code> overwrites that delimiter character in memory with a
+null terminator (<code>'\0'</code>). This effectively terminates the
+current token as a valid, stand-alone C string.</li>
+<li><strong>State Preservation:</strong> The function stores the memory
+address of the character immediately following the newly placed null
+terminator in an internal, static pointer.</li>
+<li><strong>Return Value:</strong> It returns a pointer to the beginning
+of the extracted token. If no token could be found, it returns
+<code>NULL</code>.</li>
+</ol>
+<p>Because <code>strtok</code> modifies the string in place by inserting
+null terminators, the original string is permanently altered.
+Consequently, passing a string literal (which resides in read-only
+memory) results in undefined behavior, typically a segmentation
+fault.</p>
+<h2 id="why-strtok-is-inherently-thread-unsafe">Why strtok Is Inherently
+Thread-Unsafe</h2>
+<p>The thread-safety issue in <code>strtok</code> stems directly from
+its requirement to preserve state between function invocations without
+taking a state parameter from the caller.</p>
+<p>To track where the next search should begin when <code>str</code> is
+<code>NULL</code>, standard implementations of <code>strtok</code> store
+the continuation address in an internal variable with static storage
+duration:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">static</span> <span class="dt">char</span> <span class="op">*</span>last_position<span class="op">;</span></span></code></pre></div>
+<p>Because variables with static storage duration share a single memory
+location across the entire process:</p>
+<ul>
+<li><strong>Shared State Across Threads:</strong> If Thread A calls
+<code>strtok(strA, delim)</code> to begin parsing a string, the internal
+pointer is set to a location within <code>strA</code>.</li>
+<li><strong>Race Conditions:</strong> If Thread B calls
+<code>strtok(strB, delim)</code> before Thread A completes its
+tokenization loop, the shared internal pointer is overwritten with a
+location inside <code>strB</code>.</li>
+<li><strong>Corrupted Execution:</strong> When Thread A subsequently
+calls <code>strtok(NULL, delim)</code>, it will not resume parsing
+<code>strA</code>. Instead, it reads the pointer modified by Thread B,
+leading to interleaved token streams, skipped data, memory access
+violations, or infinite loops.</li>
+</ul>
+<h2 id="thread-safe-alternatives">Thread-Safe Alternatives</h2>
+<p>To address this limitation, modern standards provide reentrant
+alternatives that eliminate the shared static state:</p>
+<ul>
+<li><strong><code>strtok_r</code> (POSIX):</strong> Accepts a third
+argument, <code>char **saveptr</code>, which is a pointer to a
+caller-allocated <code>char*</code> variable. The caller maintains the
+state on their local stack, isolating each thread's execution
+context.</li>
+<li><strong><code>strtok_s</code> (C11 Bounds-checking Annex
+K):</strong> Functions similarly to <code>strtok_r</code>, requiring a
+caller-provided context pointer to track progress across calls
+safely.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

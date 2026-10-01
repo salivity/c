@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C17 Standard: Removed and Obsolete Features - c</title>
+    <meta name="description" content="The C17 standard (ISO/IEC 9899:2018) served primarily as a maintenance and defect-repair release for C11 rather than an overhaul of the language. Because its scope was strictly limited to addressing Technical Corrigenda and Defect Reports (DRs), C17 intr">
+    <link rel="canonical" href="https://salivity.github.io/c/article/c-17-standard-removed-and-obsolete-features">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C17 Standard: Removed and Obsolete Features - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/c-17-standard-removed-and-obsolete-features" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The C17 standard (ISO/IEC 9899:2018) served primarily as a maintenance and defect-repair release for C11 rather than an overhaul of the language. Because its scope was strictly limited to addressing Technical Corrigenda and Defect Reports (DRs), C17 intr" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c17-standard-removed-and-obsolete-features">C17 Standard:
+Removed and Obsolete Features</h1>
+<p>The C17 standard (ISO/IEC 9899:2018) served primarily as a
+maintenance and defect-repair release for C11 rather than an overhaul of
+the language. Because its scope was strictly limited to addressing
+Technical Corrigenda and Defect Reports (DRs), C17 introduced no major
+new language capabilities and made very few changes to the status of
+existing syntax. This article outlines the features specifically marked
+obsolete under C17, clarifies common misconceptions regarding removed
+features, and explains how C17 set the stage for subsequent revisions
+like C23.</p>
+<h3 id="the-deprecation-of-atomic_var_init">The Deprecation of
+<code>ATOMIC_VAR_INIT</code></h3>
+<p>The most notable obsolescence in C17 was the deprecation of the
+<code>ATOMIC_VAR_INIT</code> macro, introduced in
+<code>&lt;stdatomic.h&gt;</code>. Under C11,
+<code>ATOMIC_VAR_INIT</code> was provided to initialize atomic objects
+to a specific value. Through Defect Report 488 (DR 488), committee
+members recognized that the macro was largely redundant and created
+unnecessary complexity, as default initialization and standard
+assignment syntax were already sufficient to initialize atomic types
+safely. Consequently, C17 marked <code>ATOMIC_VAR_INIT</code> as
+obsolete, leading to its eventual complete removal in C23.</p>
+<h3 id="feature-removals-c17-vs-c11">Feature Removals: C17 vs. C11</h3>
+<p>A frequent point of confusion is the difference between changes made
+in C11 and those in C17. C17 did not formally remove any major library
+functions or core language keywords from the standard.</p>
+<p>The dangerous <code>gets()</code> function, often erroneously cited
+as being removed in C17, was officially deleted from the ISO C Standard
+Library in C11. C17 merely reaffirmed this removal and corrected
+lingering textual ambiguities in the standard documentation concerning
+how compilers handle deprecated input/output functions.</p>
+<h3 id="maintenance-of-optional-features">Maintenance of Optional
+Features</h3>
+<p>Rather than deprecating or removing features outright, C17 maintained
+the conditional support model established in C11 for several legacy and
+complex capabilities:</p>
+<ul>
+<li><strong>Variable Length Arrays (VLAs):</strong> While mandatory in
+C99, VLAs were made conditionally optional in C11 via the
+<code>__STDC_NO_VLA__</code> macro. C17 maintained this status without
+changes.</li>
+<li><strong>Complex Arithmetic and Threads:</strong> Native support for
+<code>&lt;complex.h&gt;</code> (<code>__STDC_NO_COMPLEX__</code>) and
+<code>&lt;threads.h&gt;</code> (<code>__STDC_NO_THREADS__</code>)
+remained purely optional for implementations.</li>
+<li><strong>Annex K (Bounds-Checking Interfaces):</strong> The secure
+library functions (such as <code>strcpy_s</code> and
+<code>sprintf_s</code>) remained optional. Despite widespread criticism
+and proposals for outright deprecation due to poor adoption and
+implementation flaws, C17 left Annex K intact without altering its
+formal status.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

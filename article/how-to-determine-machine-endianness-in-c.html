@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Determine Machine Endianness in C - c</title>
+    <meta name="description" content="This article explains how to detect a system's endianness at runtime using the C programming language. Endianness defines the order in which multi-byte data types are arranged in computer memory, differentiating systems between big-endian and little-endi">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-to-determine-machine-endianness-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Determine Machine Endianness in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-to-determine-machine-endianness-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how to detect a system's endianness at runtime using the C programming language. Endianness defines the order in which multi-byte data types are arranged in computer memory, differentiating systems between big-endian and little-endi" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-determine-machine-endianness-in-c">How to Determine
+Machine Endianness in C</h1>
+<p>This article explains how to detect a system's endianness at runtime
+using the C programming language. Endianness defines the order in which
+multi-byte data types are arranged in computer memory, differentiating
+systems between big-endian and little-endian architectures. By using
+simple techniques such as pointer-based byte casting or memory-shared
+unions, developers can quickly inspect how multi-byte integers are laid
+out in RAM, ensuring portability across network protocols, file
+serialization, and low-level hardware interfaces.</p>
+<h2 id="understanding-endianness">Understanding Endianness</h2>
+<p>In a computer's memory, multi-byte values are stored across
+contiguous byte addresses:</p>
+<ul>
+<li><strong>Little-Endian:</strong> The least significant byte (LSB) is
+stored at the lowest memory address. Modern x86 and ARM processors
+typically operate in little-endian mode.</li>
+<li><strong>Big-Endian:</strong> The most significant byte (MSB) is
+stored at the lowest memory address. This matches network byte order and
+is used by older architectures such as SPARC and PowerPC.</li>
+</ul>
+<p>Consider a 32-bit integer with the hexadecimal value
+<code>0x00000001</code>. In memory, the bytes are arranged as
+follows:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Address Offset</th>
+<th style="text-align: left;">Little-Endian</th>
+<th style="text-align: left;">Big-Endian</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>0</code> (Lowest address)</td>
+<td style="text-align: left;"><code>0x01</code></td>
+<td style="text-align: left;"><code>0x00</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;"><code>0x00</code></td>
+<td style="text-align: left;"><code>0x00</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>2</code></td>
+<td style="text-align: left;"><code>0x00</code></td>
+<td style="text-align: left;"><code>0x00</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>3</code> (Highest address)</td>
+<td style="text-align: left;"><code>0x00</code></td>
+<td style="text-align: left;"><code>0x01</code></td>
+</tr>
+</tbody>
+</table>
+<p>Because the byte at offset <code>0</code> holds different values
+depending on the architecture, checking the value at that address
+identifies the system's endianness.</p>
+<h2 id="method-1-byte-casting-with-a-pointer">Method 1: Byte-Casting
+with a Pointer</h2>
+<p>The byte-cast approach works by assigning an integer the value
+<code>1</code>, obtaining its memory address, and casting that address
+to a pointer to an <code>unsigned char</code>. Because the C standard
+allows any data type to be aliased by a character pointer, this method
+does not violate strict aliasing rules.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdbool.h&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="dt">bool</span> is_little_endian_pointer<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">int</span> value <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">char</span> <span class="op">*</span>byte_ptr <span class="op">=</span> <span class="op">(</span><span class="dt">unsigned</span> <span class="dt">char</span> <span class="op">*)&amp;</span>value<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// If the lowest address contains 1, the machine is little-endian.</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">(*</span>byte_ptr <span class="op">==</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>is_little_endian_pointer<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        printf<span class="op">(</span><span class="st">&quot;Architecture: Little-Endian</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">);</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        printf<span class="op">(</span><span class="st">&quot;Architecture: Big-Endian</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">);</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>When <code>*byte_ptr</code> is evaluated, the program reads only the
+first byte of <code>value</code>. If <code>*byte_ptr</code> evaluates to
+<code>1</code>, the LSB is stored at the lowest memory address,
+confirming a little-endian host. If it evaluates to <code>0</code>, the
+host is big-endian.</p>
+<h2 id="method-2-using-a-union">Method 2: Using a Union</h2>
+<p>A <code>union</code> in C allows multiple variables to occupy the
+same memory location. By pairing a multi-byte integer with an array of
+bytes, you can assign a value to the integer and immediately read the
+individual bytes without manual pointer arithmetic.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdbool.h&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="dt">bool</span> is_little_endian_union<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">union</span> <span class="op">{</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="dt">unsigned</span> <span class="dt">int</span> integer_val<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">unsigned</span> <span class="dt">char</span> byte_val<span class="op">[</span><span class="kw">sizeof</span><span class="op">(</span><span class="dt">unsigned</span> <span class="dt">int</span><span class="op">)];</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> test_union<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    test_union<span class="op">.</span>integer_val <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Check the first byte in the memory block</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">(</span>test_union<span class="op">.</span>byte_val<span class="op">[</span><span class="dv">0</span><span class="op">]</span> <span class="op">==</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>is_little_endian_union<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>        printf<span class="op">(</span><span class="st">&quot;Architecture: Little-Endian</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">);</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        printf<span class="op">(</span><span class="st">&quot;Architecture: Big-Endian</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">);</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In the union approach, <code>test_union.integer_val</code> and
+<code>test_union.byte_val</code> begin at the exact same base address.
+Reading <code>test_union.byte_val[0]</code> provides the byte stored at
+that first address.</p>
+<h2 id="summary">Summary</h2>
+<p>Both methods execute in constant time <span
+class="math inline">\(O(1)\)</span> and require minimal overhead. The
+pointer-casting method is generally favored for its brevity and inline
+efficiency, while the union method clearly defines memory sharing
+through C type definitions. Both implementations accurately report the
+byte ordering of the underlying host machine.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

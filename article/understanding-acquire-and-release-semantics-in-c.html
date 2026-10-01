@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding Acquire and Release Semantics in C - c</title>
+    <meta name="description" content="Memory ordering semantics define how hardware and compilers are allowed to reorder memory read and write operations in multithreaded environments. In the C programming language, introduced formally in the C11 standard through the <stdatomic.h> library, a">
+    <link rel="canonical" href="https://salivity.github.io/c/article/understanding-acquire-and-release-semantics-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding Acquire and Release Semantics in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/understanding-acquire-and-release-semantics-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Memory ordering semantics define how hardware and compilers are allowed to reorder memory read and write operations in multithreaded environments. In the C programming language, introduced formally in the C11 standard through the <stdatomic.h> library, a" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="understanding-acquire-and-release-semantics-in-c">Understanding
+Acquire and Release Semantics in C</h1>
+<p>Memory ordering semantics define how hardware and compilers are
+allowed to reorder memory read and write operations in multithreaded
+environments. In the C programming language, introduced formally in the
+C11 standard through the <code>&lt;stdatomic.h&gt;</code> library,
+acquire and release semantics provide a mechanism to synchronize data
+across threads without the overhead of heavy locking primitives like
+mutexes. By pairing a release store with an acquire load, developers can
+establish a strict "happens-before" relationship that guarantees shared
+memory is updated and visible to other threads in a predictable
+order.</p>
+<h2 id="the-need-for-memory-ordering">The Need for Memory Ordering</h2>
+<p>Modern CPUs and optimizing compilers routinely reorder instructions
+to maximize performance and pipeline efficiency. In a single-threaded
+program, reordering is invisible because the compiler and processor
+ensure that data dependencies are respected. However, in concurrent
+programming, this reordering can cause critical synchronization
+bugs.</p>
+<p>If thread A writes data to a buffer and then sets a
+<code>ready</code> flag to 1, an optimizing compiler or an out-of-order
+processor might make the <code>ready</code> flag visible to thread B
+before the actual buffer data is fully written to memory. Thread B might
+see <code>ready == 1</code>, attempt to read the buffer, and consume
+garbage or incomplete data. Memory ordering semantics prevent this by
+setting boundaries on instruction reordering.</p>
+<h2 id="what-are-acquire-and-release-semantics">What Are Acquire and
+Release Semantics?</h2>
+<p>Acquire and release semantics work as a coordinated pair to publish
+and consume data safely between threads:</p>
+<ul>
+<li><strong>Release Semantics
+(<code>memory_order_release</code>):</strong> A release operation is
+applied to a <strong>store</strong> (write). It guarantees that all
+memory writes (both atomic and non-atomic) made by the current thread
+before the release store cannot be reordered <em>after</em> it.
+Essentially, it packages and "publishes" all preceding changes to
+memory.</li>
+<li><strong>Acquire Semantics
+(<code>memory_order_acquire</code>):</strong> An acquire operation is
+applied to a <strong>load</strong> (read). It guarantees that all memory
+reads and writes made by the current thread after the acquire load
+cannot be reordered <em>before</em> it. It ensures that the thread
+observes all changes that were committed before the matching release
+write.</li>
+</ul>
+<p>When a thread performs an acquire load on an atomic variable and
+reads the value written by a release store on another thread, an
+acquire-release synchronization barrier is formed. All memory operations
+that occurred before the release store become visible to the acquiring
+thread after its load.</p>
+<h2 id="implementing-acquire-and-release-in-c">Implementing Acquire and
+Release in C</h2>
+<p>In C11 and later, acquire and release operations are implemented
+using functions from <code>&lt;stdatomic.h&gt;</code> with explicit
+ordering flags: <code>atomic_store_explicit</code> and
+<code>atomic_load_explicit</code>.</p>
+<p>Consider a producer-consumer scenario where a payload is prepared and
+then signaled via a flag:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdatomic.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdbool.h&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Shared resources</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> data_payload <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>atomic_bool data_ready <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Executed by Thread 1 (Producer)</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> producer<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    data_payload <span class="op">=</span> <span class="dv">42</span><span class="op">;</span> <span class="co">// Non-atomic write to payload</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Release store: Ensures data_payload = 42 is committed</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// to memory before data_ready is set to true.</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    atomic_store_explicit<span class="op">(&amp;</span>data_ready<span class="op">,</span> <span class="kw">true</span><span class="op">,</span> memory_order_release<span class="op">);</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="co">// Executed by Thread 2 (Consumer)</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> consumer<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Acquire load: Ensures reading data_payload happens</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">// strictly after observing data_ready as true.</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> <span class="op">(!</span>atomic_load_explicit<span class="op">(&amp;</span>data_ready<span class="op">,</span> memory_order_acquire<span class="op">))</span> <span class="op">{</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Wait for the producer</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Safely read the non-atomic payload</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> result <span class="op">=</span> data_payload<span class="op">;</span> </span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In this example, the non-atomic assignment
+<code>data_payload = 42</code> cannot be moved below
+<code>atomic_store_explicit</code> due to the release semantics.
+Similarly, the read of <code>data_payload</code> in the consumer cannot
+be moved above the <code>atomic_load_explicit</code> due to the acquire
+semantics. Once the consumer reads <code>true</code> from
+<code>data_ready</code>, it is guaranteed to see
+<code>data_payload == 42</code>.</p>
+<h2 id="acquire-release-vs-sequential-consistency">Acquire-Release vs.
+Sequential Consistency</h2>
+<p>By default, atomic operations in C use
+<code>memory_order_seq_cst</code> (sequential consistency), which
+enforces a globally uniform program order across all threads. While
+sequential consistency is the easiest model to reason about, it requires
+expensive memory barriers on architectures with weak memory models (such
+as ARM or POWER).</p>
+<p>Acquire-release ordering is more lightweight than sequential
+consistency. Instead of imposing a single global order across the entire
+system, it only enforces order between the specific threads that release
+and acquire the same atomic variable. On x86 architectures, where
+hardware loads already have acquire semantics and stores have release
+semantics, <code>memory_order_acquire</code> and
+<code>memory_order_release</code> often compile down to simple
+instructions with zero runtime barrier overhead, making them ideal for
+high-performance, lock-free data structures.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

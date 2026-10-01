@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guide to SIMD AVX and NEON Intrinsics in C - c</title>
+    <meta name="description" content="Single Instruction, Multiple Data (SIMD) extensions accelerate compute-heavy workloads by processing multiple data points simultaneously within dedicated CPU vector registers. In the C programming language, developers directly harness hardware extensions">
+    <link rel="canonical" href="https://salivity.github.io/c/article/guide-to-simd-avx-and-neon-intrinsics-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Guide to SIMD AVX and NEON Intrinsics in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/guide-to-simd-avx-and-neon-intrinsics-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Single Instruction, Multiple Data (SIMD) extensions accelerate compute-heavy workloads by processing multiple data points simultaneously within dedicated CPU vector registers. In the C programming language, developers directly harness hardware extensions" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="guide-to-simd-avx-and-neon-intrinsics-in-c">Guide to SIMD AVX
+and NEON Intrinsics in C</h1>
+<p>Single Instruction, Multiple Data (SIMD) extensions accelerate
+compute-heavy workloads by processing multiple data points
+simultaneously within dedicated CPU vector registers. In the C
+programming language, developers directly harness hardware extensions
+like Intel/AMD AVX or ARM NEON without writing assembly by including
+architecture-specific vector headers. These headers expose compiler
+intrinsics—special C functions and datatypes that map directly to
+underlying SIMD machine instructions, offering high-performance
+execution while allowing the compiler to manage register allocation and
+instruction scheduling.</p>
+<h2 id="including-the-dedicated-vector-headers">Including the Dedicated
+Vector Headers</h2>
+<p>To access SIMD capabilities, you must include the specific header
+file matching your target CPU architecture:</p>
+<ul>
+<li><strong>x86/x86-64 (SSE, AVX, AVX-512):</strong> Include
+<code>&lt;immintrin.h&gt;</code>. This master header exposes all Intel
+and AMD SIMD instruction sets, including legacy SSE, AVX, AVX2, and
+AVX-512.</li>
+<li><strong>ARM/AArch64 (NEON):</strong> Include
+<code>&lt;arm_neon.h&gt;</code>. This header exposes 64-bit and 128-bit
+vector types and functions for ARM Cortex processors and Apple
+Silicon.</li>
+</ul>
+<h2 id="vector-data-types">Vector Data Types</h2>
+<p>SIMD headers introduce custom data types representing the processor's
+wide registers:</p>
+<ul>
+<li><strong>AVX Types:</strong> Represent 256-bit wide registers. Common
+types include <code>__m256</code> (eight 32-bit single-precision
+floats), <code>__m256d</code> (four 64-bit double-precision floats), and
+<code>__m256i</code> (packed integers ranging from 8-bit to
+64-bit).</li>
+<li><strong>NEON Types:</strong> Explicitly defined by element type, bit
+width, and lane count. Common 128-bit types include
+<code>float32x4_t</code> (four 32-bit floats), <code>int32x4_t</code>
+(four 32-bit signed integers), and <code>uint8x16_t</code> (sixteen
+8-bit unsigned integers).</li>
+</ul>
+<h2 id="the-core-simd-execution-pattern">The Core SIMD Execution
+Pattern</h2>
+<p>Utilizing SIMD through vector headers follows a four-step pipeline:
+loading data from memory into registers, executing operations, storing
+results back into standard memory arrays, and processing any remaining
+elements that do not fit into a full vector lane.</p>
+<h3 id="avx-example-256-bit-vector-addition">AVX Example (256-bit Vector
+Addition)</h3>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;immintrin.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> add_floats_avx<span class="op">(</span><span class="dt">const</span> <span class="dt">float</span><span class="op">*</span> a<span class="op">,</span> <span class="dt">const</span> <span class="dt">float</span><span class="op">*</span> b<span class="op">,</span> <span class="dt">float</span><span class="op">*</span> c<span class="op">,</span> <span class="dt">int</span> n<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Process 8 single-precision floats at a time</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(;</span> i <span class="op">&lt;=</span> n <span class="op">-</span> <span class="dv">8</span><span class="op">;</span> i <span class="op">+=</span> <span class="dv">8</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        __m256 va <span class="op">=</span> _mm256_loadu_ps<span class="op">(&amp;</span>a<span class="op">[</span>i<span class="op">]);</span>          <span class="co">// Load unaligned memory</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        __m256 vb <span class="op">=</span> _mm256_loadu_ps<span class="op">(&amp;</span>b<span class="op">[</span>i<span class="op">]);</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        __m256 vres <span class="op">=</span> _mm256_add_ps<span class="op">(</span>va<span class="op">,</span> vb<span class="op">);</span>         <span class="co">// Execute SIMD add</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        _mm256_storeu_ps<span class="op">(&amp;</span>c<span class="op">[</span>i<span class="op">],</span> vres<span class="op">);</span>               <span class="co">// Store back to memory</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Tail loop for remaining elements</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(;</span> i <span class="op">&lt;</span> n<span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        c<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> a<span class="op">[</span>i<span class="op">]</span> <span class="op">+</span> b<span class="op">[</span>i<span class="op">];</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="arm-neon-example-128-bit-vector-addition">ARM NEON Example
+(128-bit Vector Addition)</h3>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;arm_neon.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> add_floats_neon<span class="op">(</span><span class="dt">const</span> <span class="dt">float</span><span class="op">*</span> a<span class="op">,</span> <span class="dt">const</span> <span class="dt">float</span><span class="op">*</span> b<span class="op">,</span> <span class="dt">float</span><span class="op">*</span> c<span class="op">,</span> <span class="dt">int</span> n<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Process 4 single-precision floats at a time</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(;</span> i <span class="op">&lt;=</span> n <span class="op">-</span> <span class="dv">4</span><span class="op">;</span> i <span class="op">+=</span> <span class="dv">4</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        float32x4_t va <span class="op">=</span> vld1q_f32<span class="op">(&amp;</span>a<span class="op">[</span>i<span class="op">]);</span>           <span class="co">// Load 4 floats</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        float32x4_t vb <span class="op">=</span> vld1q_f32<span class="op">(&amp;</span>b<span class="op">[</span>i<span class="op">]);</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        float32x4_t vres <span class="op">=</span> vaddq_f32<span class="op">(</span>va<span class="op">,</span> vb<span class="op">);</span>        <span class="co">// Execute NEON add</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        vst1q_f32<span class="op">(&amp;</span>c<span class="op">[</span>i<span class="op">],</span> vres<span class="op">);</span>                      <span class="co">// Store back to memory</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Tail loop for remaining elements</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(;</span> i <span class="op">&lt;</span> n<span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        c<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> a<span class="op">[</span>i<span class="op">]</span> <span class="op">+</span> b<span class="op">[</span>i<span class="op">];</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="compiler-configuration">Compiler Configuration</h2>
+<p>Compilers require specific target flags to enable these intrinsics
+during compilation:</p>
+<ul>
+<li><strong>For AVX/AVX2 on GCC or Clang:</strong> Pass
+<code>-mavx</code> or <code>-mavx2</code>. To automatically enable all
+SIMD extensions supported by your host machine, pass
+<code>-march=native</code>.</li>
+<li><strong>For NEON on ARM:</strong> On 64-bit ARM (AArch64), NEON is
+enabled by default. On 32-bit ARM (ARMv7), specify flags such as
+<code>-mfpu=neon</code> and <code>-mfloat-abi=hard</code>.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

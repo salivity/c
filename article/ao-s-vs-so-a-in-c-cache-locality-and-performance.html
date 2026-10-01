@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AoS vs SoA in C: Cache Locality and Performance - c</title>
+    <meta name="description" content="Choosing between an Array of Structures (AoS) and a Structure of Arrays (SoA) in the C programming language fundamentally dictates how modern CPU caches interact with your application's data. This article explores how hardware cache lines, spatial locali">
+    <link rel="canonical" href="https://salivity.github.io/c/article/ao-s-vs-so-a-in-c-cache-locality-and-performance">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="AoS vs SoA in C: Cache Locality and Performance - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/ao-s-vs-so-a-in-c-cache-locality-and-performance" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Choosing between an Array of Structures (AoS) and a Structure of Arrays (SoA) in the C programming language fundamentally dictates how modern CPU caches interact with your application's data. This article explores how hardware cache lines, spatial locali" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="aos-vs-soa-in-c-cache-locality-and-performance">AoS vs SoA in C:
+Cache Locality and Performance</h1>
+<p>Choosing between an Array of Structures (AoS) and a Structure of
+Arrays (SoA) in the C programming language fundamentally dictates how
+modern CPU caches interact with your application's data. This article
+explores how hardware cache lines, spatial locality, and memory access
+patterns determine the optimal data layout, contrasting the traditional
+object-centric AoS layout with the performance-oriented SoA layout
+commonly utilized in high-throughput computing.</p>
+<h2
+id="understanding-cpu-cache-lines-and-spatial-locality">Understanding
+CPU Cache Lines and Spatial Locality</h2>
+<p>Modern CPUs do not fetch individual bytes from system memory.
+Instead, memory is transferred into CPU caches in fixed-size blocks
+called cache lines, which are typically 64 bytes wide.</p>
+<p>Spatial locality refers to the principle that accessing a particular
+memory address makes it highly probable that adjacent memory addresses
+will be accessed soon after. When your code accesses a variable, the
+hardware loads the entire 64-byte cache line containing that variable.
+If your algorithms process memory contiguously, almost every load hits
+the high-speed L1/L2 cache. If your data layout leaves gaps between
+relevant fields, the processor wastes memory bandwidth loading unused
+bytes, leading to cache pollution and stalling execution.</p>
+<h2 id="the-array-of-structures-aos-layout">The Array of Structures
+(AoS) Layout</h2>
+<p>The Array of Structures layout represents the conventional,
+object-oriented approach in C where a single <code>struct</code> holds
+all attributes of an entity, and an array contains instances of that
+<code>struct</code>.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Particle <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span> x<span class="op">,</span> y<span class="op">,</span> z<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span> vx<span class="op">,</span> vy<span class="op">,</span> vz<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> id<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> active<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Particle particles<span class="op">[</span><span class="dv">1024</span><span class="op">];</span></span></code></pre></div>
+<p>In memory, each <code>Particle</code> is stored contiguously:
+<code>[x, y, z, vx, vy, vz, id, active][x, y, z, ...]</code></p>
+<h3 id="cache-locality-characteristics-of-aos">Cache Locality
+Characteristics of AoS</h3>
+<ul>
+<li><strong>Optimal for entity-centric operations:</strong> If a
+function processes all attributes of a single particle at once—such as
+reading positions, computing velocities, and modifying state—AoS
+provides exceptional spatial locality. Loading the structure brings all
+its related fields directly into the cache.</li>
+<li><strong>Inefficient for attribute-isolated operations:</strong> If a
+loop only needs to update positions (<code>x += vx</code>), the cache
+line still fetches <code>id</code>, <code>active</code>, and other
+non-essential fields. This wastes a substantial percentage of the
+64-byte cache line, forcing the CPU to request new cache lines from
+higher-latency memory far more frequently.</li>
+</ul>
+<h2 id="the-structure-of-arrays-soa-layout">The Structure of Arrays
+(SoA) Layout</h2>
+<p>The Structure of Arrays layout decomposes the entity, grouping
+identical attributes together into separate, parallel arrays within a
+single encompassing <code>struct</code>.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> ParticleSystem <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span> x<span class="op">[</span><span class="dv">1024</span><span class="op">];</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span> y<span class="op">[</span><span class="dv">1024</span><span class="op">];</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span> z<span class="op">[</span><span class="dv">1024</span><span class="op">];</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span> vx<span class="op">[</span><span class="dv">1024</span><span class="op">];</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span> vy<span class="op">[</span><span class="dv">1024</span><span class="op">];</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span> vz<span class="op">[</span><span class="dv">1024</span><span class="op">];</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> id<span class="op">[</span><span class="dv">1024</span><span class="op">];</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> active<span class="op">[</span><span class="dv">1024</span><span class="op">];</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> ParticleSystem system<span class="op">;</span></span></code></pre></div>
+<p>In memory, attributes of the same type are contiguous:
+<code>[x0, x1, x2, ...][y0, y1, y2, ...][z0, z1, z2, ...]</code></p>
+<h3 id="cache-locality-characteristics-of-soa">Cache Locality
+Characteristics of SoA</h3>
+<ul>
+<li><strong>Optimal for data streaming and transformations:</strong>
+When iterating over a single attribute across all elements, every single
+byte fetched into a 64-byte cache line is utilized. For example, a
+64-byte cache line can hold 16 contiguous 32-bit <code>float</code>
+values. Updating positions achieves 100% cache line efficiency without
+loading unrelated fields.</li>
+<li><strong>Vectorization (SIMD) friendly:</strong> Contiguous memory
+layout allows compilers to easily vectorize operations using SIMD
+instructions (such as AVX or SSE), operating on 4, 8, or 16 elements per
+instruction cycle.</li>
+<li><strong>Inefficient for single-entity lookups:</strong> Accessing
+all properties of a specific particle (e.g., retrieving <code>x</code>,
+<code>y</code>, <code>z</code>, and <code>id</code> for index
+<code>i</code>) requires accessing multiple distinct memory regions,
+potentially triggering several simultaneous cache line fetches.</li>
+</ul>
+<h2 id="architectural-trade-offs">Architectural Trade-Offs</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Metric</th>
+<th style="text-align: left;">Array of Structures (AoS)</th>
+<th style="text-align: left;">Structure of Arrays (SoA)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Primary Memory Focus</strong></td>
+<td style="text-align: left;">Entity-centric</td>
+<td style="text-align: left;">Field-centric</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Cache Line
+Utilization</strong></td>
+<td style="text-align: left;">High when using multiple fields; low for
+partial updates</td>
+<td style="text-align: left;">Maximum for isolated field processing;
+lower for full-entity updates</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>SIMD / Vectorization</strong></td>
+<td style="text-align: left;">Difficult; requires data
+shuffling/unpacking</td>
+<td style="text-align: left;">Natural; contiguous data maps directly to
+SIMD registers</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Data Alignment /
+Padding</strong></td>
+<td style="text-align: left;">Struct padding can waste internal memory
+space</td>
+<td style="text-align: left;">Minimal alignment waste; arrays align
+independently</td>
+</tr>
+</tbody>
+</table>
+<h2 id="selecting-the-right-layout">Selecting the Right Layout</h2>
+<ol type="1">
+<li><p><strong>Choose AoS when:</strong></p>
+<ul>
+<li>Entities are frequently sorted, added, or removed individually.</li>
+<li>Functions regularly consume the majority of a structure's fields
+together.</li>
+<li>Working with high-level systems where readability and object
+encapsulation take precedence over raw streaming throughput.</li>
+</ul></li>
+<li><p><strong>Choose SoA when:</strong></p>
+<ul>
+<li>Processing pipelines iteratively transform subsets of attributes
+(e.g., physics engines, rendering, digital signal processing).</li>
+<li>Code execution is bound by memory bandwidth rather than compute
+limits.</li>
+<li>Auto-vectorization or explicit SIMD hardware instructions are
+required to maximize performance.</li>
+</ul></li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

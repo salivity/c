@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inline Assembly Constraints in C Explained - c</title>
+    <meta name="description" content="Inline assembly allows developers to embed raw machine instructions directly within C code while letting the compiler manage register allocation and optimization. Inline assembly constraints serve as the communication bridge between C expressions and CPU">
+    <link rel="canonical" href="https://salivity.github.io/c/article/inline-assembly-constraints-in-c-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Inline Assembly Constraints in C Explained - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/inline-assembly-constraints-in-c-explained" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Inline assembly allows developers to embed raw machine instructions directly within C code while letting the compiler manage register allocation and optimization. Inline assembly constraints serve as the communication bridge between C expressions and CPU" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="inline-assembly-constraints-in-c-explained">Inline Assembly
+Constraints in C Explained</h1>
+<p>Inline assembly allows developers to embed raw machine instructions
+directly within C code while letting the compiler manage register
+allocation and optimization. Inline assembly constraints serve as the
+communication bridge between C expressions and CPU registers, explicitly
+instructing the compiler on how to pass data into and out of assembly
+blocks. This article explains what constraints are, examines the syntax
+used in extended assembly, and demonstrates how constraints dictate
+register binding during compilation.</p>
+<h2 id="understanding-extended-inline-assembly">Understanding Extended
+Inline Assembly</h2>
+<p>In compilers like GCC and Clang, inline assembly uses the extended
+<code>asm</code> syntax:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>__asm__ <span class="op">(</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;assembly code&quot;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">:</span> output operands</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">:</span> input operands</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">:</span> clobbers</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">);</span></span></code></pre></div>
+<p>While the assembly string contains raw CPU instructions, the operands
+define the relationship between C variables and the underlying hardware.
+Constraints are string literals attached to these operands that restrict
+where an operand can be placed—whether in a specific hardware register,
+any general-purpose register, or directly in memory.</p>
+<h2 id="how-constraints-direct-register-binding">How Constraints Direct
+Register Binding</h2>
+<p>During compilation, the register allocator determines which hardware
+registers hold program variables. When it encounters an inline assembly
+block, it reads the constraint strings to bind C variables to machine
+registers. The compiler then inserts necessary instructions (such as
+<code>mov</code>) to ensure values are loaded into those registers
+before the assembly code runs and saved back to C variables
+afterward.</p>
+<h3 id="1-general-register-constraints">1. General Register
+Constraints</h3>
+<p>The most flexible way to bind registers is using general
+constraints:</p>
+<ul>
+<li><strong><code>"r"</code> constraint</strong>: Instructs the compiler
+to allocate any available general-purpose register.</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> a <span class="op">=</span> <span class="dv">10</span><span class="op">,</span> b <span class="op">=</span> <span class="dv">20</span><span class="op">,</span> result<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>__asm__ <span class="op">(</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;add %2, %0&quot;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">:</span> <span class="st">&quot;=r&quot;</span> <span class="op">(</span>result<span class="op">)</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">:</span> <span class="st">&quot;0&quot;</span> <span class="op">(</span>a<span class="op">),</span> <span class="st">&quot;r&quot;</span> <span class="op">(</span>b<span class="op">)</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="op">);</span></span></code></pre></div>
+<p>In this example, <code>"r"</code> lets the compiler choose an
+unoccupied register (such as <code>%eax</code>, <code>%ebx</code>, or
+<code>%r8</code> on x86) for variable <code>b</code>. The compiler
+automatically substitutes <code>%0</code>, <code>%1</code>, and
+<code>%2</code> with the allocated register names.</p>
+<h3 id="2-architecture-specific-register-constraints">2.
+Architecture-Specific Register Constraints</h3>
+<p>Certain assembly instructions require their operands to reside in
+specific hardware registers. To enforce this, compilers provide
+architecture-specific constraints.</p>
+<p>On x86 and x86-64 architectures, specific letters bind operands
+directly to designated registers:</p>
+<ul>
+<li><strong><code>"a"</code></strong>: Binds to the Accumulator register
+(<code>%al</code>, <code>%ax</code>, <code>%eax</code>,
+<code>%rax</code>).</li>
+<li><strong><code>"b"</code></strong>: Binds to the Base register
+(<code>%bl</code>, <code>%bx</code>, <code>%ebx</code>,
+<code>%rbx</code>).</li>
+<li><strong><code>"c"</code></strong>: Binds to the Counter register
+(<code>%cl</code>, <code>%cx</code>, <code>%ecx</code>,
+<code>%rcx</code>).</li>
+<li><strong><code>"d"</code></strong>: Binds to the Data register
+(<code>%dl</code>, <code>%dx</code>, <code>%edx</code>,
+<code>%rdx</code>).</li>
+<li><strong><code>"S"</code></strong>: Binds to the Source Index
+register (<code>%si</code>, <code>%esi</code>, <code>%rsi</code>).</li>
+<li><strong><code>"D"</code></strong>: Binds to the Destination Index
+register (<code>%di</code>, <code>%edi</code>, <code>%rdi</code>).</li>
+</ul>
+<p>For example, the x86 <code>cpuid</code> instruction expects the
+function code in <code>eax</code>:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> code <span class="op">=</span> <span class="dv">1</span><span class="op">,</span> eax<span class="op">,</span> ebx<span class="op">,</span> ecx<span class="op">,</span> edx<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>__asm__ <span class="op">(</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;cpuid&quot;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">:</span> <span class="st">&quot;=a&quot;</span> <span class="op">(</span>eax<span class="op">),</span> <span class="st">&quot;=b&quot;</span> <span class="op">(</span>ebx<span class="op">),</span> <span class="st">&quot;=c&quot;</span> <span class="op">(</span>ecx<span class="op">),</span> <span class="st">&quot;=d&quot;</span> <span class="op">(</span>edx<span class="op">)</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">:</span> <span class="st">&quot;a&quot;</span> <span class="op">(</span>code<span class="op">)</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="op">);</span></span></code></pre></div>
+<p>The constraint <code>"a" (code)</code> forces the compiler to load
+the variable <code>code</code> into <code>%eax</code> before executing
+<code>cpuid</code>. The constraints <code>"=a"</code>,
+<code>"=b"</code>, <code>"=c"</code>, and <code>"=d"</code> instruct the
+compiler to extract the resulting values directly from
+<code>%eax</code>, <code>%ebx</code>, <code>%ecx</code>, and
+<code>%edx</code>.</p>
+<h2 id="constraint-modifiers-and-data-flow">Constraint Modifiers and
+Data Flow</h2>
+<p>Modifiers are prefixed to constraint characters to define how the
+register is accessed:</p>
+<ul>
+<li><strong><code>=</code> (Write-only)</strong>: Indicates that the
+bound register is an output operand. The initial value in the register
+is discarded, and the compiler overwrites it with new data.</li>
+<li><strong><code>+</code> (Read-modify-write)</strong>: Indicates the
+operand acts as both an input and an output. The compiler preloads the
+register with the variable's current value and reads the modified value
+back after execution.</li>
+<li><strong><code>&amp;</code> (Earlyclobber)</strong>: Informs the
+compiler that an output register is modified before all input registers
+are consumed. This prevents the register allocator from sharing the same
+physical register for an input and an output operand.</li>
+</ul>
+<h2 id="memory-and-constant-constraints">Memory and Constant
+Constraints</h2>
+<p>Not all constraints bind data to registers:</p>
+<ul>
+<li><strong><code>"m"</code></strong>: Specifies a memory operand. The
+compiler passes an effective memory address rather than loading the
+value into a CPU register.</li>
+<li><strong><code>"i"</code></strong>: Specifies an immediate integer
+constant known at compile-time, allowing instructions to embed hardcoded
+values directly without using a register.</li>
+</ul>
+<p>By selecting appropriate constraints and modifiers, developers
+maintain strict control over machine-level execution while allowing the
+C compiler to optimize surrounding code, handle register spills, and
+prevent register allocation conflicts.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Measure Precise Time with clock_gettime in C - c</title>
+    <meta name="description" content="The POSIX clockgettime function provides a standardized, high-resolution interface for benchmarking and timekeeping in C, capable of measuring intervals down to the nanosecond level. This article explains how clockgettime achieves this precision by pairi">
+    <link rel="canonical" href="https://salivity.github.io/c/article/measure-precise-time-with-clock-gettime-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Measure Precise Time with clock_gettime in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/measure-precise-time-with-clock-gettime-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The POSIX clockgettime function provides a standardized, high-resolution interface for benchmarking and timekeeping in C, capable of measuring intervals down to the nanosecond level. This article explains how clockgettime achieves this precision by pairi" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="measure-precise-time-with-clock_gettime-in-c">Measure Precise
+Time with clock_gettime in C</h1>
+<p>The POSIX <code>clock_gettime</code> function provides a
+standardized, high-resolution interface for benchmarking and timekeeping
+in C, capable of measuring intervals down to the nanosecond level. This
+article explains how <code>clock_gettime</code> achieves this precision
+by pairing low-overhead kernel mechanisms like vDSO with modern CPU
+hardware counters, outlines the specific clock IDs required for stable
+interval measurement, and demonstrates the exact math required to
+compute elapsed times without precision loss.</p>
+<h2 id="the-timespec-structure-and-resolution">The <code>timespec</code>
+Structure and Resolution</h2>
+<p>The precision of <code>clock_gettime</code> stems from its output
+structure, <code>struct timespec</code>, defined in
+<code>&lt;time.h&gt;</code>:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> timespec <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">time_t</span>   tv_sec<span class="op">;</span>        <span class="co">/* Seconds */</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">long</span>     tv_nsec<span class="op">;</span>       <span class="co">/* Nanoseconds [0, 999999999] */</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Unlike legacy functions such as <code>gettimeofday</code> (which
+measures in microseconds using <code>struct timeval</code>),
+<code>clock_gettime</code> natively reports time in seconds and integer
+nanoseconds.</p>
+<p>The theoretical resolution of the function depends on the underlying
+system. You can inspect the actual resolution supported by the operating
+system by calling <code>clock_getres</code>:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> timespec res<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>clock_getres<span class="op">(</span>CLOCK_MONOTONIC<span class="op">,</span> <span class="op">&amp;</span>res<span class="op">);</span></span></code></pre></div>
+<p>On modern platforms, <code>res.tv_nsec</code> often reports a
+resolution of 1 nanosecond.</p>
+<h2 id="hardware-timers-and-the-role-of-vdso">Hardware Timers and the
+Role of vDSO</h2>
+<p>Achieving sub-microsecond accuracy requires both high-speed hardware
+and minimal software overhead.</p>
+<h3 id="1-hardware-counters-tsc-and-generic-timers">1. Hardware Counters
+(TSC and Generic Timers)</h3>
+<p>Modern x86 processors contain an internal register known as the Time
+Stamp Counter (TSC), while ARM architectures provide the Generic Timer
+(such as the <code>CNTVCT</code> register). In modern processors with an
+"invariant" or "constant" TSC, the counter increments at a fixed
+frequency independent of CPU frequency scaling, sleep states, or thermal
+throttling. The operating system kernel reads these high-speed counter
+ticks and converts them into standard time units.</p>
+<h3 id="2-vdso-virtual-dynamic-shared-object">2. vDSO (Virtual Dynamic
+Shared Object)</h3>
+<p>A traditional system call (<code>syscall</code>) incurs a context
+switch between user space and kernel space, which introduces a latency
+penalty of hundreds of nanoseconds. To eliminate this overhead, modern
+operating systems (such as Linux) map a portion of kernel memory
+directly into user space via the vDSO.</p>
+<p>When you call <code>clock_gettime</code>, the dynamic linker invokes
+the vDSO implementation. This user-space routine reads the CPU's
+hardware register (e.g., via the <code>RDTSC</code> or
+<code>RDTSCP</code> instruction on x86) and performs the multiplication
+and shifting logic to calculate nanoseconds directly in user memory,
+executing in tens of nanoseconds rather than microseconds.</p>
+<h2 id="selecting-the-right-clock-source">Selecting the Right Clock
+Source</h2>
+<p>The first argument of <code>clock_gettime</code> specifies the clock
+source (<code>clockid_t</code>). Selecting the correct clock is
+essential for accurate elapsed time measurement:</p>
+<ul>
+<li><strong><code>CLOCK_MONOTONIC</code></strong>: The standard choice
+for interval benchmarking. It represents monotonic time since an
+unspecified starting point (usually system boot). It cannot be set
+manually and does not jump backward if the system administrator or
+Network Time Protocol (NTP) updates the wall-clock time. It may,
+however, be slewed (gradually adjusted in frequency) by NTP to correct
+clock drift.</li>
+<li><strong><code>CLOCK_MONOTONIC_RAW</code></strong>: Available on
+Linux, this provides hardware-based monotonic time that is completely
+immune to NTP frequency slewing. It represents the raw hardware counter
+ticks converted directly to time.</li>
+<li><strong><code>CLOCK_REALTIME</code></strong>: Represents system
+wall-clock time (time since the Unix Epoch). It is unsuitable for
+interval timing because it can step backward or forward unpredictably
+due to manual adjustments or NTP synchronization.</li>
+</ul>
+<h2 id="computing-elapsed-intervals-correctly">Computing Elapsed
+Intervals Correctly</h2>
+<p>When measuring elapsed intervals, calculate the difference between
+two <code>timespec</code> structures. Because <code>tv_nsec</code>
+values reset to <code>0</code> every second, you must account for
+nanosecond underflow when subtracting:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#define _POSIX_C_SOURCE </span><span class="dv">199309</span><span class="bu">L</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;time.h&gt;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;unistd.h&gt;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> get_elapsed_time<span class="op">(</span><span class="kw">struct</span> timespec start<span class="op">,</span> <span class="kw">struct</span> timespec end<span class="op">,</span> <span class="kw">struct</span> timespec <span class="op">*</span>diff<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">((</span>end<span class="op">.</span>tv_nsec <span class="op">-</span> start<span class="op">.</span>tv_nsec<span class="op">)</span> <span class="op">&lt;</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        diff<span class="op">-&gt;</span>tv_sec <span class="op">=</span> end<span class="op">.</span>tv_sec <span class="op">-</span> start<span class="op">.</span>tv_sec <span class="op">-</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        diff<span class="op">-&gt;</span>tv_nsec <span class="op">=</span> <span class="dv">1000000000</span><span class="bu">L</span> <span class="op">+</span> end<span class="op">.</span>tv_nsec <span class="op">-</span> start<span class="op">.</span>tv_nsec<span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        diff<span class="op">-&gt;</span>tv_sec <span class="op">=</span> end<span class="op">.</span>tv_sec <span class="op">-</span> start<span class="op">.</span>tv_sec<span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        diff<span class="op">-&gt;</span>tv_nsec <span class="op">=</span> end<span class="op">.</span>tv_nsec <span class="op">-</span> start<span class="op">.</span>tv_nsec<span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> timespec start<span class="op">,</span> end<span class="op">,</span> elapsed<span class="op">;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Capture starting timestamp</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    clock_gettime<span class="op">(</span>CLOCK_MONOTONIC<span class="op">,</span> <span class="op">&amp;</span>start<span class="op">);</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Code block or workload to measure</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>    usleep<span class="op">(</span><span class="dv">1500</span><span class="op">);</span> <span class="co">// Sleep for 1500 microseconds</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Capture ending timestamp</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>    clock_gettime<span class="op">(</span>CLOCK_MONOTONIC<span class="op">,</span> <span class="op">&amp;</span>end<span class="op">);</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Calculate difference</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>    get_elapsed_time<span class="op">(</span>start<span class="op">,</span> end<span class="op">,</span> <span class="op">&amp;</span>elapsed<span class="op">);</span></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Convert to microseconds and nanoseconds</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>    <span class="dt">long</span> <span class="dt">long</span> total_nanoseconds <span class="op">=</span> <span class="op">(</span>elapsed<span class="op">.</span>tv_sec <span class="op">*</span> <span class="dv">1000000000</span><span class="bu">LL</span><span class="op">)</span> <span class="op">+</span> elapsed<span class="op">.</span>tv_nsec<span class="op">;</span></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>    <span class="dt">double</span> microseconds <span class="op">=</span> <span class="op">(</span><span class="dt">double</span><span class="op">)</span>total_nanoseconds <span class="op">/</span> <span class="fl">1000.0</span><span class="op">;</span></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Elapsed: </span><span class="sc">%lld</span><span class="st"> ns (</span><span class="sc">%.3f</span><span class="st"> µs)</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">,</span> total_nanoseconds<span class="op">,</span> microseconds<span class="op">);</span></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>By using <code>CLOCK_MONOTONIC</code> alongside the vDSO-backed
+<code>clock_gettime</code> call, C applications avoid kernel context
+switches and wall-clock shifts, yielding deterministic, high-resolution
+measurements suitable for microsecond and nanosecond benchmarking.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C limits.h Header: INT_MAX and CHAR_BIT Explained - c</title>
+    <meta name="description" content="In the C programming language, fundamental integer boundaries such as INTMAX and CHARBIT are defined within the <limits.h> standard header file. This article explains the role of <limits.h>, details the primary macros it provides, and demonstrates how ut">
+    <link rel="canonical" href="https://salivity.github.io/c/article/c-limits-h-header-int-max-and-char-bit-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C limits.h Header: INT_MAX and CHAR_BIT Explained - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/c-limits-h-header-int-max-and-char-bit-explained" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, fundamental integer boundaries such as INTMAX and CHARBIT are defined within the <limits.h> standard header file. This article explains the role of <limits.h>, details the primary macros it provides, and demonstrates how ut" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-limitsh-header-int_max-and-char_bit-explained">C limits.h
+Header: INT_MAX and CHAR_BIT Explained</h1>
+<p>In the C programming language, fundamental integer boundaries such as
+<code>INT_MAX</code> and <code>CHAR_BIT</code> are defined within the
+<code>&lt;limits.h&gt;</code> standard header file. This article
+explains the role of <code>&lt;limits.h&gt;</code>, details the primary
+macros it provides, and demonstrates how utilizing these constants
+ensures portability and helps prevent integer overflow in C
+applications.</p>
+<h3 id="the-purpose-of-limitsh">The Purpose of
+<code>&lt;limits.h&gt;</code></h3>
+<p>The C language specification does not mandate fixed byte sizes for
+basic integer types; instead, sizes can vary depending on the underlying
+hardware architecture and compiler implementation. The
+<code>&lt;limits.h&gt;</code> header provides preprocessor macros that
+define the minimum and maximum representable values for integral types
+on the target platform. By using these predefined values, developers can
+write architecture-independent code that adapts dynamically to different
+environments.</p>
+<h3 id="key-macros-in-limitsh">Key Macros in
+<code>&lt;limits.h&gt;</code></h3>
+<p>The <code>&lt;limits.h&gt;</code> header standardizes limits for all
+standard integer data types:</p>
+<ul>
+<li><strong><code>CHAR_BIT</code></strong>: The number of bits in a
+<code>char</code> (byte). In modern architectures, this is almost always
+8, though the standard specifies it must be at least 8.</li>
+<li><strong><code>SCHAR_MIN</code> / <code>SCHAR_MAX</code></strong>:
+The minimum and maximum values for a <code>signed char</code> (typically
+-128 to 127).</li>
+<li><strong><code>UCHAR_MAX</code></strong>: The maximum value for an
+<code>unsigned char</code> (typically 255).</li>
+<li><strong><code>CHAR_MIN</code> / <code>CHAR_MAX</code></strong>: The
+range of the basic <code>char</code> type, which matches either the
+signed or unsigned variants depending on whether the compiler treats
+<code>char</code> as signed or unsigned by default.</li>
+<li><strong><code>SHRT_MIN</code> / <code>SHRT_MAX</code></strong>: The
+range for a <code>short int</code> (at least -32,767 to 32,767).</li>
+<li><strong><code>USHRT_MAX</code></strong>: The maximum value for an
+<code>unsigned short int</code> (at least 65,535).</li>
+<li><strong><code>INT_MIN</code> / <code>INT_MAX</code></strong>: The
+range for a standard signed <code>int</code> (typically -2,147,483,648
+to 2,147,483,647 on 32-bit and 64-bit systems).</li>
+<li><strong><code>UINT_MAX</code></strong>: The maximum value for an
+<code>unsigned int</code> (typically 4,294,967,295).</li>
+<li><strong><code>LONG_MIN</code> / <code>LONG_MAX</code></strong>: The
+range for a <code>long int</code>.</li>
+<li><strong><code>ULONG_MAX</code></strong>: The maximum value for an
+<code>unsigned long int</code>.</li>
+<li><strong><code>LLONG_MIN</code> / <code>LLONG_MAX</code></strong>:
+The range for a <code>long long int</code> (standardized in C99).</li>
+<li><strong><code>ULLONG_MAX</code></strong>: The maximum value for an
+<code>unsigned long long int</code>.</li>
+</ul>
+<p><em>(Note: For floating-point limits such as <code>FLT_MAX</code> or
+<code>DBL_MAX</code>, C uses a separate header named
+<code>&lt;float.h&gt;</code>.)</em></p>
+<h3 id="practical-example">Practical Example</h3>
+<p>To use these boundary macros, include the header file at the top of
+the source file:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;limits.h&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Bits in a byte (CHAR_BIT): </span><span class="sc">%d\n</span><span class="st">&quot;</span><span class="op">,</span> CHAR_BIT<span class="op">);</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Minimum signed int: </span><span class="sc">%d\n</span><span class="st">&quot;</span><span class="op">,</span> INT_MIN<span class="op">);</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Maximum signed int: </span><span class="sc">%d\n</span><span class="st">&quot;</span><span class="op">,</span> INT_MAX<span class="op">);</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Maximum unsigned int: </span><span class="sc">%u\n</span><span class="st">&quot;</span><span class="op">,</span> UINT_MAX<span class="op">);</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Checking for overflow before addition</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> a <span class="op">=</span> INT_MAX<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> b <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>a <span class="op">&gt;</span> INT_MAX <span class="op">-</span> b<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>        printf<span class="op">(</span><span class="st">&quot;Addition would cause integer overflow.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">);</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> result <span class="op">=</span> a <span class="op">+</span> b<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>        printf<span class="op">(</span><span class="st">&quot;Result: </span><span class="sc">%d\n</span><span class="st">&quot;</span><span class="op">,</span> result<span class="op">);</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="why-using-limitsh-is-critical">Why Using
+<code>&lt;limits.h&gt;</code> Is Critical</h3>
+<ol type="1">
+<li><strong>Portability</strong>: Hardcoding numbers like
+<code>2147483647</code> creates fragile software because a
+<code>long</code> might be 32 bits on one system and 64 bits on another.
+Referencing <code>LONG_MAX</code> guarantees the value matches the
+target system.</li>
+<li><strong>Safety and Validation</strong>: Signed integer overflow
+causes undefined behavior in C. Comparing inputs against limits like
+<code>INT_MAX</code> before executing arithmetic operations prevents
+security vulnerabilities and calculation errors.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

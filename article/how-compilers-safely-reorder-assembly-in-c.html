@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Compilers Safely Reorder Assembly in C - c</title>
+    <meta name="description" content="Instruction scheduling is a compiler optimization technique that rearranges assembly instructions to maximize CPU instruction-level parallelism and avoid pipeline stalls without altering the program's observable behavior. During the compilation of C code">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-compilers-safely-reorder-assembly-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Compilers Safely Reorder Assembly in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-compilers-safely-reorder-assembly-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Instruction scheduling is a compiler optimization technique that rearranges assembly instructions to maximize CPU instruction-level parallelism and avoid pipeline stalls without altering the program's observable behavior. During the compilation of C code" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-compilers-safely-reorder-assembly-in-c">How Compilers Safely
+Reorder Assembly in C</h1>
+<p>Instruction scheduling is a compiler optimization technique that
+rearranges assembly instructions to maximize CPU instruction-level
+parallelism and avoid pipeline stalls without altering the program's
+observable behavior. During the compilation of C code, the compiler
+translates high-level statements into low-level operations and reorders
+them based on target hardware latencies and execution units. To
+guarantee safety, the compiler constructs dependency graphs that enforce
+strict rules around data dependencies, memory aliasing, sequence points,
+and hardware side effects.</p>
+<h3 id="data-dependency-analysis">Data Dependency Analysis</h3>
+<p>The primary safeguard against invalid instruction reordering is data
+dependency tracking. Compilers analyze assembly-level operations to
+identify three fundamental hazards:</p>
+<ol type="1">
+<li><strong>Read-After-Write (RAW / True Dependency):</strong> An
+instruction depends on the result of a preceding instruction. Reordering
+is prohibited because the second instruction must read the newly updated
+value.</li>
+<li><strong>Write-After-Read (WAR / Anti-Dependency):</strong> An
+instruction overwrites a register or memory location that a prior
+instruction still needs to read. Reordering is safe only if register
+renaming or alternative storage eliminates the conflict.</li>
+<li><strong>Write-After-Write (WAW / Output Dependency):</strong> Two
+instructions write to the same destination. The final write must remain
+last so subsequent reads receive the correct state.</li>
+</ol>
+<p>The compiler represents these relationships as a Directed Acyclic
+Graph (DAG). Nodes in the DAG represent individual instructions, and
+edges define dependency constraints paired with minimum latency cycles.
+A node cannot be scheduled until all of its predecessor nodes have
+completed execution.</p>
+<h3 id="memory-aliasing-and-pointer-analysis">Memory Aliasing and
+Pointer Analysis</h3>
+<p>In C, memory accesses introduce ambiguity because multiple pointers
+can reference the same address. If the compiler cannot prove that two
+memory references point to distinct locations, it must assume they
+alias.</p>
+<p>To safely reorder memory loads and stores, the compiler utilizes:</p>
+<ul>
+<li><strong>Type-Based Alias Analysis (TBAA):</strong> Governed by C
+strict aliasing rules, the compiler assumes that pointers of
+incompatible types do not reference the same memory location.</li>
+<li><strong>The <code>restrict</code> Qualifier:</strong> Declaring a
+pointer with <code>restrict</code> guarantees to the compiler that the
+pointer provides exclusive access to that memory block within its scope,
+unlocking aggressive reordering.</li>
+<li><strong>Conservative Scheduling Barriers:</strong> When pointer
+targets are unknown, stores act as barriers to subsequent loads from
+unidentified addresses, preventing the compiler from moving a read
+before an unresolved write.</li>
+</ul>
+<h3 id="control-flow-and-speculative-execution">Control Flow and
+Speculative Execution</h3>
+<p>Instruction scheduling typically occurs within basic blocks—linear
+sequences of code with a single entry and single exit. Reordering
+instructions across branches requires speculative execution checks. A
+compiler cannot hoist an instruction above a conditional branch if that
+instruction could trigger an observable exception, such as a null
+pointer dereference or division by zero, before the condition is
+evaluated.</p>
+<h3 id="handling-volatile-sequence-points-and-barriers">Handling
+<code>volatile</code>, Sequence Points, and Barriers</h3>
+<p>The C standard dictates specific observable behaviors that
+instruction schedulers must preserve:</p>
+<ul>
+<li><strong>The <code>volatile</code> Keyword:</strong> Reads and writes
+to <code>volatile</code> variables represent observable side effects.
+The compiler cannot eliminate, combine, or reorder <code>volatile</code>
+accesses relative to one another or across sequence points.</li>
+<li><strong>Inline Assembly and Clobbers:</strong> Inline assembly
+blocks marked with <code>__volatile__</code> or containing memory
+clobbers force the scheduler to treat them as scheduling fences.
+Instructions cannot move across these boundaries if they touch clobbered
+registers or memory.</li>
+<li><strong>Atomic Operations and Memory Fences:</strong> Under the C11
+memory model, atomic operations with specific memory orderings (such as
+<code>memory_order_acquire</code> or <code>memory_order_release</code>)
+insert constraints that prevent the scheduler from moving surrounding
+loads and stores across the synchronization boundary.</li>
+</ul>
+<h3 id="the-scheduling-pass">The Scheduling Pass</h3>
+<p>Once dependencies, aliasing constraints, and hardware restrictions
+are captured in the DAG, the compiler runs a scheduling algorithm—most
+commonly list scheduling. The scheduler maintains a pool of "ready"
+instructions whose dependencies are fully resolved. It uses heuristics,
+such as critical path length and resource availability, to select the
+best instruction for the next cycle. Because the algorithm only selects
+from nodes with satisfied dependencies, the emitted assembly code
+achieves optimal execution speed while remaining strictly faithful to
+the semantics of the original C source.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

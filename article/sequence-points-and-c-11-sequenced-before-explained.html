@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sequence Points and C11 Sequenced-Before Explained - c</title>
+    <meta name="description" content="This article provides an overview of how the C language governs the order of operations and side effects during execution. It covers the traditional concept of sequence points used in C89 and C99, explains why this model was flawed, and details how the C">
+    <link rel="canonical" href="https://salivity.github.io/c/article/sequence-points-and-c-11-sequenced-before-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Sequence Points and C11 Sequenced-Before Explained - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/sequence-points-and-c-11-sequenced-before-explained" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of how the C language governs the order of operations and side effects during execution. It covers the traditional concept of sequence points used in C89 and C99, explains why this model was flawed, and details how the C" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="sequence-points-and-c11-sequenced-before-explained">Sequence
+Points and C11 Sequenced-Before Explained</h1>
+<p>This article provides an overview of how the C language governs the
+order of operations and side effects during execution. It covers the
+traditional concept of sequence points used in C89 and C99, explains why
+this model was flawed, and details how the C11 standard introduced the
+"sequenced-before" relationship to provide a rigorous, partial-order
+model that accommodates both single-threaded execution and modern
+multithreading.</p>
+<h2 id="the-concept-of-sequence-points-c89--c99">The Concept of Sequence
+Points (C89 / C99)</h2>
+<p>In earlier revisions of the C standard (C89 and C99), program
+execution was framed around <strong>sequence points</strong>. A sequence
+point was defined as a designated point in the execution sequence at
+which all side effects of previous evaluations are guaranteed to be
+complete, and no side effects of subsequent evaluations have yet taken
+place.</p>
+<p>Between two consecutive sequence points, the order of evaluation of
+subexpressions and the order in which side effects occur are
+unspecified. Consequently, the standards imposed a strict rule:</p>
+<blockquote>
+<p>Between the previous and next sequence point, an object's stored
+value could be modified at most once by the evaluation of an expression.
+Furthermore, the prior value could be accessed only to determine the
+value to be stored.</p>
+</blockquote>
+<p>Violating this rule resulted in undefined behavior (UB). For
+instance:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>i <span class="op">=</span> i<span class="op">++;</span>       <span class="co">// Undefined behavior: modified more than once</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>a<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> i<span class="op">++;</span>    <span class="co">// Undefined behavior: modified and read not to determine value</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>f<span class="op">(</span>i<span class="op">++,</span> i<span class="op">++);</span>   <span class="co">// Undefined behavior: modified multiple times without a sequence point</span></span></code></pre></div>
+<p>Common sequence points included:</p>
+<ul>
+<li>The end of a full expression (typically at a semicolon).</li>
+<li>The <code>&amp;&amp;</code>, <code>||</code>, and comma
+(<code>,</code>) operators, which introduce a sequence point after
+evaluation of the first operand.</li>
+<li>The <code>? :</code> conditional operator, after evaluation of the
+first operand.</li>
+<li>A function call, after all function arguments are evaluated and
+before any code inside the function is executed.</li>
+</ul>
+<h2 id="limitations-of-the-sequence-point-model">Limitations of the
+Sequence Point Model</h2>
+<p>While intuitive, sequence points suffered from significant conceptual
+limitations:</p>
+<ol type="1">
+<li><strong>Lack of Mathematical Rigor</strong>: Sequence points treated
+execution as a flat timeline punctuated by barriers. They struggled to
+formalize expressions where evaluations do not take place simultaneously
+but are still arbitrarily ordered.</li>
+<li><strong>Poor Fit for Multithreading</strong>: Sequence points were
+strictly a single-threaded abstraction. They could not be integrated
+cleanly into modern memory models requiring formal memory-order
+semantics (such as acquire/release operations and atomic data
+types).</li>
+<li><strong>Interleaving Ambiguities</strong>: The model could not
+precisely distinguish between operations that can occur in any order vs.
+operations whose internal instructions can actively interleave.</li>
+</ol>
+<h2 id="the-c11-refinement-the-sequenced-before-model">The C11
+Refinement: The Sequenced-Before Model</h2>
+<p>To resolve these ambiguities and align with the C++11 memory model,
+the C11 standard replaced sequence points with asymmetric, transitive
+evaluation orderings defined as the <strong>sequenced-before</strong>
+relationship.</p>
+<p>In C11, an expression evaluation consists of both <strong>value
+computations</strong> (determining the result of an operator or operand)
+and <strong>side effects</strong> (modifying execution environment
+state, such as writing to an object or calling an I/O routine).</p>
+<p>Instead of relying on global checkpoints, C11 defines the relative
+ordering of any two evaluations <span class="math inline">\(A\)</span>
+and <span class="math inline">\(B\)</span> performed by the same thread
+using four relation states:</p>
+<ol type="1">
+<li><strong>Sequenced Before</strong>: <span
+class="math inline">\(A\)</span> is sequenced before <span
+class="math inline">\(B\)</span> if the evaluation of <span
+class="math inline">\(A\)</span> completes before the evaluation of
+<span class="math inline">\(B\)</span> begins.</li>
+<li><strong>Sequenced After</strong>: <span
+class="math inline">\(B\)</span> is sequenced before <span
+class="math inline">\(A\)</span>.</li>
+<li><strong>Indeterminately Sequenced</strong>: <span
+class="math inline">\(A\)</span> is sequenced before <span
+class="math inline">\(B\)</span>, or <span
+class="math inline">\(B\)</span> is sequenced before <span
+class="math inline">\(A\)</span>, but the choice is unspecified.
+Crucially, their evaluations cannot overlap or interleave.</li>
+<li><strong>Unsequenced</strong>: Neither <span
+class="math inline">\(A\)</span> is sequenced before <span
+class="math inline">\(B\)</span> nor <span
+class="math inline">\(B\)</span> is sequenced before <span
+class="math inline">\(A\)</span>. The compiler may execute their
+sub-operations in any order, including interleaving their constituent
+instructions.</li>
+</ol>
+<h3 id="undefined-behavior-in-c11">Undefined Behavior in C11</h3>
+<p>The C11 standard redefined the criteria for evaluation-based
+undefined behavior in §6.5p2:</p>
+<blockquote>
+<p>If a side effect on a scalar object is unsequenced relative to
+either:</p>
+<ol type="1">
+<li>another side effect on the same scalar object, or</li>
+<li>a value computation using the value of the same scalar object,</li>
+</ol>
+<p>the behavior is undefined.</p>
+</blockquote>
+<p>Consider the expression <code>(i++) + i</code>:</p>
+<ul>
+<li>The value computation of the left operand involves a side effect:
+updating <code>i</code>.</li>
+<li>The right operand computes the value of <code>i</code>.</li>
+<li>The standard does not specify an evaluation order between the left
+and right operands of the binary <code>+</code> operator; they are
+<strong>unsequenced</strong>.</li>
+<li>Because a side effect on <code>i</code> is unsequenced relative to a
+value computation of <code>i</code>, the expression produces undefined
+behavior.</li>
+</ul>
+<h3 id="how-c11-formalizes-common-constructs">How C11 Formalizes Common
+Constructs</h3>
+<p>C11 cleanly classifies situations that were previously lumped
+together under sequence points:</p>
+<ul>
+<li><strong>Function Arguments</strong>: In a function call
+<code>f(a(), b())</code>, the evaluation of <code>a()</code> and
+<code>b()</code> are <strong>indeterminately sequenced</strong>. One
+will finish entirely before the other begins, preventing instruction
+interleaving, but the order in which they run is unspecified.</li>
+<li><strong>Short-Circuit Operators</strong>: In
+<code>expr1 &amp;&amp; expr2</code>, the value computation and side
+effects of <code>expr1</code> are explicitly <strong>sequenced
+before</strong> those of <code>expr2</code>.</li>
+<li><strong>Assignment</strong>: The side effect of updating the target
+storage is <strong>sequenced after</strong> the value computations of
+both the left and right operands.</li>
+</ul>
+<p>By transitioning from sequence points to the sequenced-before
+relation, C11 created a mathematically sound foundation for
+single-threaded evaluations that connects directly into the broader
+"happens-before" multithreading model defined in
+<code>&lt;stdatomic.h&gt;</code>.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generating Random Numbers in C with rand and srand - c</title>
+    <meta name="description" content="Generating pseudo-random numbers in the C programming language is a standard task accomplished using the built-in functions rand() and srand(), defined in the <stdlib.h> header. This article covers the standard methodology for initializing the pseudo-ran">
+    <link rel="canonical" href="https://salivity.github.io/c/article/generating-random-numbers-in-c-with-rand-and-srand">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Generating Random Numbers in C with rand and srand - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/generating-random-numbers-in-c-with-rand-and-srand" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Generating pseudo-random numbers in the C programming language is a standard task accomplished using the built-in functions rand() and srand(), defined in the <stdlib.h> header. This article covers the standard methodology for initializing the pseudo-ran" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="generating-random-numbers-in-c-with-rand-and-srand">Generating
+Random Numbers in C with rand and srand</h1>
+<p>Generating pseudo-random numbers in the C programming language is a
+standard task accomplished using the built-in functions
+<code>rand()</code> and <code>srand()</code>, defined in the
+<code>&lt;stdlib.h&gt;</code> header. This article covers the standard
+methodology for initializing the pseudo-random number generator using
+the system clock via <code>time()</code>, producing raw random values,
+and scaling those values to fit a custom specified range.</p>
+<h3 id="essential-headers">Essential Headers</h3>
+<p>To generate random numbers using the standard methodology, include
+both <code>&lt;stdlib.h&gt;</code> and <code>&lt;time.h&gt;</code>:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdlib.h&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;time.h&gt;</span></span></code></pre></div>
+<h3 id="seeding-the-generator-with-srand">Seeding the Generator with
+srand()</h3>
+<p>The <code>rand()</code> function uses an internal mathematical
+algorithm to produce an identical sequence of numbers each time the
+program runs unless initialized with a different starting point, known
+as a seed.</p>
+<p>The <code>srand(unsigned int seed)</code> function establishes this
+initial seed. To produce different output on each execution, pass the
+current calendar time using <code>time(NULL)</code>:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>srand<span class="op">((</span><span class="dt">unsigned</span> <span class="dt">int</span><span class="op">)</span>time<span class="op">(</span>NULL<span class="op">));</span></span></code></pre></div>
+<p>This initialization must be called only once during program
+execution—typically at the beginning of the <code>main()</code>
+function. Calling <code>srand()</code> inside a loop or repeatedly
+before calling <code>rand()</code> will reset the generator state,
+frequently resulting in duplicate numbers if executed within the same
+second.</p>
+<h3 id="generating-numbers-with-rand">Generating Numbers with
+rand()</h3>
+<p>Once seeded, calling <code>rand()</code> generates a pseudo-random
+integer in the range from <code>0</code> to <code>RAND_MAX</code> (a
+macro guaranteed to be at least 32,767).</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> raw_value <span class="op">=</span> rand<span class="op">();</span></span></code></pre></div>
+<h3 id="restricting-numbers-to-a-specific-range">Restricting Numbers to
+a Specific Range</h3>
+<p>Because raw values span from <code>0</code> to <code>RAND_MAX</code>,
+the standard idiom to map the result into a bounded range
+<code>[min, max]</code> uses the modulus operator (<code>%</code>):</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> random_in_range <span class="op">=</span> <span class="op">(</span>rand<span class="op">()</span> <span class="op">%</span> <span class="op">(</span>max <span class="op">-</span> min <span class="op">+</span> <span class="dv">1</span><span class="op">))</span> <span class="op">+</span> min<span class="op">;</span></span></code></pre></div>
+<p>For example, to simulate rolling a standard six-sided die
+(<code>1</code> to <code>6</code>):</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> die_roll <span class="op">=</span> <span class="op">(</span>rand<span class="op">()</span> <span class="op">%</span> <span class="dv">6</span><span class="op">)</span> <span class="op">+</span> <span class="dv">1</span><span class="op">;</span></span></code></pre></div>
+<h3 id="complete-implementation-example">Complete Implementation
+Example</h3>
+<div class="sourceCode" id="cb6"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdlib.h&gt;</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;time.h&gt;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> min <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> max <span class="op">=</span> <span class="dv">50</span><span class="op">;</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Seed the random number generator once</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>    srand<span class="op">((</span><span class="dt">unsigned</span> <span class="dt">int</span><span class="op">)</span>time<span class="op">(</span>NULL<span class="op">));</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Generate and print five pseudo-random numbers between 10 and 50</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">5</span><span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> random_num <span class="op">=</span> <span class="op">(</span>rand<span class="op">()</span> <span class="op">%</span> <span class="op">(</span>max <span class="op">-</span> min <span class="op">+</span> <span class="dv">1</span><span class="op">))</span> <span class="op">+</span> min<span class="op">;</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>        printf<span class="op">(</span><span class="st">&quot;Random Value </span><span class="sc">%d</span><span class="st">: </span><span class="sc">%d\n</span><span class="st">&quot;</span><span class="op">,</span> i <span class="op">+</span> <span class="dv">1</span><span class="op">,</span> random_num<span class="op">);</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="limitations-of-rand">Limitations of rand()</h3>
+<p>The <code>rand()</code> and <code>srand()</code> functions are
+intended for general simulations, casual games, and algorithmic testing.
+They are not cryptographically secure, and the modulo method introduces
+a slight mathematical bias if <code>(max - min + 1)</code> does not
+evenly divide <code>RAND_MAX + 1</code>. For security-critical
+applications or cryptographic uses, platform-specific cryptographic APIs
+should be utilized instead.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

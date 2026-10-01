@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>If-Else Statements in C: Controlling Program Flow - c</title>
+    <meta name="description" content="By default, programs written in the C programming language execute sequentially, processing instructions line by line from top to bottom. Branching statements like if and if-else alter this linear progression by evaluating conditions and selectively exec">
+    <link rel="canonical" href="https://salivity.github.io/c/article/if-else-statements-in-c-controlling-program-flow">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="If-Else Statements in C: Controlling Program Flow - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/if-else-statements-in-c-controlling-program-flow" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="By default, programs written in the C programming language execute sequentially, processing instructions line by line from top to bottom. Branching statements like if and if-else alter this linear progression by evaluating conditions and selectively exec" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="if-else-statements-in-c-controlling-program-flow">If-Else
+Statements in C: Controlling Program Flow</h1>
+<p>By default, programs written in the C programming language execute
+sequentially, processing instructions line by line from top to bottom.
+Branching statements like <code>if</code> and <code>if-else</code> alter
+this linear progression by evaluating conditions and selectively
+executing specific blocks of code while skipping others. This article
+explains how the <code>if-else</code> construct evaluates boolean logic
+to direct execution paths, details the syntax and variants available in
+C, and demonstrates how these control structures manipulate runtime
+behavior.</p>
+<h3 id="the-mechanics-of-sequential-execution-vs-branching">The
+Mechanics of Sequential Execution vs. Branching</h3>
+<p>In C, execution begins at the <code>main()</code> function and
+follows a strict sequential path unless a control structure dictates
+otherwise. An <code>if-else</code> statement acts as a fork in this
+path. It evaluates a specified condition—any expression that yields an
+integer value—and determines the next instruction to execute based on
+truth value.</p>
+<p>In C, truth is represented numerically:</p>
+<ul>
+<li><strong>Zero (<code>0</code>)</strong> represents
+<code>false</code>.</li>
+<li><strong>Any non-zero value</strong> (typically <code>1</code>)
+represents <code>true</code>.</li>
+</ul>
+<p>When the program counter reaches an <code>if</code> statement, it
+evaluates the condition in parentheses. If the expression resolves to
+non-zero, the program enters the <code>if</code> block. If it resolves
+to zero, the program bypasses that block entirely, redirecting the
+execution pointer to the <code>else</code> block (if present) or to the
+next line of sequential code.</p>
+<h3 id="the-basic-if-statement">The Basic <code>if</code> Statement</h3>
+<p>The simplest form of conditional control introduces an optional
+detour in the code:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>condition<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Executes only if condition is true (non-zero)</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Execution resumes sequentially here regardless</span></span></code></pre></div>
+<p>If the condition evaluates to false, the enclosed instructions are
+skipped, preventing unnecessary operations or handling exceptional
+states.</p>
+<h3 id="directing-two-way-paths-if-else">Directing Two-Way Paths:
+<code>if-else</code></h3>
+<p>The standard <code>if-else</code> structure introduces mutually
+exclusive pathways. The program is forced to choose exactly one of two
+routes before converging back into the main sequential flow:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>condition<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Path A: Executed if condition is true</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Path B: Executed if condition is false</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Both paths converge here to continue sequential execution</span></span></code></pre></div>
+<p>Under the hood, this compiles into conditional jump instructions
+(such as <code>je</code> or <code>jne</code> in assembly). If the
+condition fails, the processor jumps over the first block directly to
+the <code>else</code> label, ensuring that both blocks are never
+executed during the same run.</p>
+<h3 id="multi-way-branching-else-if-ladders">Multi-Way Branching:
+<code>else-if</code> Ladders</h3>
+<p>When program logic requires choosing among several mutually exclusive
+options, developers chain statements into an <code>else-if</code>
+ladder. The program evaluates each condition sequentially from top to
+bottom:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>score <span class="op">&gt;=</span> <span class="dv">90</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    grade <span class="op">=</span> <span class="ch">&#39;A&#39;</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="cf">else</span> <span class="cf">if</span> <span class="op">(</span>score <span class="op">&gt;=</span> <span class="dv">80</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    grade <span class="op">=</span> <span class="ch">&#39;B&#39;</span><span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="cf">else</span> <span class="cf">if</span> <span class="op">(</span>score <span class="op">&gt;=</span> <span class="dv">70</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    grade <span class="op">=</span> <span class="ch">&#39;C&#39;</span><span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    grade <span class="op">=</span> <span class="ch">&#39;F&#39;</span><span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The sequential flow through an <code>else-if</code> ladder behaves
+according to two rules:</p>
+<ol type="1">
+<li><strong>Short-Circuit Execution:</strong> As soon as any condition
+evaluates to true, its corresponding code block executes, and the
+program immediately jumps past the remainder of the ladder to the code
+following the final block.</li>
+<li><strong>Fallback Execution:</strong> If every condition evaluates to
+false, the optional trailing <code>else</code> executes as a catch-all
+block.</li>
+</ol>
+<h3 id="nested-conditionals">Nested Conditionals</h3>
+<p>Conditionals can also be placed inside other conditional blocks.
+Nesting enables fine-grained decision trees, where a secondary decision
+is only evaluated if an outer condition has already been satisfied.
+While this provides precise flow control, deep nesting increases
+cognitive complexity and should be managed carefully to maintain clean,
+readable code.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

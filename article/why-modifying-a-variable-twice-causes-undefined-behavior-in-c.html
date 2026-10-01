@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Modifying a Variable Twice Causes Undefined Behavior in C - c</title>
+    <meta name="description" content="Modifying a scalar variable more than once between consecutive sequence points—or, in modern C terminology, without an intervening sequenced-before relationship—leads to undefined behavior because the C language standard intentionally leaves the eval">
+    <link rel="canonical" href="https://salivity.github.io/c/article/why-modifying-a-variable-twice-causes-undefined-behavior-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Modifying a Variable Twice Causes Undefined Behavior in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/why-modifying-a-variable-twice-causes-undefined-behavior-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Modifying a scalar variable more than once between consecutive sequence points—or, in modern C terminology, without an intervening sequenced-before relationship—leads to undefined behavior because the C language standard intentionally leaves the eval" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="why-modifying-a-variable-twice-causes-undefined-behavior-in-c">Why
+Modifying a Variable Twice Causes Undefined Behavior in C</h1>
+<p>Modifying a scalar variable more than once between consecutive
+sequence points—or, in modern C terminology, without an intervening
+sequenced-before relationship—leads to undefined behavior because the C
+language standard intentionally leaves the evaluation order of most
+subexpressions unspecified. This design choice grants compilers the
+freedom to reorder instructions, interleave memory accesses, and
+optimize register allocations for maximum hardware performance.
+Consequently, expressions like <code>i = i++</code> or
+<code>(i++) + (i++)</code> produce no guaranteed result, potentially
+causing unpredictable runtime behavior, register corruption, or
+inconsistent memory states across different platforms and optimization
+levels.</p>
+<h3 id="the-role-of-sequence-points-and-sequencing">The Role of Sequence
+Points and Sequencing</h3>
+<p>In C99 and earlier standards, the language relied on the concept of
+<em>sequence points</em>—specific boundaries in program execution (such
+as the end of a full expression marked by a semicolon, or before a
+function call executes) where all side effects of previous evaluations
+are guaranteed to be complete, and no side effects of subsequent
+evaluations have begun. Starting with C11, the standard refined this
+terminology using <em>sequenced-before</em>, <em>sequenced-after</em>,
+and <em>unsequenced</em> relations to define order.</p>
+<p>According to the ISO C standard:</p>
+<ul>
+<li>Between the previous and next sequence point (or if two evaluations
+are unsequenced), an object's stored value can be modified at most once
+by the evaluation of an expression.</li>
+<li>Furthermore, the prior value shall be accessed only to determine the
+value to be stored.</li>
+</ul>
+<p>Violating this rule immediately invokes undefined behavior (UB).</p>
+<h3 id="lack-of-specified-operator-evaluation-order">Lack of Specified
+Operator Evaluation Order</h3>
+<p>Most binary operators in C, including addition (<code>+</code>),
+multiplication (<code>*</code>), and assignment (<code>=</code>), do not
+introduce sequence points between their operands. While operator
+precedence dictates how expressions are grouped syntactically, it does
+not dictate the chronological order of execution.</p>
+<p>For example, in the expression:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> result <span class="op">=</span> <span class="op">(</span>x<span class="op">++)</span> <span class="op">+</span> <span class="op">(</span>x<span class="op">++);</span></span></code></pre></div>
+<p>The compiler is entirely free to evaluate the left operand first, the
+right operand first, or interleave the machine instructions generated by
+both operands.</p>
+<h3 id="compiler-optimization-and-hardware-realities">Compiler
+Optimization and Hardware Realities</h3>
+<p>At the machine level, modifying a variable typically requires three
+discrete operations:</p>
+<ol type="1">
+<li>Loading the variable from memory into a CPU register.</li>
+<li>Performing the arithmetic or alteration within the register.</li>
+<li>Storing the updated register value back into memory.</li>
+</ol>
+<p>When two modifications occur without an intervening sequence point,
+the compiler’s optimizer assumes it can pipeline and reorder these load
+and store steps arbitrarily. It may load <code>x</code> into two
+distinct registers, perform two independent operations, and write them
+back in an arbitrary order, overwriting one modification with another.
+Alternatively, dead-code elimination and common subexpression
+elimination passes can transform the code in ways that assume such
+conflicting writes are impossible.</p>
+<h3
+id="why-the-standard-specifies-undefined-rather-than-unspecified-behavior">Why
+the Standard Specifies Undefined Rather than Unspecified Behavior</h3>
+<p>If the C standard specified this as <em>unspecified behavior</em>,
+implementations would be forced to document or bound the possible
+outcomes, forcing compilers to generate defensive synchronization code
+to ensure one write strictly completes before the next begins. By
+classifying it as <em>undefined behavior</em>, the standard removes all
+constraints from the compiler. This ensures that compilers can emit the
+leanest, fastest possible assembly instructions without needing to track
+and resolve conflicting side effects occurring within the same basic
+step of computation.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

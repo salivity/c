@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Array of Pointers vs Pointer to an Array in C - c</title>
+    <meta name="description" content="In C programming, the distinction between an array of pointers and a pointer to an array hinges on operator precedence, memory layout, and pointer arithmetic. An array of pointers is a collection where each element stores a memory address pointing to dat">
+    <link rel="canonical" href="https://salivity.github.io/c/article/array-of-pointers-vs-pointer-to-an-array-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Array of Pointers vs Pointer to an Array in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/array-of-pointers-vs-pointer-to-an-array-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C programming, the distinction between an array of pointers and a pointer to an array hinges on operator precedence, memory layout, and pointer arithmetic. An array of pointers is a collection where each element stores a memory address pointing to dat" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="array-of-pointers-vs-pointer-to-an-array-in-c">Array of Pointers
+vs Pointer to an Array in C</h1>
+<p>In C programming, the distinction between an array of pointers and a
+pointer to an array hinges on operator precedence, memory layout, and
+pointer arithmetic. An array of pointers is a collection where each
+element stores a memory address pointing to data located elsewhere,
+whereas a pointer to an array is a single pointer variable that holds
+the address of an entire contiguous array block. This article breaks
+down the operational differences between both constructs, examining
+their declaration syntax, memory footprint, address calculations, and
+typical use cases.</p>
+<h2 id="syntax-and-operator-precedence">Syntax and Operator
+Precedence</h2>
+<p>The difference in declaration arises from the precedence of the array
+subscript operator <code>[]</code> over the dereference operator
+<code>*</code>.</p>
+<ul>
+<li><p><strong>Array of Pointers:</strong></p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> <span class="op">*</span>arr<span class="op">[</span><span class="dv">5</span><span class="op">];</span></span></code></pre></div>
+<p>Because <code>[]</code> has higher precedence than <code>*</code>,
+<code>arr</code> is evaluated first as an array of 5 elements. The
+<code>*</code> indicates that each element in this array is a pointer to
+an integer (<code>int *</code>).</p></li>
+<li><p><strong>Pointer to an Array:</strong></p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> <span class="op">(*</span>ptr<span class="op">)[</span><span class="dv">5</span><span class="op">];</span></span></code></pre></div>
+<p>Parentheses override default operator precedence. The
+<code>*ptr</code> is evaluated first, meaning <code>ptr</code> is a
+single pointer. The <code>[5]</code> indicates that it points
+specifically to an array of 5 integers.</p></li>
+</ul>
+<h2 id="memory-allocation-and-layout">Memory Allocation and Layout</h2>
+<p>The memory footprint and layout of these two constructs differ
+significantly:</p>
+<ul>
+<li><strong><code>int *arr[5]</code>:</strong> Allocates memory for 5
+separate pointer variables on the stack. On a 64-bit system, this
+consumes <code>5 * 8 = 40 bytes</code>. The data items these pointers
+point to do not need to be contiguous and can reside anywhere in memory
+(e.g., separate heap allocations or independent variables).</li>
+<li><strong><code>int (*ptr)[5]</code>:</strong> Allocates memory for a
+single pointer variable. On a 64-bit system, this occupies only 8 bytes.
+It points to a single, contiguous block of memory containing 5 integers
+(<code>5 * 4 = 20 bytes</code>).</li>
+</ul>
+<h2 id="pointer-arithmetic">Pointer Arithmetic</h2>
+<p>The most critical operational difference occurs during pointer
+arithmetic, as the C compiler scales increments based on the type of
+data being pointed to.</p>
+<ul>
+<li><p>For an array of pointers <code>arr</code>:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>arr <span class="op">+</span> <span class="dv">1</span><span class="op">;</span></span></code></pre></div>
+<p>The expression <code>arr</code> decays into a pointer to its first
+element (a pointer to an <code>int *</code>). Adding <code>1</code>
+advances the memory address by the size of a pointer
+(<code>sizeof(int *)</code>, typically 8 bytes).</p></li>
+<li><p>For a pointer to an array <code>ptr</code>:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>ptr <span class="op">+</span> <span class="dv">1</span><span class="op">;</span></span></code></pre></div>
+<p>Adding <code>1</code> advances the address by the total size of the
+entire array it points to: <code>5 * sizeof(int)</code> (typically 20
+bytes). Instead of moving to the next element, it steps over the entire
+5-element array to point to where the next contiguous 5-element array
+would begin.</p></li>
+</ul>
+<h2 id="accessing-and-dereferencing-data">Accessing and Dereferencing
+Data</h2>
+<p>The mechanics for reading and writing data reflect their differing
+structures:</p>
+<ul>
+<li><p><strong>Array of Pointers:</strong></p>
+<ul>
+<li><code>arr[i]</code> accesses the pointer stored at index
+<code>i</code>.</li>
+<li><code>*arr[i]</code> or <code>arr[i][0]</code> dereferences that
+pointer to read the value it references.</li>
+<li><code>*(arr[i] + j)</code> or <code>arr[i][j]</code> accesses the
+<code>j</code>-th element of the sequence pointed to by the
+<code>i</code>-th pointer.</li>
+</ul></li>
+<li><p><strong>Pointer to an Array:</strong></p>
+<ul>
+<li><code>*ptr</code> dereferences the pointer to yield the underlying
+array, which immediately decays into a pointer to the first element
+(<code>&amp;(*ptr)[0]</code>).</li>
+<li><code>(*ptr)[i]</code> accesses the <code>i</code>-th element within
+the array. The parentheses around <code>*ptr</code> are required to
+dereference the pointer before indexing into the array elements.</li>
+</ul></li>
+</ul>
+<h2 id="common-use-cases">Common Use Cases</h2>
+<ul>
+<li><strong>Arrays of Pointers</strong> are ideal for handling dynamic,
+non-contiguous data collections such as "ragged" or "jagged" arrays
+(where rows have varying lengths), string arrays
+(<code>char *argv[]</code>), and sorting mechanisms where swapping
+pointers is more efficient than copying large data blocks.</li>
+<li><strong>Pointers to Arrays</strong> are primarily used when passing
+multidimensional arrays with fixed secondary dimensions to functions
+(e.g., <code>void process_matrix(int (*matrix)[10], int rows)</code>),
+preserving row-length boundary information for compiler index
+calculations.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C Struct Memory Alignment and Padding Explained - c</title>
+    <meta name="description" content="In the C programming language, structures frequently consume more memory than the mathematical sum of their individual members due to memory alignment and data padding. This mechanism is introduced by compilers to satisfy hardware requirements for effici">
+    <link rel="canonical" href="https://salivity.github.io/c/article/c-struct-memory-alignment-and-padding-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C Struct Memory Alignment and Padding Explained - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/c-struct-memory-alignment-and-padding-explained" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, structures frequently consume more memory than the mathematical sum of their individual members due to memory alignment and data padding. This mechanism is introduced by compilers to satisfy hardware requirements for effici" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-struct-memory-alignment-and-padding-explained">C Struct Memory
+Alignment and Padding Explained</h1>
+<p>In the C programming language, structures frequently consume more
+memory than the mathematical sum of their individual members due to
+memory alignment and data padding. This mechanism is introduced by
+compilers to satisfy hardware requirements for efficient data access,
+where the CPU reads memory in multi-byte words rather than single bytes.
+This article explains how memory alignment works, the necessity of
+compiler-generated padding within structs, its impact on system
+performance, and methods for optimizing struct layouts.</p>
+<h3 id="what-is-memory-alignment">What Is Memory Alignment?</h3>
+<p>Modern computer processors do not access physical memory one byte at
+a time. Instead, they read and write memory in chunks typically sized at
+4 bytes (32-bit systems) or 8 bytes (64-bit systems), commonly referred
+to as memory words.</p>
+<p>Data alignment dictates that a variable of size <span
+class="math inline">\(N\)</span> bytes must have a memory address that
+is evenly divisible by <span class="math inline">\(N\)</span>. For
+instance:</p>
+<ul>
+<li>A 1-byte <code>char</code> can reside at any byte boundary
+(divisible by 1).</li>
+<li>A 2-byte <code>short</code> must reside at an even address
+(divisible by 2).</li>
+<li>A 4-byte <code>int</code> or <code>float</code> must reside at an
+address divisible by 4.</li>
+<li>An 8-byte <code>double</code> or pointer must reside at an address
+divisible by 8.</li>
+</ul>
+<h3 id="the-purpose-of-struct-padding">The Purpose of Struct
+Padding</h3>
+<p>When members of different types are declared inside a struct, placing
+them sequentially without gaps can cause variables to fall on misaligned
+addresses. To prevent this, the compiler automatically inserts unused,
+empty bytes called <strong>padding</strong> between members and at the
+end of the struct.</p>
+<p>Padding serves two primary functions inside structs:</p>
+<ol type="1">
+<li><strong>Internal Member Alignment:</strong> It ensures that every
+member variable begins at a memory address that aligns with its natural
+type boundary.</li>
+<li><strong>Trailing Struct Alignment:</strong> It rounds the total size
+of the structure up to a multiple of its largest member's alignment
+requirement. This ensures that every element remains properly aligned
+when declaring an array of that struct type.</li>
+</ol>
+<h3 id="why-memory-alignment-and-padding-matter">Why Memory Alignment
+and Padding Matter</h3>
+<p>The enforcement of memory alignment and padding provides essential
+system-level advantages:</p>
+<ul>
+<li><strong>Processing Speed:</strong> When data is aligned, the CPU can
+fetch it using a single memory access cycle. If a 4-byte integer crosses
+a 4-byte boundary (misaligned), the CPU must execute two separate memory
+read cycles, mask the unneeded bits, and merge the remaining bytes
+together.</li>
+<li><strong>Hardware Architecture Constraints:</strong> While x86
+processors can tolerate misaligned access at the expense of performance,
+certain architectures (such as older ARM, MIPS, and SPARC platforms)
+generate a hardware exception or bus error when encountering an
+unaligned memory read or write.</li>
+<li><strong>Cache Line Efficiency:</strong> Proper alignment prevents
+single variables from crossing CPU cache line boundaries, which
+minimizes cache misses and maximizes cache throughput.</li>
+</ul>
+<h3 id="memory-alignment-in-practice">Memory Alignment in Practice</h3>
+<p>Consider the following struct layout:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> BadLayout <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> a<span class="op">;</span>      <span class="co">// 1 byte</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> b<span class="op">;</span>       <span class="co">// 4 bytes</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> c<span class="op">;</span>      <span class="co">// 1 byte</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>One might expect <code>sizeof(struct BadLayout)</code> to be 6 bytes
+(<span class="math inline">\(1 + 4 + 1\)</span>). In reality, on a
+standard 32-bit or 64-bit system, the compiler produces an allocation of
+12 bytes:</p>
+<ul>
+<li><code>char a</code> occupies byte 0.</li>
+<li><strong>3 bytes of padding</strong> are inserted so <code>b</code>
+starts at offset 4 (a multiple of 4).</li>
+<li><code>int b</code> occupies bytes 4 through 7.</li>
+<li><code>char c</code> occupies byte 8.</li>
+<li><strong>3 bytes of trailing padding</strong> are added so the entire
+struct size becomes 12 bytes, which is divisible by the largest
+alignment constraint (4 bytes for <code>int</code>).</li>
+</ul>
+<h3 id="optimizing-struct-memory">Optimizing Struct Memory</h3>
+<p>Developers can eliminate redundant padding without altering struct
+functionality simply by reordering members from largest to smallest:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> OptimizedLayout <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> b<span class="op">;</span>       <span class="co">// 4 bytes</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> a<span class="op">;</span>      <span class="co">// 1 byte</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> c<span class="op">;</span>      <span class="co">// 1 byte</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span>               <span class="co">// 2 bytes of trailing padding added</span></span></code></pre></div>
+<p>By placing the 4-byte <code>int</code> first, <code>char a</code> and
+<code>char c</code> pack into the next two bytes (bytes 4 and 5). The
+compiler only adds 2 bytes of trailing padding to round the struct up to
+8 bytes, saving 33% of the memory used by
+<code>struct BadLayout</code>.</p>
+<p>While compilers often provide directives like
+<code>#pragma pack(1)</code> or <code>__attribute__((packed))</code> to
+force structs to zero padding, doing so induces severe performance
+penalties and risks alignment faults on stricter architectures. Ordering
+struct members manually remains the standard and most efficient way to
+balance memory footprint and hardware speed.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

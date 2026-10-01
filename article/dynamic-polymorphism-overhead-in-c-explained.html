@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Polymorphism Overhead in C Explained - c</title>
+    <meta name="description" content="Dynamic polymorphism in the C programming language is achieved manually using mechanisms such as function pointers inside structures, hand-crafted virtual method tables (vtables), or tagged unions. While languages like C++ handle dynamic dispatch through">
+    <link rel="canonical" href="https://salivity.github.io/c/article/dynamic-polymorphism-overhead-in-c-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Dynamic Polymorphism Overhead in C Explained - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/dynamic-polymorphism-overhead-in-c-explained" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Dynamic polymorphism in the C programming language is achieved manually using mechanisms such as function pointers inside structures, hand-crafted virtual method tables (vtables), or tagged unions. While languages like C++ handle dynamic dispatch through" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="dynamic-polymorphism-overhead-in-c-explained">Dynamic
+Polymorphism Overhead in C Explained</h1>
+<p>Dynamic polymorphism in the C programming language is achieved
+manually using mechanisms such as function pointers inside structures,
+hand-crafted virtual method tables (vtables), or tagged unions. While
+languages like C++ handle dynamic dispatch through compiler-generated
+virtual tables and optimized calling conventions, implementing this
+paradigm manually in C introduces notable performance, memory, and
+optimization overheads. This article outlines the specific costs
+associated with manual dynamic polymorphism compared to compiler-managed
+dispatch mechanisms.</p>
+<h3 id="1-per-instance-memory-footprint">1. Per-Instance Memory
+Footprint</h3>
+<p>When implementing dynamic polymorphism naively in C, developers often
+place function pointers directly inside each structure instance.</p>
+<ul>
+<li><strong>Per-Instance Function Pointers:</strong> Storing <span
+class="math inline">\(N\)</span> function pointers inside an instance
+inflates the structure by <span class="math inline">\(N \times
+\text{sizeof}(\text{pointer})\)</span> bytes. If a structure has five
+polymorphic methods on a 64-bit architecture, each instance incurs a
+40-byte memory overhead.</li>
+<li><strong>Compiler-Generated vtables:</strong> In contrast, a
+compiler-managed system (such as C++'s virtual dispatch) places only a
+single pointer (the <code>vptr</code>, typically 8 bytes) inside each
+instance, referencing a single, shared static vtable per type.</li>
+<li><strong>Manual vtable Emulation:</strong> A C programmer can mimic
+this approach by defining an external vtable struct and referencing it
+via a single pointer. However, this requires manually managing static
+lifetime definitions, initialization order, and struct definitions,
+increasing code complexity to achieve parity with compiler
+defaults.</li>
+</ul>
+<h3 id="2-cache-inefficiency-and-memory-locality">2. Cache Inefficiency
+and Memory Locality</h3>
+<p>The memory layout of manual dynamic dispatch directly impacts CPU
+cache utilization:</p>
+<ul>
+<li><strong>Data Cache Pollution:</strong> Embedding function pointers
+directly into data structures pollutes the L1/L2 data cache with
+executable address metadata that remains static throughout an object's
+lifecycle.</li>
+<li><strong>Indirection Hops:</strong> Emulating vtables manually
+(<code>object-&gt;vtable-&gt;method(object)</code>) requires an
+additional level of indirection. If the manual vtable is not placed in
+cache-friendly memory segments, the first call to an object’s method may
+incur an avoidable L1/L2 data cache miss before the instruction pointer
+can even be resolved.</li>
+</ul>
+<h3 id="3-optimization-and-inlining-barriers">3. Optimization and
+Inlining Barriers</h3>
+<p>Compilers excel at optimizing code paths they understand implicitly.
+Manual function pointer manipulation obscures control flow, creating
+optimization barriers:</p>
+<ul>
+<li><strong>Lack of Devirtualization:</strong> Modern optimizing
+compilers can perform <em>speculative devirtualization</em> on
+compiler-generated dispatch. If the compiler can deduce the concrete
+type of an object, it converts the indirect call into a direct call or
+inlines the function body entirely.</li>
+<li><strong>Opaque Function Pointers:</strong> In standard C, function
+pointers loaded through memory locations are typically opaque to the
+optimizer. Unless aggressive Link-Time Optimization (LTO) can prove the
+pointer is invariant across the execution context, the compiler must
+emit a generic indirect call (<code>call *%reg</code>), precluding
+inlining, loop unrolling across the call site, and constant
+propagation.</li>
+</ul>
+<h3 id="4-branch-prediction-and-pipeline-penalties">4. Branch Prediction
+and Pipeline Penalties</h3>
+<p>Modern CPUs utilize a Branch Target Buffer (BTB) to predict the
+targets of indirect jumps and calls.</p>
+<ul>
+<li>Indirect branches generated via C function pointers depend heavily
+on dynamic branch prediction. If an array of polymorphic C objects
+contains varying types, the target address changes frequently, causing
+recurrent BTB mispredictions.</li>
+<li>Each misprediction causes the processor pipeline to flush, costing
+between 10 to 20 clock cycles depending on pipeline depth. While this
+penalty also applies to compiler-generated vtables, compilers often
+organize dispatch tables to be contiguous and consistent, allowing more
+predictable memory access patterns for the hardware prefetcher.</li>
+</ul>
+<h3 id="5-calling-convention-and-argument-passing">5. Calling Convention
+and Argument Passing</h3>
+<p>Compiler-generated dispatch systems frequently utilize optimized
+calling conventions tailored for method calls (such as the
+<code>thiscall</code> convention on certain x86 ABIs or standard
+register-passing rules where the object instance pointer is placed in a
+specific register like <code>RDI</code>).</p>
+<p>In manual C polymorphism, the instance must be explicitly passed as
+the first parameter (e.g., <code>shape-&gt;draw(shape)</code>). While
+modern calling conventions (like the System V AMD64 ABI) pass the first
+few arguments in registers regardless, the manual approach prevents the
+compiler from reserving dedicated registers for implicit instance
+tracking, resulting in marginal register pressure increases in complex,
+deeply nested function call chains.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

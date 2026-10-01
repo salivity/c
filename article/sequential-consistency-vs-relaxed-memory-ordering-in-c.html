@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sequential Consistency vs Relaxed Memory Ordering in C - c</title>
+    <meta name="description" content="This article examines the core differences between sequential consistency (memoryorderseqcst) and relaxed memory ordering (memoryorderrelaxed) in C low-level concurrency via <stdatomic.h>. It explores how each model influences compiler optimizations and">
+    <link rel="canonical" href="https://salivity.github.io/c/article/sequential-consistency-vs-relaxed-memory-ordering-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Sequential Consistency vs Relaxed Memory Ordering in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/sequential-consistency-vs-relaxed-memory-ordering-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article examines the core differences between sequential consistency (memoryorderseqcst) and relaxed memory ordering (memoryorderrelaxed) in C low-level concurrency via <stdatomic.h>. It explores how each model influences compiler optimizations and" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="sequential-consistency-vs-relaxed-memory-ordering-in-c">Sequential
+Consistency vs Relaxed Memory Ordering in C</h1>
+<p>This article examines the core differences between sequential
+consistency (<code>memory_order_seq_cst</code>) and relaxed memory
+ordering (<code>memory_order_relaxed</code>) in C low-level concurrency
+via <code>&lt;stdatomic.h&gt;</code>. It explores how each model
+influences compiler optimizations and hardware instruction reordering,
+the operational guarantees each provides, and the practical performance
+trade-offs involved when building concurrent algorithms.</p>
+<h3 id="understanding-the-c11-memory-model">Understanding the C11 Memory
+Model</h3>
+<p>Introduced in the C11 standard, the <code>&lt;stdatomic.h&gt;</code>
+library provides explicit memory ordering semantics to control how reads
+and writes to atomic variables propagate across processor cores. In
+modern multi-core architectures, compilers and hardware dynamically
+reorder instructions and utilize store buffers to maximize execution
+throughput. Atomic memory orders tell both the compiler and the CPU
+which reorderings are strictly forbidden and which are permissible.</p>
+<h3 id="sequential-consistency-memory_order_seq_cst">Sequential
+Consistency (<code>memory_order_seq_cst</code>)</h3>
+<p>Sequential consistency is the default memory order applied when using
+atomic operations without specifying an explicit order in C (such as
+<code>atomic_store</code> instead of
+<code>atomic_store_explicit</code>).</p>
+<ol type="1">
+<li><strong>Global Order:</strong> Sequential consistency guarantees
+that all threads observe all <code>seq_cst</code> operations in a
+single, universally agreed-upon total order. If Thread A stores to
+variable <code>X</code> and then to variable <code>Y</code>, no thread
+in the system can observe the write to <code>Y</code> before the write
+to <code>X</code>.</li>
+<li><strong>Synchronization and Ordering:</strong> Every sequentially
+consistent operation acts as both an acquire and release barrier,
+preventing surrounding reads and writes from being reordered before or
+after the atomic operation.</li>
+<li><strong>Overhead:</strong> Maintaining a globally coherent timeline
+requires hardware synchronization primitives, such as full memory fences
+(e.g., <code>MFENCE</code> on x86) or locked instructions. This creates
+significant latency on architectures with relaxed hardware memory
+models, such as ARM or POWER.</li>
+</ol>
+<h3 id="relaxed-memory-ordering-memory_order_relaxed">Relaxed Memory
+Ordering (<code>memory_order_relaxed</code>)</h3>
+<p>Relaxed memory ordering represents the weakest synchronization model
+provided by C.</p>
+<ol type="1">
+<li><strong>Atomicity Only:</strong> An operation executed with
+<code>memory_order_relaxed</code> guarantees only that the read or write
+itself is atomic and will not produce torn reads or data races on that
+specific variable. It provides no synchronization with other memory
+operations.</li>
+<li><strong>Permissible Reordering:</strong> The compiler and the
+processor are free to reorder relaxed memory operations across other
+memory accesses (both non-atomic and other relaxed atomics), provided
+intra-thread program logic (program order) is preserved.</li>
+<li><strong>No Global Timeline:</strong> Different threads may observe
+relaxed modifications to distinct variables in completely different
+orders. If Thread A writes to <code>X</code> and then <code>Y</code>
+using <code>memory_order_relaxed</code>, Thread B may observe the
+modification of <code>Y</code> before <code>X</code>.</li>
+<li><strong>Performance:</strong> Because it eliminates hardware memory
+barriers, relaxed ordering translates to normal load and store
+instructions on almost all architectures, offering minimal execution
+overhead.</li>
+</ol>
+<h3 id="key-differences">Key Differences</h3>
+<ul>
+<li><strong>Inter-Thread Synchronization:</strong>
+<code>memory_order_seq_cst</code> creates a clear "happens-before"
+relationship across threads, enabling flag-based coordination and
+synchronization of non-atomic payloads.
+<code>memory_order_relaxed</code> cannot be used to coordinate access to
+other shared state, as it does not enforce ordering constraints relative
+to other memory locations.</li>
+<li><strong>Visibility:</strong> Sequentially consistent operations
+establish a single global modification order visible to all CPU cores.
+Relaxed operations do not synchronize caches; operations become visible
+to other threads only as cache coherency protocols dictate, without
+timing or sequencing guarantees relative to other operations.</li>
+<li><strong>Cost:</strong> Sequential consistency enforces conservative
+synchronization, preventing CPU pipelines from executing out-of-order
+memory operations. Relaxed ordering allows hardware to optimize
+instruction pipelines and memory buses freely.</li>
+</ul>
+<h3 id="practical-application">Practical Application</h3>
+<p>Use <code>memory_order_seq_cst</code> when correctness requires a
+deterministic, global timeline across multiple shared variables and
+performance is secondary to preventing subtle concurrency bugs.</p>
+<p>Use <code>memory_order_relaxed</code> exclusively when an operation
+does not guard or depend on any other state. Common use cases include
+monotonic performance counters, statistical metrics, or atomic reference
+counter increments where the sequencing relative to other data is
+irrelevant to program correctness.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

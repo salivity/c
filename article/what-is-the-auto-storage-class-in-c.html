@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Is the Auto Storage Class in C? - c</title>
+    <meta name="description" content="In the C programming language, the auto keyword is a storage class specifier that historically denotes automatic storage duration and local block scope for variables. While it served as an explicit marker indicating that a variable is allocated upon ente">
+    <link rel="canonical" href="https://salivity.github.io/c/article/what-is-the-auto-storage-class-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Is the Auto Storage Class in C? - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/what-is-the-auto-storage-class-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, the auto keyword is a storage class specifier that historically denotes automatic storage duration and local block scope for variables. While it served as an explicit marker indicating that a variable is allocated upon ente" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="what-is-the-auto-storage-class-in-c">What Is the Auto Storage
+Class in C?</h1>
+<p>In the C programming language, the <code>auto</code> keyword is a
+storage class specifier that historically denotes automatic storage
+duration and local block scope for variables. While it served as an
+explicit marker indicating that a variable is allocated upon entering a
+block of code and automatically destroyed upon exiting, it was virtually
+never written in practice because it was already the default behavior
+for all local declarations. This article explores the historical meaning
+of the <code>auto</code> storage class, how it interacted with memory
+and scope, and how its legacy role ultimately evolved.</p>
+<h3 id="core-meaning-and-lifetime">Core Meaning and Lifetime</h3>
+<p>Historically defined in early C standards such as C89 and C99,
+<code>auto</code> stands for "automatic." When placed before a local
+variable declaration, it explicitly defined two characteristics:</p>
+<ul>
+<li><strong>Storage Duration:</strong> The variable possesses automatic
+storage duration. Memory for the variable is allocated when execution
+enters the enclosing block (typically on the call stack) and released
+automatically when control exits that block.</li>
+<li><strong>Scope:</strong> The variable has block scope (local scope).
+It is only visible and accessible within the enclosing curly braces
+<code>{}</code> where it is declared.</li>
+</ul>
+<h3 id="redundancy-in-traditional-c">Redundancy in Traditional C</h3>
+<p>In standard C, any variable declared inside a function or compound
+block without an explicit storage class specifier defaults to automatic
+storage duration. Therefore, writing:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> <span class="dt">int</span> counter <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span></code></pre></div>
+<p>is functionally identical to:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> counter <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span></code></pre></div>
+<p>Because the behavior was identical, developers virtually never typed
+the <code>auto</code> keyword. It remained in the language primarily for
+historical symmetry with the B programming language—from which C
+inherited much of its syntax—and to sit alongside the other storage
+class specifiers.</p>
+<h3 id="contrast-with-other-storage-classes">Contrast with Other Storage
+Classes</h3>
+<p>The historical significance of <code>auto</code> is easiest to
+understand when contrasted with C's other three traditional storage
+class specifiers:</p>
+<ul>
+<li><strong><code>static</code>:</strong> When used inside a block,
+<code>static</code> grants a variable static storage duration. The
+variable retains its value between function calls and persists for the
+entire lifetime of the program, contrasting directly with
+<code>auto</code>'s ephemeral lifespan.</li>
+<li><strong><code>extern</code>:</strong> Informs the compiler that a
+variable is defined elsewhere, often in another source file, giving it
+static duration and external linkage.</li>
+<li><strong><code>register</code>:</strong> Like <code>auto</code>, it
+designates automatic storage duration and block scope, but historically
+requested the compiler to store the variable directly in a CPU register
+for faster access rather than in standard RAM/stack memory.</li>
+</ul>
+<h3 id="modern-evolution-in-c23">Modern Evolution in C23</h3>
+<p>Due to decades of disuse as a redundant storage class specifier, the
+role of <code>auto</code> fundamentally shifted in the C23 standard.
+Following the precedent set by C++11, C23 repurposed <code>auto</code>
+for type inference. In modern C, <code>auto</code> no longer serves
+merely to denote automatic storage duration; instead, it instructs the
+compiler to deduce the variable's type automatically from its
+initializer expression.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

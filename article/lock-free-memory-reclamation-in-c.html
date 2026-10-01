@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lock-Free Memory Reclamation in C - c</title>
+    <meta name="description" content="Lock-free data structures in C achieve high concurrency without traditional locks, but they face a critical obstacle known as the safe memory reclamation problem. Because C lacks automatic garbage collection, a thread cannot safely invoke free() on an un">
+    <link rel="canonical" href="https://salivity.github.io/c/article/lock-free-memory-reclamation-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Lock-Free Memory Reclamation in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/lock-free-memory-reclamation-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Lock-free data structures in C achieve high concurrency without traditional locks, but they face a critical obstacle known as the safe memory reclamation problem. Because C lacks automatic garbage collection, a thread cannot safely invoke free() on an un" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="lock-free-memory-reclamation-in-c">Lock-Free Memory Reclamation
+in C</h1>
+<p>Lock-free data structures in C achieve high concurrency without
+traditional locks, but they face a critical obstacle known as the safe
+memory reclamation problem. Because C lacks automatic garbage
+collection, a thread cannot safely invoke <code>free()</code> on an
+unlinked node while concurrent reader threads might still be
+dereferencing it, risking use-after-free vulnerabilities and ABA issues.
+Hazard Pointers and Epoch-Based Reclamation (EBR) solve this problem by
+providing structured, deterministic mechanisms to track concurrent
+reader access and defer deallocation until nodes are guaranteed to be
+unreferenced.</p>
+<h3 id="the-problem-safe-memory-reclamation-and-aba">The Problem: Safe
+Memory Reclamation and ABA</h3>
+<p>In a lock-free structure (such as a Treiber stack or Michael-Scott
+queue), threads modify shared data using atomic operations like
+<code>atomic_compare_exchange_weak</code>. When a node is detached from
+the shared structure, other threads may have already read a pointer to
+that node and may be preempted before accessing its payload. If the
+removing thread immediately calls <code>free()</code>, any preempted
+thread will later dereference dangling memory. Furthermore, if that
+memory is reallocated and reintroduced into the structure at the same
+address, it can trigger the ABA problem, where an atomic
+compare-and-swap succeeds incorrectly because the address matches even
+though the data state has changed.</p>
+<h3 id="hazard-pointers">Hazard Pointers</h3>
+<p>Hazard pointers solve this issue through fine-grained, thread-local
+reservations. Each thread owns a small, globally visible array of
+pointers called hazard pointers.</p>
+<ol type="1">
+<li><strong>Acquiring a Reference:</strong> Before a reader thread
+accesses a node, it writes the node's memory address into one of its
+hazard pointers using an atomic store with appropriate memory ordering
+(typically <code>memory_order_seq_cst</code> or a fence). It then
+re-checks whether the node is still part of the data structure. If the
+node was unlinked before the hazard pointer was set, the thread aborts
+and retries.</li>
+<li><strong>Retiring Nodes:</strong> When a thread unlinks a node, it
+does not call <code>free()</code>. Instead, it places the node into a
+thread-private "retired list."</li>
+<li><strong>Reclamation:</strong> Once the retired list reaches a
+defined threshold, the thread scans the hazard pointer arrays of all
+active threads. Any retired node whose address does not appear in any
+thread's hazard pointer list is safely freed via <code>free()</code>.
+Nodes that are currently protected remain in the retired list for the
+next reclamation cycle.</li>
+</ol>
+<p><strong>Trade-offs:</strong> Hazard pointers provide strong safety
+guarantees and bounded memory usage. A stalled thread can only prevent
+the reclamation of the specific nodes it actively protects. However,
+writing to hazard pointers introduces reader-side overhead because
+readers must execute atomic writes and memory barriers for every node
+traversal.</p>
+<h3 id="epoch-based-reclamation-ebr">Epoch-Based Reclamation (EBR)</h3>
+<p>Epoch-Based Reclamation shifts the tracking granularity from
+individual nodes to temporal phases (epochs). The system maintains a
+global epoch counter (typically cycling through 0, 1, and 2) and an
+active epoch flag for each thread.</p>
+<ol type="1">
+<li><strong>Entering Critical Sections:</strong> A reader thread marks
+itself as active and copies the current global epoch into its
+thread-local state using
+<code>atomic_load(&amp;global_epoch)</code>.</li>
+<li><strong>Access and Exit:</strong> The thread traverses the data
+structure freely without updating shared pointers or performing atomic
+writes during traversal. Upon finishing, the thread clears its active
+flag.</li>
+<li><strong>Retiring Nodes:</strong> When a node is detached, it is
+added to a retirement list associated with the current global
+epoch.</li>
+<li><strong>Epoch Advancement:</strong> A designated thread periodically
+checks the local states of all active threads. If all threads have
+observed the current epoch, the global epoch advances (<span
+class="math inline">\(E_{new} = (E_{current} + 1) \pmod 3\)</span>).
+Memory retired two epochs prior (<span class="math inline">\(E -
+2\)</span>) is guaranteed to have no active readers and can be safely
+passed to <code>free()</code>.</li>
+</ol>
+<p><strong>Trade-offs:</strong> EBR offers high read performance because
+readers only perform lightweight loads and stores when entering and
+exiting critical sections, with zero atomic synchronization during node
+traversal. Its primary drawback is that a single stalled or slow thread
+inside a critical section halts epoch progression, causing retired nodes
+to accumulate and resulting in unbounded memory growth.</p>
+<h3 id="summary-of-differences">Summary of Differences</h3>
+<ul>
+<li><strong>Hazard Pointers</strong> are reference-centric, track
+individual pointers, impose higher read-side costs, but strictly bound
+memory reclamation delays to the specific nodes in use.</li>
+<li><strong>Epoch-Based Reclamation</strong> is time-centric, groups
+operations into phases, delivers near-zero read overhead, but risks
+delayed reclamation across the entire system if a thread stalls.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

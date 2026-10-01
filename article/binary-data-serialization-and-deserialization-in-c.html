@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Binary Data Serialization and Deserialization in C - c</title>
+    <meta name="description" content="Binary data exchange in the C programming language requires transforming in-memory objects into a portable, uniform format and reconstructing them reliably on a target system. Because C interacts directly with low-level system memory, simply copying raw">
+    <link rel="canonical" href="https://salivity.github.io/c/article/binary-data-serialization-and-deserialization-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Binary Data Serialization and Deserialization in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/binary-data-serialization-and-deserialization-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Binary data exchange in the C programming language requires transforming in-memory objects into a portable, uniform format and reconstructing them reliably on a target system. Because C interacts directly with low-level system memory, simply copying raw" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="binary-data-serialization-and-deserialization-in-c">Binary Data
+Serialization and Deserialization in C</h1>
+<p>Binary data exchange in the C programming language requires
+transforming in-memory objects into a portable, uniform format and
+reconstructing them reliably on a target system. Because C interacts
+directly with low-level system memory, simply copying raw memory
+structures between programs frequently leads to corrupted data, security
+vulnerabilities, or application crashes. Serialization and
+deserialization resolve these critical issues by mitigating differences
+in system architecture, memory alignment, byte ordering, and pointer
+references, ensuring consistent and robust inter-process or network
+communication.</p>
+<h3
+id="eliminating-structure-padding-and-alignment-discrepancies">Eliminating
+Structure Padding and Alignment Discrepancies</h3>
+<p>Compilers automatically insert padding bytes into C structures
+(<code>struct</code>) to align fields along hardware-preferred memory
+boundaries, typically 32-bit or 64-bit boundaries. These padding choices
+vary depending on the compiler, compiler flags, target operating system,
+and target processor architecture.</p>
+<p>If a program transmits a raw structure using <code>fwrite</code> or
+<code>send</code>, the receiving application might expect fields at
+entirely different byte offsets. Serialization eliminates this
+dependency by extracting each field individually and writing it
+sequentially into a tightly packed byte stream. Deserialization reverses
+this operation by reading the fields sequentially from the buffer and
+assigning them to the target machine's locally padded structure,
+eliminating structural layout mismatches.</p>
+<h3 id="handling-endianness-incompatibilities">Handling Endianness
+Incompatibilities</h3>
+<p>Modern computing systems use different conventions for ordering bytes
+within multi-byte data types:</p>
+<ul>
+<li><strong>Little-Endian:</strong> Stores the least significant byte at
+the lowest memory address (common in x86 and modern ARM platforms).</li>
+<li><strong>Big-Endian:</strong> Stores the most significant byte at the
+lowest memory address (standard for network protocols).</li>
+</ul>
+<p>Directly exchanging multi-byte integers (<code>short</code>,
+<code>int</code>, <code>uint64_t</code>) across heterogeneous
+architectures reverses their arithmetic value. A robust serialization
+layer normalizes all multi-byte values to a predetermined standard—often
+Network Byte Order (Big-Endian)—using standard functions like
+<code>htons</code> and <code>htonl</code>, or explicit bit-shifting
+operators (<code>&lt;&lt;</code>, <code>&gt;&gt;</code>). During
+deserialization, the receiving program converts the standardized bytes
+back into its host order (<code>ntohs</code>, <code>ntohl</code>),
+guaranteeing arithmetic consistency across all hardware platforms.</p>
+<h3 id="resolving-pointers-and-dynamic-memory">Resolving Pointers and
+Dynamic Memory</h3>
+<p>In C, variables that represent dynamic memory, linked data
+structures, or strings rely on pointers. A pointer is merely a virtual
+memory address that is valid only within the specific address space of
+the running process. Transmitting a pointer to another program sends an
+invalid or arbitrary memory address, causing memory corruption or
+segmentation faults upon dereference.</p>
+<p>Serialization solves pointer decay by "flattening" deep data
+structures into contiguous streams:</p>
+<ol type="1">
+<li><strong>Length-Prefixed Encoding:</strong> For variable-length data
+such as strings or dynamic arrays, the serializer writes the length of
+the data as a fixed-size integer followed immediately by the raw
+payload.</li>
+<li><strong>Structural Traversal:</strong> Graph or tree-based dynamic
+structures are traversed (e.g., depth-first or breadth-first),
+translating pointer relationships into relative offsets or serialized
+node definitions.</li>
+<li><strong>Dynamic Reconstruction:</strong> The deserializer reads the
+length markers, allocates appropriate heap memory using
+<code>malloc</code>, populates the newly allocated space, and updates
+the local pointers.</li>
+</ol>
+<h3 id="enforcing-input-validation-and-data-integrity">Enforcing Input
+Validation and Data Integrity</h3>
+<p>Directly casting unvalidated binary input to internal C pointers
+exposes an application to severe security risks, including buffer
+overflows, arbitrary code execution, and integer wraps. Robust
+deserialization acts as a validation gatekeeper by implementing the
+following safety checks:</p>
+<ul>
+<li><strong>Boundary Checking:</strong> The deserializer monitors the
+current read offset against the total payload length to prevent
+out-of-bounds memory reads.</li>
+<li><strong>Magic Numbers and Protocol Versions:</strong> Payloads
+typically begin with fixed identification bytes and version numbers to
+quickly identify protocol mismatches or corrupted transmissions.</li>
+<li><strong>Integrity Hashing:</strong> Checksums, CRCs, or
+cryptographic signatures appended to the serialized stream are verified
+before any internal state is modified.</li>
+<li><strong>Range Validation:</strong> Deserialized integer values
+representing dynamic allocations or array sizes are clamped to safe
+maximum bounds to thwart denial-of-service attacks driven by memory
+exhaustion.</li>
+</ul>
+<p>By decoupling memory layout from data representation, explicit
+serialization and deserialization ensure that binary data exchange in C
+remains immune to platform discrepancies, architecture shifts, and
+malformed inputs.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

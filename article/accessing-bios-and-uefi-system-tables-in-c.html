@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accessing BIOS and UEFI System Tables in C - c</title>
+    <meta name="description" content="Writing a bootloader in C requires interfacing directly with system firmware to initialize hardware and load the operating system kernel. While modern UEFI environments natively support the C calling convention by passing a direct pointer to the system t">
+    <link rel="canonical" href="https://salivity.github.io/c/article/accessing-bios-and-uefi-system-tables-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Accessing BIOS and UEFI System Tables in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/accessing-bios-and-uefi-system-tables-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Writing a bootloader in C requires interfacing directly with system firmware to initialize hardware and load the operating system kernel. While modern UEFI environments natively support the C calling convention by passing a direct pointer to the system t" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="accessing-bios-and-uefi-system-tables-in-c">Accessing BIOS and
+UEFI System Tables in C</h1>
+<p>Writing a bootloader in C requires interfacing directly with system
+firmware to initialize hardware and load the operating system kernel.
+While modern UEFI environments natively support the C calling convention
+by passing a direct pointer to the system table entry point, legacy BIOS
+systems operate in 16-bit real mode and rely on interrupt vectors and
+fixed memory locations rather than structured tables. This article
+outlines the architectural differences, entry point signatures, and
+implementation techniques required to access these low-level firmware
+interfaces using the C programming language.</p>
+<h2 id="accessing-the-uefi-system-table">Accessing the UEFI System
+Table</h2>
+<p>Unified Extensible Firmware Interface (UEFI) runs in 32-bit or 64-bit
+protected or long mode with identity-mapped virtual memory, which aligns
+naturally with standard C compilers. The UEFI specification explicitly
+defines a standard entry point for executables formatted as PE32+.</p>
+<h3 id="the-efi_main-function-signature">The <code>efi_main</code>
+Function Signature</h3>
+<p>When the UEFI firmware loads a bootloader, it calls the entry point
+defined in the executable's header. Under the standard UEFI calling
+convention (typically Microsoft x64 ABI), the firmware passes two
+primary arguments:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">typedef</span> <span class="dt">void</span> <span class="op">*</span>EFI_HANDLE<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">typedef</span> <span class="kw">struct</span> <span class="op">{</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> _pad<span class="op">[</span><span class="dv">44</span><span class="op">];</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> <span class="op">*</span>ConOut<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> _pad2<span class="op">[</span><span class="dv">16</span><span class="op">];</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> <span class="op">*</span>BootServices<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> <span class="op">*</span>RuntimeServices<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> EFI_SYSTEM_TABLE<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="dt">long</span> efi_main<span class="op">(</span>EFI_HANDLE ImageHandle<span class="op">,</span> EFI_SYSTEM_TABLE <span class="op">*</span>SystemTable<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// SystemTable contains the entry point pointers to firmware APIs</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The <code>SystemTable</code> pointer provides access to all
+fundamental firmware interfaces:</p>
+<ul>
+<li><strong>Boot Services (<code>BootServices</code>):</strong> Handles
+memory allocation, device paths, protocol lookups, and timer events.
+These services become unavailable once the bootloader terminates
+firmware control using <code>ExitBootServices()</code>.</li>
+<li><strong>Runtime Services (<code>RuntimeServices</code>):</strong>
+Remains accessible even after the OS boots, providing functions for
+resetting the system and reading or writing NVRAM variables.</li>
+<li><strong>Console I/O (<code>ConIn</code>, <code>ConOut</code>,
+<code>StdErr</code>):</strong> Provides simple text input and output
+mechanisms for early error reporting.</li>
+</ul>
+<p>Developers compile this code using tools such as Clang or GCC with
+<code>-target x86_64-unknown-windows</code> or using cross-development
+libraries like GNU-EFI and EDK II, allowing the generated binary to
+match the required PE/COFF format.</p>
+<hr />
+<h2 id="interfacing-with-legacy-bios">Interfacing with Legacy BIOS</h2>
+<p>Legacy BIOS does not pass a pointer to a system table upon execution.
+Instead, the BIOS loads the first 512-byte sector of the boot drive (the
+Master Boot Record) to memory address <code>0x7C00</code> and transfers
+execution in 16-bit Real Mode via a direct jump
+(<code>jmp 0000:7C00h</code>).</p>
+<p>Because standard C compilers generate code for 32-bit or 64-bit
+protected environments, developers targeting BIOS in C must either use a
+16-bit compiler (such as Open Watcom or GCC with the <code>-m16</code>
+directive) or execute a minimal assembly stub to initialize stack
+registers and switch to protected mode.</p>
+<h3 id="accessing-bios-services-via-interrupts">Accessing BIOS Services
+via Interrupts</h3>
+<p>BIOS does not use function pointers; instead, it establishes an
+Interrupt Vector Table (IVT) located at physical address
+<code>0x0000:0x0000</code>. Bootloaders invoke BIOS services by loading
+CPU registers with arguments and executing software interrupts:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Example using GCC inline assembly to invoke BIOS Video Services (INT 0x10)</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> bios_putchar<span class="op">(</span><span class="dt">char</span> c<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    __asm__ __volatile__ <span class="op">(</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;movb $0x0E, </span><span class="sc">%%</span><span class="st">ah</span><span class="sc">\n</span><span class="st">&quot;</span>  <span class="co">// Teletype output function</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;movb %0, </span><span class="sc">%%</span><span class="st">al</span><span class="sc">\n</span><span class="st">&quot;</span>     <span class="co">// Character to print</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;int $0x10</span><span class="sc">\n</span><span class="st">&quot;</span>         <span class="co">// Video interrupt</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="op">:</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="op">:</span> <span class="st">&quot;r&quot;</span><span class="op">(</span>c<span class="op">)</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="op">:</span> <span class="st">&quot;ax&quot;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">);</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Common BIOS interrupt entry points include:</p>
+<ul>
+<li><strong><code>INT 0x10</code>:</strong> Video services for text
+output and screen mode setting.</li>
+<li><strong><code>INT 0x13</code>:</strong> Low-level disk access for
+reading sectors into memory.</li>
+<li><strong><code>INT 0x15</code>:</strong> System services, most
+notably <code>E820h</code> for memory map detection.</li>
+</ul>
+<h3 id="fixed-memory-entry-points">Fixed Memory Entry Points</h3>
+<p>In addition to interrupts, legacy BIOS exposes status information
+through the BIOS Data Area (BDA), situated at fixed memory segment
+<code>0x0400:0x0000</code>. C developers can access this table directly
+by casting absolute memory addresses to pointers:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#define BDA_BASE </span><span class="bn">0x0400</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Read the base I/O port address for COM1 from BDA (Offset 0x0000)</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">short</span> get_com1_port<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">volatile</span> <span class="dt">unsigned</span> <span class="dt">short</span> <span class="op">*</span>com1 <span class="op">=</span> <span class="op">(</span><span class="dt">volatile</span> <span class="dt">unsigned</span> <span class="dt">short</span> <span class="op">*)(</span>BDA_BASE <span class="op">+</span> <span class="bn">0x00</span><span class="op">);</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">*</span>com1<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<hr />
+<h2 id="summary-of-architectural-differences">Summary of Architectural
+Differences</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;">Legacy BIOS</th>
+<th style="text-align: left;">UEFI</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Execution Mode</strong></td>
+<td style="text-align: left;">16-bit Real Mode</td>
+<td style="text-align: left;">32-bit or 64-bit Protected/Long Mode</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Interface Style</strong></td>
+<td style="text-align: left;">Software Interrupts (IVT)</td>
+<td style="text-align: left;">Function Pointers via
+<code>SystemTable</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Entry Arguments</strong></td>
+<td style="text-align: left;">None (Registers undefined)</td>
+<td style="text-align: left;"><code>ImageHandle</code>,
+<code>EFI_SYSTEM_TABLE*</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Memory Access</strong></td>
+<td style="text-align: left;">Direct physical addressing</td>
+<td style="text-align: left;">Identity-mapped virtual addressing</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>C Compatibility</strong></td>
+<td style="text-align: left;">Requires assembly
+wrappers/<code>-m16</code></td>
+<td style="text-align: left;">Native support via standard C ABI</td>
+</tr>
+</tbody>
+</table></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

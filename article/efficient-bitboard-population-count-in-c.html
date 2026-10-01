@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Efficient Bitboard Population Count in C - c</title>
+    <meta name="description" content="This article explores the concept of population count (popcount) and the most efficient techniques for computing it on 64-bit bitboards using the C programming language. You will learn what population count represents in systems programming and game deve">
+    <link rel="canonical" href="https://salivity.github.io/c/article/efficient-bitboard-population-count-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Efficient Bitboard Population Count in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/efficient-bitboard-population-count-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the concept of population count (popcount) and the most efficient techniques for computing it on 64-bit bitboards using the C programming language. You will learn what population count represents in systems programming and game deve" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="efficient-bitboard-population-count-in-c">Efficient Bitboard
+Population Count in C</h1>
+<p>This article explores the concept of population count (popcount) and
+the most efficient techniques for computing it on 64-bit bitboards using
+the C programming language. You will learn what population count
+represents in systems programming and game development, followed by
+practical implementations ranging from hardware-accelerated CPU
+instructions and compiler built-ins to algorithmic bit-manipulation
+strategies like parallel bit counting and Brian Kernighan's method.</p>
+<h2 id="what-is-population-count">What is Population Count?</h2>
+<p>Population count, also known as Hamming weight or popcount, is the
+total number of set bits (bits with a value of <code>1</code>) within a
+binary word.</p>
+<p>In computer science, bitboards are 64-bit integers
+(<code>uint64_t</code>) commonly used to model states across an 8x8
+grid, such as in chess or checkers engines. Each bit corresponds to a
+specific square, where a <code>1</code> denotes the presence of a piece
+or a specific state and a <code>0</code> denotes its absence.
+Calculating the population count on a bitboard reveals vital game-state
+metrics, such as piece counts or evaluation weights, in a single
+operation. Because chess engines evaluate millions of positions per
+second, this operation must execute with maximum efficiency.</p>
+<h2 id="method-1-hardware-accelerated-compiler-built-ins">Method 1:
+Hardware-Accelerated Compiler Built-ins</h2>
+<p>Modern x86 and ARM processors provide dedicated hardware instructions
+to calculate population count in a single CPU cycle (such as
+<code>POPCNT</code> on x86 architectures). The standard and most
+performant approach in C is to use compiler-provided intrinsics or
+built-in functions.</p>
+<p>For GCC and Clang:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdint.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> count_pieces<span class="op">(</span><span class="dt">uint64_t</span> bitboard<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> __builtin_popcountll<span class="op">(</span>bitboard<span class="op">);</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>For Microsoft Visual C++ (MSVC):</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdint.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;nmmintrin.h&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> count_pieces<span class="op">(</span><span class="dt">uint64_t</span> bitboard<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">(</span><span class="dt">int</span><span class="op">)</span>_mm_popcnt_u64<span class="op">(</span>bitboard<span class="op">);</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>When compiled with target-specific optimizations (such as
+<code>-mpopcnt</code> or <code>-march=native</code>), these functions
+emit native assembly instructions that bypass software iteration
+entirely, making them the fastest possible solution.</p>
+<h2 id="method-2-parallel-bit-counting-swar">Method 2: Parallel Bit
+Counting (SWAR)</h2>
+<p>If the target architecture lacks dedicated hardware support for
+popcount, the optimal software fallback is the SWAR (SIMD Within A
+Register) algorithm. This technique uses bitmasks and shifts to sum
+adjacent bit fields in parallel, operating in <span
+class="math inline">\(\mathcal{O}(1)\)</span> time with no conditional
+branching.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdint.h&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> swar_popcount64<span class="op">(</span><span class="dt">uint64_t</span> x<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Sum adjacent pairs: 2-bit fields</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    x <span class="op">=</span> x <span class="op">-</span> <span class="op">((</span>x <span class="op">&gt;&gt;</span> <span class="dv">1</span><span class="op">)</span> <span class="op">&amp;</span> <span class="bn">0x5555555555555555</span><span class="bu">ULL</span><span class="op">);</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Sum adjacent pairs of 2-bit fields: 4-bit fields</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    x <span class="op">=</span> <span class="op">(</span>x <span class="op">&amp;</span> <span class="bn">0x3333333333333333</span><span class="bu">ULL</span><span class="op">)</span> <span class="op">+</span> <span class="op">((</span>x <span class="op">&gt;&gt;</span> <span class="dv">2</span><span class="op">)</span> <span class="op">&amp;</span> <span class="bn">0x3333333333333333</span><span class="bu">ULL</span><span class="op">);</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Sum adjacent 4-bit fields into 8-bit fields</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    x <span class="op">=</span> <span class="op">(</span>x <span class="op">+</span> <span class="op">(</span>x <span class="op">&gt;&gt;</span> <span class="dv">4</span><span class="op">))</span> <span class="op">&amp;</span> <span class="bn">0x0F0F0F0F0F0F0F0F</span><span class="bu">ULL</span><span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Multiply by 0x01... to sum all 8 bytes into the top byte, then shift down</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">(</span><span class="dt">int</span><span class="op">)((</span>x <span class="op">*</span> <span class="bn">0x0101010101010101</span><span class="bu">ULL</span><span class="op">)</span> <span class="op">&gt;&gt;</span> <span class="dv">56</span><span class="op">);</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>This method requires roughly 12 instructions, avoiding cache misses
+and pipeline-stalling branches.</p>
+<h2 id="method-3-brian-kernighans-algorithm">Method 3: Brian Kernighan’s
+Algorithm</h2>
+<p>Brian Kernighan’s algorithm calculates population count by clearing
+the least significant set bit in each iteration using the expression
+<code>x &amp;= (x - 1)</code>. The loop runs only as many times as there
+are set bits (<span class="math inline">\(\mathcal{O}(k)\)</span>, where
+<span class="math inline">\(k\)</span> is the number of ones).</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdint.h&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> kernighan_popcount64<span class="op">(</span><span class="dt">uint64_t</span> x<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> count <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> <span class="op">(</span>x <span class="op">!=</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        x <span class="op">&amp;=</span> <span class="op">(</span>x <span class="op">-</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        count<span class="op">++;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> count<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>While slower on average than hardware intrinsics and SWAR for
+arbitrary inputs, Kernighan's algorithm is efficient for sparse
+bitboards—situations where only a few bits are set, such as tracking
+pawn chains or king positions in the endgame.</p>
+<h2 id="summary">Summary</h2>
+<p>When working with bitboards in C, always prefer compiler intrinsics
+(<code>__builtin_popcountll</code> or <code>_mm_popcnt_u64</code>) to
+leverage native CPU instructions. When building cross-platform software
+targeting older processors without hardware popcount support, the SWAR
+algorithm provides consistent, branch-free performance, while
+Kernighan’s approach remains useful for sparse bitboard
+configurations.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

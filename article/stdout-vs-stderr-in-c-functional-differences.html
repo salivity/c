@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>stdout vs stderr in C: Functional Differences - c</title>
+    <meta name="description" content="In the C programming language, stdout (standard output) and stderr (standard error) are default output streams established when a program begins execution. While both streams send textual output to the user's terminal by default, they serve distinct oper">
+    <link rel="canonical" href="https://salivity.github.io/c/article/stdout-vs-stderr-in-c-functional-differences">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="stdout vs stderr in C: Functional Differences - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/stdout-vs-stderr-in-c-functional-differences" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, stdout (standard output) and stderr (standard error) are default output streams established when a program begins execution. While both streams send textual output to the user's terminal by default, they serve distinct oper" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="stdout-vs-stderr-in-c-functional-differences">stdout vs stderr
+in C: Functional Differences</h1>
+<p>In the C programming language, <code>stdout</code> (standard output)
+and <code>stderr</code> (standard error) are default output streams
+established when a program begins execution. While both streams send
+textual output to the user's terminal by default, they serve distinct
+operational purposes, feature different buffering behaviors, and can be
+redirected independently in shell environments. Understanding the
+functional differences between these streams ensures that program data
+and diagnostic logs are handled efficiently and predictably.</p>
+<h2 id="purpose-and-semantics">Purpose and Semantics</h2>
+<p>The primary difference between <code>stdout</code> and
+<code>stderr</code> lies in their intended semantic use:</p>
+<ul>
+<li><strong><code>stdout</code> (Standard Output):</strong> Reserved for
+the standard, expected results of a program. For example, if a program
+calculates a value, processes a file, or lists files in a directory, the
+resulting data is directed to <code>stdout</code>. Functions like
+<code>printf(...)</code> automatically write to this stream, which is
+equivalent to calling <code>fprintf(stdout, ...)</code>.</li>
+<li><strong><code>stderr</code> (Standard Error):</strong> Reserved
+exclusively for diagnostics, warning messages, error notifications, and
+operational logging. Writing to this stream is explicitly performed
+using <code>fprintf(stderr, ...)</code> or
+<code>fputs(..., stderr)</code>.</li>
+</ul>
+<p>Separating clean output from debugging or error reporting ensures
+that downstream programs processing output through pipes are not
+corrupted by error messages.</p>
+<h2 id="buffering-behaviors">Buffering Behaviors</h2>
+<p>Buffering dictates when text written by a program is physically
+flushed to the destination device or operating system. The C standard
+defines distinct default buffering rules for these two streams:</p>
+<ul>
+<li><strong><code>stdout</code> is buffered:</strong> When connected to
+an interactive terminal, <code>stdout</code> is typically
+<strong>line-buffered</strong>, meaning characters are held in a memory
+buffer until a newline character (<code>\n</code>) is encountered or
+until <code>fflush(stdout)</code> is called. When <code>stdout</code> is
+redirected to a file or pipe, it switches to
+<strong>block-buffered</strong> (fully buffered) mode, writing data only
+when the internal buffer fills completely.</li>
+<li><strong><code>stderr</code> is unbuffered:</strong> By default,
+<code>stderr</code> is not fully buffered; in standard implementations,
+it is <strong>unbuffered</strong> (<code>_IONBF</code>). Every character
+written to <code>stderr</code> is transmitted immediately to the host
+environment. This behavior guarantees that if a program encounters a
+critical failure, segmentation fault, or sudden termination, error
+messages are not trapped in a memory buffer and lost.</li>
+</ul>
+<h2 id="independent-stream-redirection">Independent Stream
+Redirection</h2>
+<p>At the operating system level, standard streams are assigned specific
+integer file descriptors (defined in POSIX systems):</p>
+<ul>
+<li><code>stdout</code> uses file descriptor <code>1</code>.</li>
+<li><code>stderr</code> uses file descriptor <code>2</code>.</li>
+</ul>
+<p>Because they use different file descriptors, shell environments allow
+users to separate data pipelines from error tracking:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Redirect only stdout to a file (stderr still prints to the console)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">./program</span> <span class="op">&gt;</span> output.txt</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Redirect only stderr to an error log (stdout still prints to the console)</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="ex">./program</span> <span class="dv">2</span><span class="op">&gt;</span> error.log</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Redirect stdout to a file and stderr to a separate error log</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="ex">./program</span> <span class="op">&gt;</span> output.txt <span class="dv">2</span><span class="op">&gt;</span> error.log</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Pipe stdout to another command while keeping stderr on the screen</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="ex">./program</span> <span class="kw">|</span> <span class="fu">grep</span> <span class="st">&quot;pattern&quot;</span></span></code></pre></div>
+<h2 id="summary-of-differences">Summary of Differences</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;"><code>stdout</code></th>
+<th style="text-align: left;"><code>stderr</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>File Descriptor</strong></td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;"><code>2</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Primary Role</strong></td>
+<td style="text-align: left;">Normal program data and output</td>
+<td style="text-align: left;">Diagnostic, warning, and error logs</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Default Buffering</strong></td>
+<td style="text-align: left;">Line-buffered (terminal) / Fully buffered
+(file)</td>
+<td style="text-align: left;">Unbuffered (immediate output)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Common C Call</strong></td>
+<td style="text-align: left;"><code>printf(...)</code>,
+<code>puts(...)</code></td>
+<td style="text-align: left;"><code>fprintf(stderr, ...)</code>,
+<code>fputs(..., stderr)</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Pipeline Impact</strong></td>
+<td style="text-align: left;">Carried forward into piped commands</td>
+<td style="text-align: left;">Bypasses pipes unless explicitly
+combined</td>
+</tr>
+</tbody>
+</table></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

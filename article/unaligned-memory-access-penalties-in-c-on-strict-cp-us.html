@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unaligned Memory Access Penalties in C on Strict CPUs - c</title>
+    <meta name="description" content="In the C programming language, unaligned memory access occurs when data of a specific byte width is read from or written to an address that is not an even multiple of that size. On strict CPU architectures—such as certain ARM cores, SPARC, and MIPS—t">
+    <link rel="canonical" href="https://salivity.github.io/c/article/unaligned-memory-access-penalties-in-c-on-strict-cp-us">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Unaligned Memory Access Penalties in C on Strict CPUs - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/unaligned-memory-access-penalties-in-c-on-strict-cp-us" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, unaligned memory access occurs when data of a specific byte width is read from or written to an address that is not an even multiple of that size. On strict CPU architectures—such as certain ARM cores, SPARC, and MIPS—t" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="unaligned-memory-access-penalties-in-c-on-strict-cpus">Unaligned
+Memory Access Penalties in C on Strict CPUs</h1>
+<p>In the C programming language, unaligned memory access occurs when
+data of a specific byte width is read from or written to an address that
+is not an even multiple of that size. On strict CPU architectures—such
+as certain ARM cores, SPARC, and MIPS—the hardware fundamentally expects
+natural data alignment. Attempting unaligned operations on these systems
+introduces severe performance penalties, ranging from kernel-level
+software emulation overhead to multi-cycle hardware stalls, and often
+triggers fatal hardware exceptions that terminate the program
+entirely.</p>
+<h3 id="understanding-alignment-and-strict-architectures">Understanding
+Alignment and Strict Architectures</h3>
+<p>CPUs read and write memory in granular chunks, commonly corresponding
+to word sizes such as 32 bits (4 bytes) or 64 bits (8 bytes). Natural
+alignment mandates that an <span class="math inline">\(N\)</span>-byte
+data type (such as a 4-byte <code>uint32_t</code> or an 8-byte
+<code>double</code>) must reside at a memory address divisible by <span
+class="math inline">\(N\)</span>.</p>
+<p>While permissive architectures like x86 transparently handle
+unaligned accesses in silicon with minimal performance degradation,
+strict architectures enforce structural address constraints. In C,
+developers inadvertently cause unaligned access through aggressive
+pointer casting (e.g., casting a <code>char*</code> buffer directly to a
+<code>uint32_t*</code>) or via packed structures
+(<code>__attribute__((packed))</code>).</p>
+<h3 id="the-severity-of-hardware-exceptions-and-emulation">The Severity
+of Hardware Exceptions and Emulation</h3>
+<p>When a strict CPU detects an unaligned memory instruction, it cannot
+fulfill the request directly via the memory bus. Instead, the hardware
+generates an alignment fault (often surfaced as a <code>SIGBUS</code>
+signal in POSIX environments).</p>
+<p>Depending on the operating system and architecture configuration, the
+system responds in one of two ways:</p>
+<ol type="1">
+<li><strong>Immediate Crash:</strong> If unaligned traps are fatal, the
+operating system abruptly terminates the program with a bus error. While
+this halts execution immediately, it prevents silent data
+corruption.</li>
+<li><strong>Software Trap and Emulation:</strong> If the operating
+system is configured to trap and fix the fault, the CPU suspends
+user-space execution and switches context to the kernel. The kernel
+reads the offending instruction, decodes it, performs multiple
+single-byte reads to assemble the requested value, writes the result to
+the destination register, and resumes execution. This emulation cycle
+can convert a single-cycle operation into a process taking hundreds or
+even thousands of clock cycles. A high-frequency loop performing
+unaligned access will cause throughput to drop by orders of
+magnitude.</li>
+</ol>
+<h3 id="multi-cycle-bus-access-and-cache-penalties">Multi-Cycle Bus
+Access and Cache Penalties</h3>
+<p>On architectures that support weak or configurable unaligned handling
+without kernel traps, unaligned access still incurs non-trivial hardware
+costs:</p>
+<ul>
+<li><strong>Split Bus Transactions:</strong> Accessing a 4-byte integer
+spanning across an alignment boundary requires the memory controller to
+perform two distinct read cycles: one for the first half of the data and
+another for the second. The CPU must then shift and mask the fragments
+into a single register, effectively doubling latency.</li>
+<li><strong>Cache Line Crossings:</strong> If an unaligned variable
+straddles two distinct cache lines, the processor must load both lines
+into L1 cache to resolve a single memory access. This increases cache
+pressure, raises the likelihood of cache eviction, and dramatically
+compounds the latency if one of the lines causes a cache miss that
+forces a main memory fetch.</li>
+</ul>
+<h3 id="compiler-vectorization-invalidation">Compiler Vectorization
+Invalidation</h3>
+<p>Modern C compilers rely heavily on data alignment to auto-vectorize
+loops using Single Instruction, Multiple Data (SIMD) extensions (such as
+ARM NEON). SIMD instructions demand strict alignment—typically 16-byte
+or 32-byte boundaries.</p>
+<p>When a compiler detects potential unaligned access via pointer
+aliasing, it disables vector optimizations and falls back to scalar
+code. This leads to substantial algorithmic slowdowns, as the CPU
+processes one data element at a time rather than four or eight elements
+simultaneously.</p>
+<h3 id="mitigating-unaligned-access-in-c">Mitigating Unaligned Access in
+C</h3>
+<p>To avoid performance degradation and platform crashes, unaligned
+access should be handled safely in C source code:</p>
+<ul>
+<li><strong>Use <code>memcpy</code>:</strong> The standard library
+function <code>memcpy</code> is recognized by modern compilers. Copying
+unaligned bytes into an aligned local variable allows the compiler to
+generate the most efficient architecture-specific instructions,
+bypassing alignment traps entirely.</li>
+<li><strong>Structure Padding:</strong> Avoid arbitrary packing
+directives unless strictly necessary for serialized protocol buffers or
+hardware-mapped registers. Allow the compiler to naturally pad structs
+according to target architecture rules.</li>
+<li><strong>Alignment Specifiers:</strong> Utilize C11 alignment
+primitives (<code>alignas</code>, <code>alignof</code> from
+<code>&lt;stdalign.h&gt;</code>) or compiler attributes
+(<code>__attribute__((aligned(N)))</code>) to guarantee that critical
+data buffers align naturally with CPU word and cache line
+boundaries.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

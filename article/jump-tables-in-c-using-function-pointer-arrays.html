@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jump Tables in C Using Function Pointer Arrays - c</title>
+    <meta name="description" content="A jump table in C is an efficient control-flow structure that replaces sprawling switch or if-else blocks with an array of function pointers. By indexing directly into an array, a program can branch to and execute code in $O(1)$ constant time. This artic">
+    <link rel="canonical" href="https://salivity.github.io/c/article/jump-tables-in-c-using-function-pointer-arrays">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Jump Tables in C Using Function Pointer Arrays - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/jump-tables-in-c-using-function-pointer-arrays" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="A jump table in C is an efficient control-flow structure that replaces sprawling switch or if-else blocks with an array of function pointers. By indexing directly into an array, a program can branch to and execute code in $O(1)$ constant time. This artic" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="jump-tables-in-c-using-function-pointer-arrays">Jump Tables in C
+Using Function Pointer Arrays</h1>
+<p>A jump table in C is an efficient control-flow structure that
+replaces sprawling <code>switch</code> or <code>if-else</code> blocks
+with an array of function pointers. By indexing directly into an array,
+a program can branch to and execute code in <span
+class="math inline">\(O(1)\)</span> constant time. This article covers
+the architecture of jump tables, how to declare and populate function
+pointer arrays, and how to execute functions safely via index-based
+dynamic dispatching.</p>
+<h3 id="anatomy-of-a-function-pointer">Anatomy of a Function
+Pointer</h3>
+<p>To create a jump table, all participating functions must share the
+exact same signature—meaning identical return types and parameter lists.
+A standard function pointer declaration can be complex, so defining a
+<code>typedef</code> improves readability and maintainability.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Define a function pointer type that takes two ints and returns an int</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">typedef</span> <span class="dt">int</span> <span class="op">(*</span>MathOp<span class="op">)(</span><span class="dt">int</span><span class="op">,</span> <span class="dt">int</span><span class="op">);</span></span></code></pre></div>
+<p>This definition establishes <code>MathOp</code> as an alias for a
+pointer to any function matching the
+<code>int function_name(int, int)</code> signature.</p>
+<h3 id="implementing-target-functions">Implementing Target
+Functions</h3>
+<p>The functions referenced by the jump table must adhere to the defined
+signature:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> add<span class="op">(</span><span class="dt">int</span> a<span class="op">,</span> <span class="dt">int</span> b<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> a <span class="op">+</span> b<span class="op">;</span> <span class="op">}</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> subtract<span class="op">(</span><span class="dt">int</span> a<span class="op">,</span> <span class="dt">int</span> b<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> a <span class="op">-</span> b<span class="op">;</span> <span class="op">}</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> multiply<span class="op">(</span><span class="dt">int</span> a<span class="op">,</span> <span class="dt">int</span> b<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> a <span class="op">*</span> b<span class="op">;</span> <span class="op">}</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> divide<span class="op">(</span><span class="dt">int</span> a<span class="op">,</span> <span class="dt">int</span> b<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> b <span class="op">!=</span> <span class="dv">0</span> <span class="op">?</span> a <span class="op">/</span> b <span class="op">:</span> <span class="dv">0</span><span class="op">;</span> <span class="op">}</span></span></code></pre></div>
+<h3 id="constructing-the-jump-table-array">Constructing the Jump Table
+Array</h3>
+<p>Once the functions exist, initialize an array using the
+<code>MathOp</code> type. The array indices serve as the opcodes or
+selectors for each operation.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Construct the jump table array</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>MathOp jump_table<span class="op">[]</span> <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    add<span class="op">,</span>        <span class="co">// Index 0</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    subtract<span class="op">,</span>   <span class="co">// Index 1</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    multiply<span class="op">,</span>   <span class="co">// Index 2</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    divide      <span class="co">// Index 3</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>You can determine the total number of operations at compile time
+using the <code>sizeof</code> operator:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">const</span> <span class="dt">int</span> NUM_OPERATIONS <span class="op">=</span> <span class="kw">sizeof</span><span class="op">(</span>jump_table<span class="op">)</span> <span class="op">/</span> <span class="kw">sizeof</span><span class="op">(</span>jump_table<span class="op">[</span><span class="dv">0</span><span class="op">]);</span></span></code></pre></div>
+<h3 id="executing-functions-from-the-jump-table">Executing Functions
+from the Jump Table</h3>
+<p>Executing a function requires two steps: validating the index to
+prevent out-of-bounds memory access, and dereferencing the function
+pointer with the required arguments.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> execute_operation<span class="op">(</span><span class="dt">int</span> op_code<span class="op">,</span> <span class="dt">int</span> x<span class="op">,</span> <span class="dt">int</span> y<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Bounds checking to avoid undefined behavior</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>op_code <span class="op">&lt;</span> <span class="dv">0</span> <span class="op">||</span> op_code <span class="op">&gt;=</span> NUM_OPERATIONS<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span> <span class="co">// Error: Invalid operation</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Call the function directly through the array index</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> jump_table<span class="op">[</span>op_code<span class="op">](</span>x<span class="op">,</span> y<span class="op">);</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="practical-considerations">Practical Considerations</h3>
+<ol type="1">
+<li><strong>Safety and Bounds Checking:</strong> Unchecked indices lead
+to segmentation faults or arbitrary code execution vulnerabilities.
+Always validate indices prior to dispatch.</li>
+<li><strong>Sparse Tables:</strong> If opcodes are not contiguous,
+initialize unused entries to <code>NULL</code> and verify that
+<code>jump_table[index] != NULL</code> before calling.</li>
+<li><strong>Use Cases:</strong> Jump tables are most useful for building
+virtual machines, bytecode interpreters, state machines, and
+packet-parsing dispatchers where performance and clean decoupling of
+logic are required.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

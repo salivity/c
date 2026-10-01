@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suppressing C Compiler Warnings with maybe_unused - c</title>
+    <meta name="description" content="The [[maybeunused]] attribute in the C programming language provides a standardized way to inform the compiler that a defined entity might not be referenced in the final compiled code. When developers compile code with high diagnostic warning levels, var">
+    <link rel="canonical" href="https://salivity.github.io/c/article/suppressing-c-compiler-warnings-with-maybe-unused">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Suppressing C Compiler Warnings with maybe_unused - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/suppressing-c-compiler-warnings-with-maybe-unused" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The [[maybeunused]] attribute in the C programming language provides a standardized way to inform the compiler that a defined entity might not be referenced in the final compiled code. When developers compile code with high diagnostic warning levels, var" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="suppressing-c-compiler-warnings-with-maybe_unused">Suppressing C
+Compiler Warnings with maybe_unused</h1>
+<p>The <code>[[maybe_unused]]</code> attribute in the C programming
+language provides a standardized way to inform the compiler that a
+defined entity might not be referenced in the final compiled code. When
+developers compile code with high diagnostic warning levels, variables
+created solely for debugging, tracing, or assertions can trigger "unused
+variable" warnings during release builds. By attaching the
+<code>[[maybe_unused]]</code> attribute to a declaration, the programmer
+explicitly communicates intent, instructing the compiler to quietly
+suppress unused entity diagnostics without disabling warnings
+globally.</p>
+<h3 id="the-diagnostic-variable-problem">The Diagnostic Variable
+Problem</h3>
+<p>During development, programmers frequently define variables solely to
+capture return values or state information for diagnostic checks. A
+common pattern involves verifying values using the standard
+<code>assert()</code> macro:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> result <span class="op">=</span> perform_operation<span class="op">();</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>assert<span class="op">(</span>result <span class="op">==</span> SUCCESS<span class="op">);</span></span></code></pre></div>
+<p>While this works during development, production builds typically
+define the <code>NDEBUG</code> macro, which strips out assertions:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#define assert</span><span class="op">(</span><span class="pp">ignore</span><span class="op">)</span><span class="pp"> </span><span class="op">((</span><span class="dt">void</span><span class="op">)</span><span class="dv">0</span><span class="op">)</span></span></code></pre></div>
+<p>With assertions disabled, the <code>result</code> variable is
+assigned but never evaluated. When compiling with flags such as
+<code>-Wall</code>, <code>-Wextra</code>, or
+<code>-Wunused-variable</code>—especially when combined with
+<code>-Werror</code>—the compiler treats this unreferenced variable as
+an error, halting the build.</p>
+<p>Historically, developers relied on ad-hoc workarounds such as casting
+the variable to <code>void</code> (e.g., <code>(void)result;</code>) or
+using vendor-specific extensions like GCC's
+<code>__attribute__((unused))</code>.</p>
+<h3 id="how-maybe_unused-works">How <code>[[maybe_unused]]</code>
+Works</h3>
+<p>Standardized in C23 (inheriting the syntax from C++11 and C++17), the
+<code>[[maybe_unused]]</code> attribute establishes a portable, unified
+solution. It can be applied directly to variable declarations, function
+parameters, structure members, typedefs, or functions.</p>
+<p>When the compiler’s semantic analysis pass detects an entity marked
+with this attribute, it checks whether the entity is referenced. If the
+entity is used, the program compiles normally; the attribute imposes no
+runtime overhead and does not alter the generated machine code. If the
+entity is not used, the compiler bypasses its diagnostic warning phase
+specifically for that symbol.</p>
+<h3 id="implementation-example">Implementation Example</h3>
+<p>The attribute is placed before the type specifier in a variable
+declaration:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;assert.h&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process_data<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">[[</span><span class="at">maybe_unused</span><span class="op">]]</span> <span class="dt">int</span> status <span class="op">=</span> initialize_subsystem<span class="op">();</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// In debug builds, status is read and validated.</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// In release builds (with NDEBUG), status is ignored.</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    assert<span class="op">(</span>status <span class="op">==</span> <span class="dv">0</span><span class="op">);</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In this scenario:</p>
+<ul>
+<li><strong>Debug Build:</strong> The assertion evaluates
+<code>status</code>, and execution proceeds normally.</li>
+<li><strong>Release Build (<code>-DNDEBUG</code>):</strong> The
+assertion expands to nothing. The compiler notes that
+<code>status</code> is never read, but because it carries
+<code>[[maybe_unused]]</code>, no <code>-Wunused-variable</code> warning
+is emitted.</li>
+</ul>
+<h3 id="function-parameter-diagnostics">Function Parameter
+Diagnostics</h3>
+<p>The attribute is equally effective for diagnostic parameters in
+callback signatures or interface implementations. If a function
+signature requires certain parameters that are only consumed by debug
+logging routines, <code>[[maybe_unused]]</code> prevents warnings when
+logging is compiled out:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> event_handler<span class="op">(</span><span class="dt">int</span> event_id<span class="op">,</span> <span class="op">[[</span><span class="at">maybe_unused</span><span class="op">]]</span> <span class="dt">const</span> <span class="dt">char</span> <span class="op">*</span>debug_tag<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="pp">#ifdef ENABLE_LOGGING</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    log_event<span class="op">(</span>event_id<span class="op">,</span> debug_tag<span class="op">);</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="pp">#else</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    handle_event<span class="op">(</span>event_id<span class="op">);</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="pp">#endif</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>By explicitly declaring that an entity is conditionally relevant,
+<code>[[maybe_unused]]</code> preserves strict diagnostic enforcement
+across the rest of the codebase while maintaining clean builds under
+both debug and release configurations.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lvalue vs Rvalue in C: Definitions and Grammar - c</title>
+    <meta name="description" content="In the C programming language, expressions are categorized based on whether they refer to a memory location or simply compute a transient value. An lvalue designates an object residing in a specific, identifiable memory address, while an rvalue refers to">
+    <link rel="canonical" href="https://salivity.github.io/c/article/lvalue-vs-rvalue-in-c-definitions-and-grammar">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Lvalue vs Rvalue in C: Definitions and Grammar - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/lvalue-vs-rvalue-in-c-definitions-and-grammar" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, expressions are categorized based on whether they refer to a memory location or simply compute a transient value. An lvalue designates an object residing in a specific, identifiable memory address, while an rvalue refers to" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="lvalue-vs-rvalue-in-c-definitions-and-grammar">Lvalue vs Rvalue
+in C: Definitions and Grammar</h1>
+<p>In the C programming language, expressions are categorized based on
+whether they refer to a memory location or simply compute a transient
+value. An <strong>lvalue</strong> designates an object residing in a
+specific, identifiable memory address, while an <strong>rvalue</strong>
+refers to the data value itself produced by an expression. This
+distinction governs how expressions are evaluated, assigned, and
+manipulated within the syntactic grammar defined by the ISO C
+standard.</p>
+<h3 id="the-formal-grammar-and-definitions">The Formal Grammar and
+Definitions</h3>
+<p>Historically, the terms originated from assignment syntax: an
+<strong>lvalue</strong> appeared on the <em>left</em> side of an
+assignment operator (<code>=</code>), and an <strong>rvalue</strong>
+appeared on the <em>right</em> side.</p>
+<p>In the formal C grammar (ISO/IEC 9899), the term "rvalue" is rarely
+used directly; instead, the standard refers to the "value of an
+expression." An <strong>lvalue</strong> is formally defined as an
+expression that potentially designates an object—where an "object" is a
+distinct region of data storage in the execution environment.</p>
+<h3 id="syntactic-categories-of-lvalues">Syntactic Categories of
+Lvalues</h3>
+<p>An expression is an lvalue if it refers to a persistent memory
+location that can be read or modified. In C syntax, lvalues include:</p>
+<ul>
+<li><strong>Identifiers:</strong> Variable names that designate objects
+in storage (e.g., <code>int x;</code> where <code>x</code> is an
+lvalue).</li>
+<li><strong>Pointer Indirection:</strong> The unary <code>*</code>
+operator applied to a pointer expression (e.g., <code>*ptr</code>).</li>
+<li><strong>Array Subscripts:</strong> The <code>[]</code> operator
+evaluated as indirection (e.g., <code>arr[i]</code>, which is
+syntactically equivalent to <code>*(arr + i)</code>).</li>
+<li><strong>Member Access:</strong> The <code>.</code> operator applied
+to an lvalue struct or union, or the <code>-&gt;</code> operator applied
+to a pointer expression (e.g., <code>point.x</code> or
+<code>ptr-&gt;x</code>).</li>
+<li><strong>String Literals:</strong> In C, string literals (such as
+<code>"hello"</code>) are statically allocated arrays of
+<code>char</code>, making them lvalues, although attempting to modify
+them results in undefined behavior.</li>
+</ul>
+<h4 id="modifiable-vs-non-modifiable-lvalues">Modifiable vs.
+Non-Modifiable Lvalues</h4>
+<p>The C grammar enforces that the left-hand operand of an assignment
+operator must be a <strong>modifiable lvalue</strong>. An lvalue is
+non-modifiable if:</p>
+<ol type="1">
+<li>It possesses an array type.</li>
+<li>It possesses an incomplete type.</li>
+<li>It is qualified with the <code>const</code> type qualifier.</li>
+<li>It is a <code>struct</code> or <code>union</code> containing a
+member with a <code>const</code> qualifier.</li>
+</ol>
+<h3 id="syntactic-categories-of-rvalues">Syntactic Categories of
+Rvalues</h3>
+<p>An rvalue represents the evaluation of an expression that yields a
+value without binding that value to an accessible, named memory address.
+In C syntax, rvalues include:</p>
+<ul>
+<li><strong>Numeric and Character Literals:</strong> Constants such as
+<code>42</code>, <code>3.14</code>, and <code>'a'</code>.</li>
+<li><strong>Arithmetic and Bitwise Expressions:</strong> Operators that
+compute intermediate results, such as <code>a + b</code>,
+<code>x * y</code>, or <code>i &lt;&lt; 2</code>.</li>
+<li><strong>Logical and Relational Expressions:</strong> Results of
+comparisons, such as <code>a &gt; b</code> or
+<code>x &amp;&amp; y</code>.</li>
+<li><strong>Function Calls:</strong> Any function call returning a
+non-void value (e.g., <code>get_count()</code>).</li>
+<li><strong>The Address-of Operator:</strong> The expression
+<code>&amp;var</code> yields an rvalue representing the address, even
+though <code>var</code> itself is an lvalue.</li>
+<li><strong>Cast Expressions:</strong> Explicitly casting a type (e.g.,
+<code>(int)floating_val</code>) yields an rvalue.</li>
+</ul>
+<h3 id="grammar-constraints-in-assignments">Grammar Constraints in
+Assignments</h3>
+<p>The C grammar defines an assignment expression as:</p>
+<pre class="text"><code>assignment-expression:
+    conditional-expression
+    unary-expression assignment-operator assignment-expression</code></pre>
+<p>Syntactically, the grammar requires a <code>unary-expression</code>
+on the left side of the assignment operator. Semantically, the compiler
+enforces that this <code>unary-expression</code> must resolve to a
+modifiable lvalue.</p>
+<p>An lvalue automatically undergoes an <strong>lvalue-to-rvalue
+conversion</strong> whenever it is used in a context that expects a
+value rather than an object designation (such as the right-hand operand
+of an assignment or an operand in an arithmetic expression). Conversely,
+an rvalue cannot be converted into an lvalue; it has no designated
+storage location that the programmer can reference via syntax.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

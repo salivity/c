@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Duff's Device: History and Optimization Problem - c</title>
+    <meta name="description" content="Duff's device is a famous loop-unrolling idiom in C devised by Tom Duff in 1983 to optimize serial data transfer. Developed at Lucasfilm, this technique solved a severe performance bottleneck caused by loop-control overhead when pushing graphics data to">
+    <link rel="canonical" href="https://salivity.github.io/c/article/duff-s-device-history-and-optimization-problem">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Duff's Device: History and Optimization Problem - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/duff-s-device-history-and-optimization-problem" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Duff's device is a famous loop-unrolling idiom in C devised by Tom Duff in 1983 to optimize serial data transfer. Developed at Lucasfilm, this technique solved a severe performance bottleneck caused by loop-control overhead when pushing graphics data to" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="duffs-device-history-and-optimization-problem">Duff's Device:
+History and Optimization Problem</h1>
+<p>Duff's device is a famous loop-unrolling idiom in C devised by Tom
+Duff in 1983 to optimize serial data transfer. Developed at Lucasfilm,
+this technique solved a severe performance bottleneck caused by
+loop-control overhead when pushing graphics data to an output register.
+By exploiting a syntactically valid yet obscure quirk of the C
+language—interleaving a <code>switch</code> statement with a
+<code>do-while</code> loop—it allowed the program to jump directly into
+an unrolled loop body to handle arbitrary remainder counts without
+requiring separate prologue or epilogue code.</p>
+<h3 id="the-historical-context-lucasfilm-in-1983">The Historical
+Context: Lucasfilm in 1983</h3>
+<p>In May 1983, programmer Tom Duff was working in the Computer Graphics
+Project at Lucasfilm (the division that would later spin off to become
+Pixar). The team was developing advanced computer graphics for film,
+which required processing and outputting massive amounts of image
+data.</p>
+<p>The task involved transmitting arrays of 16-bit units from main
+memory to an Evans &amp; Sutherland Picture System or a similar
+frame-buffer device. In this architecture, hardware communication
+occurred through memory-mapped I/O: sending data did not mean copying an
+array from one memory buffer to another (<code>memcpy</code>), but
+rather writing every consecutive element of a source buffer into a
+single, fixed memory-mapped register address.</p>
+<p>The C code representing this operation was conceptually simple:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">register</span> <span class="dt">short</span> <span class="op">*</span>to<span class="op">,</span> <span class="op">*</span>from<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">register</span> <span class="dt">int</span> count<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="cf">do</span> <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>to <span class="op">=</span> <span class="op">*</span>from<span class="op">++;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="cf">while</span> <span class="op">(--</span>count <span class="op">&gt;</span> <span class="dv">0</span><span class="op">);</span></span></code></pre></div>
+<p>Because <code>to</code> did not increment, standard library copy
+routines could not be used.</p>
+<h3 id="the-optimization-problem">The Optimization Problem</h3>
+<p>On the hardware of the era—primarily the DEC VAX-11/780 running
+Unix—memory and bus speeds were tightly constrained, and CPU cycles were
+precious. In the simple loop above, each iteration executed three
+distinct operations:</p>
+<ol type="1">
+<li>Copying the data (<code>*to = *from++</code>)</li>
+<li>Decrementing the counter (<code>--count</code>)</li>
+<li>Evaluating the conditional branch (<code>&gt; 0</code>) and jumping
+back to the top of the loop</li>
+</ol>
+<p>The loop administration logic (decrementing and branching) consumed
+substantially more processor time than the actual payload instruction.
+To maximize throughput, Duff needed to minimize loop overhead using loop
+unrolling, a standard technique where the loop body is replicated
+multiple times.</p>
+<p>If the loop was unrolled eight times, it would look like this:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="cf">do</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>to <span class="op">=</span> <span class="op">*</span>from<span class="op">++;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>to <span class="op">=</span> <span class="op">*</span>from<span class="op">++;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>to <span class="op">=</span> <span class="op">*</span>from<span class="op">++;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>to <span class="op">=</span> <span class="op">*</span>from<span class="op">++;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>to <span class="op">=</span> <span class="op">*</span>from<span class="op">++;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>to <span class="op">=</span> <span class="op">*</span>from<span class="op">++;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>to <span class="op">=</span> <span class="op">*</span>from<span class="op">++;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>to <span class="op">=</span> <span class="op">*</span>from<span class="op">++;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="cf">while</span> <span class="op">((</span>count <span class="op">-=</span> <span class="dv">8</span><span class="op">)</span> <span class="op">&gt;</span> <span class="dv">0</span><span class="op">);</span></span></code></pre></div>
+<p>This reduced branch and decrement operations by 87.5%. However, this
+straightforward unrolling assumes <code>count</code> is a strict
+multiple of eight. In real-world graphical data, array lengths varied
+unpredictably.</p>
+<p>The conventional solution was to write two separate loops: a primary
+unrolled loop for blocks of eight, and a smaller cleanup loop handling
+the remaining elements (<code>count % 8</code>). Duff wanted to avoid
+the extra code size and branching overhead of two loops, seeking a way
+to enter a single unrolled loop at the exact offset required for the
+remainder on the very first pass.</p>
+<h3 id="the-invention-of-duffs-device">The Invention of Duff's
+Device</h3>
+<p>While considering assembly-level implementations where one could
+simply jump into the middle of an unrolled block, Duff realized that the
+C grammar permitted an unusual construct. In C, a <code>switch</code>
+statement does not create an isolated scope; <code>case</code> labels
+can appear inside nested sub-blocks within the switch body. Furthermore,
+C supports implicit fall-through between cases unless interrupted by a
+<code>break</code>.</p>
+<p>By wrapping the unrolled assignments in a <code>do-while</code> loop
+and placing <code>case</code> labels before each assignment inside the
+loop, the <code>switch</code> statement could jump directly into the
+loop body to execute the remainder of <code>count % 8</code>. Subsequent
+iterations would then complete the entire eight-assignment block until
+the counter was exhausted.</p>
+<p>The resulting construct was:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>send<span class="op">(</span>to<span class="op">,</span> from<span class="op">,</span> count<span class="op">)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">register</span> <span class="dt">short</span> <span class="op">*</span>to<span class="op">,</span> <span class="op">*</span>from<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="dt">register</span> count<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">register</span> n <span class="op">=</span> <span class="op">(</span>count <span class="op">+</span> <span class="dv">7</span><span class="op">)</span> <span class="op">/</span> <span class="dv">8</span><span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">switch</span> <span class="op">(</span>count <span class="op">%</span> <span class="dv">8</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">case</span> <span class="dv">0</span><span class="op">:</span> <span class="cf">do</span> <span class="op">{</span> <span class="op">*</span>to <span class="op">=</span> <span class="op">*</span>from<span class="op">++;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">case</span> <span class="dv">7</span><span class="op">:</span>      <span class="op">*</span>to <span class="op">=</span> <span class="op">*</span>from<span class="op">++;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">case</span> <span class="dv">6</span><span class="op">:</span>      <span class="op">*</span>to <span class="op">=</span> <span class="op">*</span>from<span class="op">++;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">case</span> <span class="dv">5</span><span class="op">:</span>      <span class="op">*</span>to <span class="op">=</span> <span class="op">*</span>from<span class="op">++;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">case</span> <span class="dv">4</span><span class="op">:</span>      <span class="op">*</span>to <span class="op">=</span> <span class="op">*</span>from<span class="op">++;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">case</span> <span class="dv">3</span><span class="op">:</span>      <span class="op">*</span>to <span class="op">=</span> <span class="op">*</span>from<span class="op">++;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">case</span> <span class="dv">2</span><span class="op">:</span>      <span class="op">*</span>to <span class="op">=</span> <span class="op">*</span>from<span class="op">++;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">case</span> <span class="dv">1</span><span class="op">:</span>      <span class="op">*</span>to <span class="op">=</span> <span class="op">*</span>from<span class="op">++;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span> <span class="cf">while</span> <span class="op">(--</span>n <span class="op">&gt;</span> <span class="dv">0</span><span class="op">);</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="impact-and-relevance">Impact and Relevance</h3>
+<p>When Duff posted this construct to the net.lang.c Usenet group in
+August 1983, it surprised many C programmers and language implementers.
+Bjarne Stroustrup and Dennis Ritchie confirmed that the code was
+strictly compliant with the C grammar defined in the <em>K&amp;R</em>
+specification, even though it looked syntactically invalid to the
+untrained eye.</p>
+<p>In modern computing, Duff's device is largely obsolete for its
+original performance purpose. Modern optimizing compilers automatically
+unroll loops and vectorize memory copies. Modern CPU architectures rely
+heavily on branch prediction, deep instruction pipelines, and
+instruction caches, where irregular jump targets like nested
+<code>switch</code> structures can degrade performance rather than
+improve it. Nevertheless, the mechanism remains widely studied in
+computer science as a demonstration of C's low-level flexibility and is
+occasionally adapted for implementing lightweight coroutines and state
+machines in embedded systems.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

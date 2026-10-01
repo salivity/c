@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why C++ Evolved as a Superset of C - c</title>
+    <meta name="description" content="When Bjarne Stroustrup designed C++—initially named "C with Classes"—he architected the language as an intentional superset of C to ensure immediate adoption and high performance. This article examines the architectural decisions and technical mechan">
+    <link rel="canonical" href="https://salivity.github.io/c/article/why-c-evolved-as-a-superset-of-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why C++ Evolved as a Superset of C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/why-c-evolved-as-a-superset-of-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="When Bjarne Stroustrup designed C++—initially named "C with Classes"—he architected the language as an intentional superset of C to ensure immediate adoption and high performance. This article examines the architectural decisions and technical mechan" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-c-evolved-as-a-superset-of-c">Why C++ Evolved as a Superset
+of C</h1>
+<p>When Bjarne Stroustrup designed C++—initially named "C with
+Classes"—he architected the language as an intentional superset of C to
+ensure immediate adoption and high performance. This article examines
+the architectural decisions and technical mechanisms that enabled this
+backward compatibility, including source-to-source translation via
+Cfront, identical runtime memory layouts, direct hardware mapping, and
+binary-level linkage interoperability.</p>
+<h2 id="the-cfront-architecture-and-source-translation">The Cfront
+Architecture and Source Translation</h2>
+<p>In its earliest stages, C++ did not require its own native
+machine-code generator. Stroustrup implemented Cfront (the original C++
+compiler), which parsed C++ code and emitted standard C code as an
+intermediate representation.</p>
+<p>Because C already had mature, highly optimized compilers targeting
+virtually every hardware platform, Cfront bypassed the need to build
+platform-specific backends. Classes, member functions, and constructor
+calls were transformed directly into standard C structs and mangled C
+functions. This architectural strategy made complete C compatibility a
+functional necessity rather than a secondary design goal.</p>
+<h2 id="memory-layout-and-struct-alignment">Memory Layout and Struct
+Alignment</h2>
+<p>To maintain seamless interoperability, C++ adopted C's exact data
+representation model. A <code>struct</code> in C++ retained the same
+padding, byte alignment, and layout rules as a <code>struct</code> in
+C:</p>
+<ul>
+<li><strong>Plain Old Data (POD):</strong> A user-defined type without
+virtual functions or complex inheritance shared the exact byte-for-byte
+layout across both languages.</li>
+<li><strong>Direct Pointer Interoperability:</strong> A C library could
+allocate a struct or inspect its fields, and a C++ program could consume
+that same memory address without serialization or conversion
+layers.</li>
+<li><strong>Explicit Offsets:</strong> When non-virtual inheritance was
+introduced, base class subobjects were simply embedded contiguously
+inside the derived structure, mimicking standard C nested struct
+patterns.</li>
+</ul>
+<h2 id="primitive-types-and-pointer-mechanics">Primitive Types and
+Pointer Mechanics</h2>
+<p>C++ inherited C's primitive type system, preserving its close mapping
+to processor architecture:</p>
+<ul>
+<li><strong>Hardware Primitives:</strong> Integral types
+(<code>char</code>, <code>int</code>, <code>long</code>,
+<code>float</code>, <code>double</code>) mapped directly to underlying
+CPU registers and arithmetic units in the exact same manner as C.</li>
+<li><strong>Raw Memory and Pointers:</strong> C++ retained raw memory
+addresses, pointer arithmetic, and unchecked array bounds. The
+pointer-to-object design matched C's machine model, avoiding garbage
+collection overhead or indirect pointer wrappers.</li>
+<li><strong>Explicit Type Casting:</strong> C's explicit cast operator
+<code>(type)value</code> was initially retained entirely, allowing
+low-level bit manipulation and hardware register access without
+syntactic barriers.</li>
+</ul>
+<h2 id="calling-conventions-and-linkage-compatibility">Calling
+Conventions and Linkage Compatibility</h2>
+<p>To allow C++ applications to invoke existing C libraries and
+operating system APIs without overhead, the language preserved standard
+calling conventions:</p>
+<ul>
+<li><strong>Stack Frame Layout:</strong> C++ functions initially adhered
+to the C calling convention (such as <code>cdecl</code>), pushing
+arguments and managing call frames identically.</li>
+<li><strong>Name Mangling and <code>extern "C"</code>:</strong> Because
+C++ introduced function overloading, the compiler needed to encode
+parameter types into function symbols. To prevent breaking compatibility
+with C libraries, the <code>extern "C"</code> linkage directive was
+introduced, instructing the compiler to suppress name mangling and
+retain standard C symbol names in the object files.</li>
+<li><strong>Shared Linker Infrastructure:</strong> C++ object files
+utilized standard format specifications (such as ELF or COFF), allowing
+standard system linkers to combine C and C++ translation units into a
+single executable without translation bridges.</li>
+</ul>
+<h2 id="reuse-of-the-c-preprocessor-and-toolchain">Reuse of the C
+Preprocessor and Toolchain</h2>
+<p>Rather than establishing an independent build ecosystem, C++
+integrated directly into the UNIX software pipeline:</p>
+<ul>
+<li><strong>The Preprocessor:</strong> C++ reused the standard C
+preprocessor (<code>cpp</code>), retaining directives like
+<code>#include</code>, <code>#define</code>, <code>#ifdef</code>, and
+macro expansions. This enabled C++ files to include standard C header
+files directly.</li>
+<li><strong>Toolchain Continuity:</strong> The compilation pipeline used
+existing assemblers, linkers, and debuggers, minimizing friction for
+developers and enabling incremental adoption within legacy C
+projects.</li>
+</ul>
+<h2 id="the-zero-overhead-principle">The Zero-Overhead Principle</h2>
+<p>A core architectural philosophy of C++ was the zero-overhead
+principle: developers should not pay for language features they do not
+use, and compiler-generated abstractions should perform as efficiently
+as hand-written C equivalents.</p>
+<p>By avoiding mandatory runtime environments, garbage collectors, or
+pervasive virtual dispatch tables, C++ ensured that basic operations
+cost no more clock cycles or memory allocations than their C
+equivalents. This shared runtime performance model solidified C++ as a
+natural, non-penalizing extension of C.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

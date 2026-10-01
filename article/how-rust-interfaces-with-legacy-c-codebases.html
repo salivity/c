@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Rust Interfaces with Legacy C Codebases - c</title>
+    <meta name="description" content="Rust interfaces directly with legacy C codebases through its native Foreign Function Interface (FFI). By adhering to the standard C Application Binary Interface (ABI), Rust allows developers to declare and call external C functions, share data structures">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-rust-interfaces-with-legacy-c-codebases">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Rust Interfaces with Legacy C Codebases - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-rust-interfaces-with-legacy-c-codebases" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Rust interfaces directly with legacy C codebases through its native Foreign Function Interface (FFI). By adhering to the standard C Application Binary Interface (ABI), Rust allows developers to declare and call external C functions, share data structures" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-rust-interfaces-with-legacy-c-codebases">How Rust Interfaces
+with Legacy C Codebases</h1>
+<p>Rust interfaces directly with legacy C codebases through its native
+Foreign Function Interface (FFI). By adhering to the standard C
+Application Binary Interface (ABI), Rust allows developers to declare
+and call external C functions, share data structures with predictable
+memory layouts, and export Rust logic back to C without runtime
+overhead. This interoperability makes it possible to modernize legacy
+systems incrementally by replacing or extending C components with
+memory-safe Rust code while maintaining existing performance levels.</p>
+<h3 id="the-c-application-binary-interface-abi">The C Application Binary
+Interface (ABI)</h3>
+<p>At the core of Rust’s interoperability is the C ABI. Unlike Rust,
+which does not have a stabilized ABI, C defines standard conventions for
+symbol naming, register usage, stack frame organization, and parameter
+passing. Rust allows developers to match these conventions using the
+<code>extern "C"</code> keyword. This tells the Rust compiler to
+generate code that adheres precisely to the target platform’s standard C
+calling convention.</p>
+<h3 id="declaring-external-c-functions">Declaring External C
+Functions</h3>
+<p>To call an existing C function, Rust uses <code>extern "C"</code>
+blocks. These blocks act as function prototypes, declaring the function
+signatures that the linker will resolve against compiled C
+libraries.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="at">#[</span>link<span class="at">(</span>name <span class="op">=</span> <span class="st">&quot;legacy_crypto&quot;</span><span class="at">)]</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">extern</span> <span class="st">&quot;C&quot;</span> <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">fn</span> hash_data(input<span class="op">:</span> <span class="op">*</span><span class="kw">const</span> <span class="dt">u8</span><span class="op">,</span> length<span class="op">:</span> <span class="dt">usize</span><span class="op">,</span> output<span class="op">:</span> <span class="op">*</span><span class="kw">mut</span> <span class="dt">u8</span>) <span class="op">-&gt;</span> <span class="dt">i32</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The <code>#[link]</code> attribute instructs the Rust compiler to
+link against the specified dynamic or static C library (e.g.,
+<code>liblegacy_crypto.a</code> or
+<code>liblegacy_crypto.so</code>).</p>
+<h3 id="handling-types-and-memory-layouts">Handling Types and Memory
+Layouts</h3>
+<p>C and Rust have different native data representations, making data
+layout compatibility critical:</p>
+<ol type="1">
+<li><strong><code>#[repr(C)]</code> Attribute</strong>: By default, the
+Rust compiler can reorder struct fields to optimize memory alignment.
+Applying <code>#[repr(C)]</code> forces Rust to lay out struct and union
+fields using the exact same padding, alignment, and ordering rules as
+the platform's C compiler.</li>
+<li><strong>Standard FFI Types</strong>: Rust provides C-compatible
+primitive types via <code>std::ffi</code> (such as <code>c_int</code>,
+<code>c_char</code>, <code>c_void</code>, and <code>size_t</code>),
+preventing architecture-specific sizing mismatches.</li>
+<li><strong>Strings and Pointers</strong>: C strings are null-terminated
+byte arrays, whereas Rust strings are explicitly sized byte slices
+(<code>str</code>) or heap allocations (<code>String</code>). Rust
+provides <code>CString</code> (for passing Rust strings to C) and
+<code>CStr</code> (for borrowing null-terminated strings from C) to
+bridge this gap safely.</li>
+</ol>
+<h3 id="the-role-of-unsafe-and-safe-wrappers">The Role of
+<code>unsafe</code> and Safe Wrappers</h3>
+<p>Because C cannot guarantee memory safety, thread safety, or pointer
+validity, all foreign functions are treated as inherently unsafe in
+Rust. Calling an external C function requires an <code>unsafe</code>
+block:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> result <span class="op">=</span> <span class="kw">unsafe</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    hash_data(input_ptr<span class="op">,</span> input_len<span class="op">,</span> output_ptr)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Idiomatic integration patterns wrap these raw FFI invocations in safe
+Rust abstractions. The safe wrapper validates incoming inputs, handles
+raw pointer dereferences, enforces lifetime bounds, and returns
+idiomatic Rust types (like <code>Result&lt;T, E&gt;</code>), fully
+isolating the unsafety to a single boundary layer.</p>
+<h3 id="automating-integration-with-bindgen">Automating Integration with
+Bindgen</h3>
+<p>Writing FFI bindings manually for large legacy codebases is
+error-prone. The Rust ecosystem solves this using <code>bindgen</code>,
+a tool that uses <code>libclang</code> to parse C header files
+(<code>.h</code>) and automatically generate corresponding Rust function
+declarations, struct definitions, and constants. Integrated into the
+Rust build script (<code>build.rs</code>), <code>bindgen</code> allows
+Rust projects to update bindings automatically whenever legacy C headers
+are modified.</p>
+<h3 id="bidirectional-interoperability">Bidirectional
+Interoperability</h3>
+<p>Interoperability works in both directions. Rust functions can be
+exposed directly to legacy C code by disabling symbol mangling and
+applying the C calling convention:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode rust"><code class="sourceCode rust"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="at">#[</span>no_mangle<span class="at">]</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">pub</span> <span class="kw">extern</span> <span class="st">&quot;C&quot;</span> <span class="kw">fn</span> rust_process_metric(val<span class="op">:</span> <span class="dt">i32</span>) <span class="op">-&gt;</span> <span class="dt">i32</span> <span class="op">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    val <span class="op">*</span> <span class="dv">2</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>When compiled as a static library (<code>.a</code>) or dynamic
+library (<code>.so</code>/<code>.dll</code>), the resulting binary can
+be consumed by the legacy C linker just like any standard C object file,
+complete with header files generated using tools like
+<code>cbindgen</code>.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

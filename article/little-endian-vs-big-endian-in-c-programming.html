@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Little-Endian vs Big-Endian in C Programming - c</title>
+    <meta name="description" content="In the C programming language, multi-byte integers are stored in memory across consecutive byte addresses using either little-endian or big-endian ordering, determined by the underlying hardware architecture. This article explains the fundamental differe">
+    <link rel="canonical" href="https://salivity.github.io/c/article/little-endian-vs-big-endian-in-c-programming">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Little-Endian vs Big-Endian in C Programming - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/little-endian-vs-big-endian-in-c-programming" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, multi-byte integers are stored in memory across consecutive byte addresses using either little-endian or big-endian ordering, determined by the underlying hardware architecture. This article explains the fundamental differe" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="little-endian-vs-big-endian-in-c-programming">Little-Endian vs
+Big-Endian in C Programming</h1>
+<p>In the C programming language, multi-byte integers are stored in
+memory across consecutive byte addresses using either little-endian or
+big-endian ordering, determined by the underlying hardware architecture.
+This article explains the fundamental differences between these two
+memory representations, illustrates how integer words are arranged in
+memory addresses, and demonstrates how to check or handle byte ordering
+in C code.</p>
+<h2 id="the-concept-of-endianness">The Concept of Endianness</h2>
+<p>A standard 32-bit integer word consists of four bytes. For example,
+the hexadecimal integer value <code>0x12345678</code> is made up of four
+individual bytes: <code>0x12</code> (the Most Significant Byte, or MSB),
+<code>0x34</code>, <code>0x56</code>, and <code>0x78</code> (the Least
+Significant Byte, or LSB).</p>
+<p>Endianness defines the sequential order in which these bytes are
+mapped to increasing memory addresses. The C language standard does not
+mandate a specific byte order; instead, it delegates this choice to the
+target CPU architecture.</p>
+<h2 id="big-endian-representation">Big-Endian Representation</h2>
+<p>In big-endian representation, the Most Significant Byte is stored at
+the lowest (first) memory address, while the Least Significant Byte is
+stored at the highest address. This matches the standard left-to-right
+reading order of numbers.</p>
+<p>Using the value <code>0x12345678</code> stored at base address
+<code>0x1000</code>:</p>
+<ul>
+<li><code>0x1000</code>: <code>0x12</code> (MSB)</li>
+<li><code>0x1001</code>: <code>0x34</code></li>
+<li><code>0x1002</code>: <code>0x56</code></li>
+<li><code>0x1003</code>: <code>0x78</code> (LSB)</li>
+</ul>
+<p>Big-endian is commonly referred to as "network byte order" because
+Internet protocols (such as IP and TCP) standardize on this format. It
+was also historically common on architectures such as SPARC, Motorola
+68000, and older PowerPC chips.</p>
+<h2 id="little-endian-representation">Little-Endian Representation</h2>
+<p>In little-endian representation, the Least Significant Byte is stored
+at the lowest (first) memory address, and the Most Significant Byte is
+stored at the highest address.</p>
+<p>Using the same value <code>0x12345678</code> stored at base address
+<code>0x1000</code>:</p>
+<ul>
+<li><code>0x1000</code>: <code>0x78</code> (LSB)</li>
+<li><code>0x1001</code>: <code>0x56</code></li>
+<li><code>0x1002</code>: <code>0x34</code></li>
+<li><code>0x1003</code>: <code>0x12</code> (MSB)</li>
+</ul>
+<p>Little-endian is the dominant layout in modern consumer computing,
+used by x86, x86-64, and the default configurations of ARM
+processors.</p>
+<h2 id="detecting-endianness-in-c">Detecting Endianness in C</h2>
+<p>Because C allows low-level memory inspection via pointers and type
+punning, you can determine the endianness of the current system at
+runtime by examining the byte stored at the base address of an
+integer:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdint.h&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint32_t</span> value <span class="op">=</span> <span class="bn">0x01</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint8_t</span> <span class="op">*</span>byte_ptr <span class="op">=</span> <span class="op">(</span><span class="dt">uint8_t</span> <span class="op">*)&amp;</span>value<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(*</span>byte_ptr <span class="op">==</span> <span class="bn">0x01</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        printf<span class="op">(</span><span class="st">&quot;System is Little-Endian</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">);</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        printf<span class="op">(</span><span class="st">&quot;System is Big-Endian</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">);</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In this code, if the first byte accessed via <code>byte_ptr</code>
+contains <code>0x01</code>, the least significant byte is stored first,
+confirming a little-endian machine.</p>
+<h2 id="practical-implications-in-c">Practical Implications in C</h2>
+<p>Understanding endianness is critical in two main areas of C software
+development:</p>
+<ol type="1">
+<li><strong>Network Communication:</strong> Since network protocols
+mandate big-endian ordering, systems running on little-endian
+architectures must convert integer words using POSIX functions such as
+<code>htonl()</code> (host to network long) and <code>ntohl()</code>
+(network to host long) before sending and after receiving data.</li>
+<li><strong>Binary File Formats:</strong> When reading or writing raw
+binary data (such as image files, audio, or database records) across
+different architectures, endian-independent code must explicitly
+serialize and deserialize integer fields rather than using direct
+<code>fread()</code> or <code>fwrite()</code> operations into integer
+pointers.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

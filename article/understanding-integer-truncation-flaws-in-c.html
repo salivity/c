@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding Integer Truncation Flaws in C - c</title>
+    <meta name="description" content="An integer truncation flaw occurs in the C programming language when an integer value of a larger data type is assigned to a smaller data type that cannot accommodate its size, causing the compiler to silently discard the most significant bits. This fund">
+    <link rel="canonical" href="https://salivity.github.io/c/article/understanding-integer-truncation-flaws-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding Integer Truncation Flaws in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/understanding-integer-truncation-flaws-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="An integer truncation flaw occurs in the C programming language when an integer value of a larger data type is assigned to a smaller data type that cannot accommodate its size, causing the compiler to silently discard the most significant bits. This fund" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="understanding-integer-truncation-flaws-in-c">Understanding
+Integer Truncation Flaws in C</h1>
+<p>An integer truncation flaw occurs in the C programming language when
+an integer value of a larger data type is assigned to a smaller data
+type that cannot accommodate its size, causing the compiler to silently
+discard the most significant bits. This fundamental type conversion
+error frequently bypasses security bounds checks, leading to severe
+vulnerabilities such as heap or stack buffer overflows and potential
+arbitrary code execution. This article examines the mechanics of integer
+truncation, demonstrates how it manifests in C, and explains the attack
+vectors used to exploit it in production software.</p>
+<h3 id="the-mechanics-of-integer-truncation">The Mechanics of Integer
+Truncation</h3>
+<p>In C, integer types have fixed storage sizes and value ranges defined
+by the implementation architecture. For example, on standard 64-bit
+systems, a <code>uint32_t</code> occupies 32 bits, while a
+<code>uint16_t</code> occupies 16 bits.</p>
+<p>When a value stored in a larger integer type is cast—implicitly or
+explicitly—into a smaller integer type, the compiler performs a
+narrowing conversion. During this process, the higher-order bits are
+dropped, preserving only the lower-order bits that fit within the target
+type's width.</p>
+<p>Mathematically, when an unsigned integer <code>X</code> is converted
+to an unsigned integer type with bit-width <code>N</code>, the resulting
+value is:</p>
+<p><code>Result = X modulo 2^N</code></p>
+<p>For example, consider the 32-bit hexadecimal value
+<code>0x00010020</code> (decimal 65,568). When cast to a 16-bit unsigned
+integer (<code>uint16_t</code>), the top 16 bits (<code>0x0001</code>)
+are discarded, leaving only <code>0x0020</code> (decimal 32). The
+program now operates on the value 32 instead of 65,568, completely
+altering the program logic without triggering a runtime error.</p>
+<h3 id="how-truncation-leads-to-exploitable-vulnerabilities">How
+Truncation Leads to Exploitable Vulnerabilities</h3>
+<p>Integer truncation rarely acts as a standalone vulnerability;
+instead, it serves as a trigger that destabilizes memory management
+logic. The most common exploitation pathway involves discrepancies
+between security validation routines and subsequent memory allocations
+or copy operations.</p>
+<h4 id="1-allocation-mismatch-leading-to-buffer-overflow">1. Allocation
+Mismatch Leading to Buffer Overflow</h4>
+<p>Consider a typical scenario where a service validates user input
+length before allocating a buffer and copying data:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process_packet<span class="op">(</span><span class="dt">unsigned</span> <span class="dt">int</span> length<span class="op">,</span> <span class="dt">char</span> <span class="op">*</span>data<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Validation check succeeds for values up to maximum allowed</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>length <span class="op">&gt;</span> <span class="bn">0x100000</span><span class="op">)</span> <span class="op">{</span> </span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span><span class="op">;</span> <span class="co">// Reject packets larger than 1MB</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Truncation flaw: length is cast to an unsigned short (16-bit)</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">short</span> alloc_size <span class="op">=</span> <span class="op">(</span><span class="dt">unsigned</span> <span class="dt">short</span><span class="op">)</span>length<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Memory allocated using the truncated size</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> <span class="op">*</span>buffer <span class="op">=</span> <span class="op">(</span><span class="dt">char</span> <span class="op">*)</span>malloc<span class="op">(</span>alloc_size<span class="op">);</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(!</span>buffer<span class="op">)</span> <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 4. Memory copy uses the original, larger length parameter</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    memcpy<span class="op">(</span>buffer<span class="op">,</span> data<span class="op">,</span> length<span class="op">);</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    free<span class="op">(</span>buffer<span class="op">);</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>If an attacker supplies a <code>length</code> of <code>65,540</code>
+(<code>0x00010004</code>):</p>
+<ol type="1">
+<li>The validation check evaluates <code>65,540 &lt;= 0x100000</code>,
+which evaluates to true.</li>
+<li>The assignment to <code>alloc_size</code> truncates the upper bits,
+resulting in <code>0x0004</code> (4 bytes).</li>
+<li><code>malloc</code> allocates a heap buffer of only 4 bytes.</li>
+<li><code>memcpy</code> executes with the original 32-bit
+<code>length</code> argument (<code>65,540</code> bytes).</li>
+</ol>
+<p>This causes <code>memcpy</code> to write 65,540 bytes of
+attacker-controlled data into a 4-byte buffer, producing a massive heap
+buffer overflow.</p>
+<h4 id="2-exploitation-outcomes">2. Exploitation Outcomes</h4>
+<p>Once a buffer overflow is triggered via truncation:</p>
+<ul>
+<li><strong>Control Flow Hijacking:</strong> On the heap, the
+out-of-bounds write can overwrite critical metadata, heap chunk
+pointers, or neighboring function pointers, allowing attackers to
+redirect the execution flow to arbitrary payload code or return-oriented
+programming (ROP) chains.</li>
+<li><strong>Denial of Service (DoS):</strong> Writing past the
+boundaries of allocated memory corrupts adjacent memory pages,
+triggering a segmentation fault and crashing the host process.</li>
+<li><strong>Information Disclosure:</strong> If truncation causes an
+offset calculation to shrink unexpectedly, it can lead to reading
+sensitive memory regions out of bounds and leaking encryption keys,
+memory layouts, or credentials.</li>
+</ul>
+<h3 id="prevention-and-mitigation">Prevention and Mitigation</h3>
+<p>Preventing integer truncation requires defensive programming
+practices focused on type safety and range validation:</p>
+<ul>
+<li><strong>Use Consistent Types:</strong> Ensure variable types match
+throughout execution. If data length is handled using
+<code>size_t</code>, maintain <code>size_t</code> across all associated
+functions, memory allocators, and loops.</li>
+<li><strong>Pre-Conversion Validation:</strong> Always verify that an
+integer fits into the target type's range before casting:
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>large_val <span class="op">&gt;</span> USHRT_MAX<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Handle error</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>target_val <span class="op">=</span> <span class="op">(</span><span class="dt">unsigned</span> <span class="dt">short</span><span class="op">)</span>large_val<span class="op">;</span></span></code></pre></div></li>
+<li><strong>Compiler Flags:</strong> Enable compiler warnings such as
+<code>-Wconversion</code> and <code>-Wsign-conversion</code> in GCC and
+Clang. These flags notify developers whenever an implicit conversion
+might change an integer's value.</li>
+<li><strong>Safe Math Libraries:</strong> Implement vetted integer
+handling libraries, such as SafeInt or the bounds-checking interfaces
+defined in modern C standards, which detect and halt execution upon
+arithmetic errors.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C Compound Literals: Structs and Arrays on the Fly - c</title>
+    <meta name="description" content="Compound literals, introduced in C99, provide a mechanism to create unnamed, temporary objects—specifically structures, unions, and arrays—directly within expressions. By combining a type cast with an initializer list, developers can instantiate and">
+    <link rel="canonical" href="https://salivity.github.io/c/article/c-compound-literals-structs-and-arrays-on-the-fly">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C Compound Literals: Structs and Arrays on the Fly - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/c-compound-literals-structs-and-arrays-on-the-fly" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Compound literals, introduced in C99, provide a mechanism to create unnamed, temporary objects—specifically structures, unions, and arrays—directly within expressions. By combining a type cast with an initializer list, developers can instantiate and" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-compound-literals-structs-and-arrays-on-the-fly">C Compound
+Literals: Structs and Arrays on the Fly</h1>
+<p>Compound literals, introduced in C99, provide a mechanism to create
+unnamed, temporary objects—specifically structures, unions, and
+arrays—directly within expressions. By combining a type cast with an
+initializer list, developers can instantiate and populate complex data
+structures on the fly without having to declare auxiliary variables
+beforehand. This article explains how compound literals function, breaks
+down their syntax for structs and arrays, examines their memory
+lifetimes, and highlights practical use cases like passing dynamic
+arguments to functions.</p>
+<h3 id="understanding-the-syntax">Understanding the Syntax</h3>
+<p>A compound literal consists of a parenthesized type name followed by
+an initializer list enclosed in braces:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="op">(</span>type_name<span class="op">){</span> initializer<span class="op">-</span>list <span class="op">}</span></span></code></pre></div>
+<p>Unlike a standard cast, which converts an existing value to another
+type, a compound literal actually constructs a new, unnamed lvalue of
+the specified type.</p>
+<h3 id="instantiating-unnamed-structs">Instantiating Unnamed
+Structs</h3>
+<p>Before compound literals, passing a populated struct to a function
+required declaring a named variable, initializing its fields, and
+passing that variable. With compound literals, this process can be
+condensed into a single line.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Point <span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> x<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> y<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> print_point<span class="op">(</span><span class="kw">struct</span> Point p<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Point: (</span><span class="sc">%d</span><span class="st">, </span><span class="sc">%d</span><span class="st">)</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">,</span> p<span class="op">.</span>x<span class="op">,</span> p<span class="op">.</span>y<span class="op">);</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Pass an unnamed struct directly to the function</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    print_point<span class="op">((</span><span class="kw">struct</span> Point<span class="op">){</span> <span class="op">.</span>x <span class="op">=</span> <span class="dv">10</span><span class="op">,</span> <span class="op">.</span>y <span class="op">=</span> <span class="dv">20</span> <span class="op">});</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Designated initializers can be used inside the compound literal to
+explicitly map values to fields, improving readability and avoiding
+reliance on field declaration order.</p>
+<h3 id="instantiating-unnamed-arrays">Instantiating Unnamed Arrays</h3>
+<p>Compound literals apply equally to arrays. When declared, an array
+compound literal evaluates to a pointer to its first element, allowing
+immediate use where array decay is expected.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> print_sum<span class="op">(</span><span class="dt">const</span> <span class="dt">int</span> <span class="op">*</span>numbers<span class="op">,</span> <span class="dt">size_t</span> count<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> sum <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="dt">size_t</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> count<span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        sum <span class="op">+=</span> numbers<span class="op">[</span>i<span class="op">];</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Sum: </span><span class="sc">%d\n</span><span class="st">&quot;</span><span class="op">,</span> sum<span class="op">);</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Create an unnamed array on the fly and pass it</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    print_sum<span class="op">((</span><span class="dt">int</span><span class="op">[]){</span> <span class="dv">1</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">3</span><span class="op">,</span> <span class="dv">4</span><span class="op">,</span> <span class="dv">5</span> <span class="op">},</span> <span class="dv">5</span><span class="op">);</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="scope-and-lifetime-rules">Scope and Lifetime Rules</h3>
+<p>The lifetime of an object created via a compound literal depends on
+where it is defined:</p>
+<ul>
+<li><strong>Block Scope:</strong> When written inside a function body,
+the compound literal possesses automatic storage duration. Its memory
+exists only until the enclosing block terminates. Returning a pointer to
+a block-scope compound literal leads to undefined behavior.</li>
+<li><strong>File Scope:</strong> When written outside all functions, the
+compound literal possesses static storage duration, existing for the
+entire runtime of the program.</li>
+</ul>
+<p>You can also create a read-only compound literal by adding the
+<code>const</code> qualifier:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">const</span> <span class="dt">int</span> <span class="op">*</span>ptr <span class="op">=</span> <span class="op">(</span><span class="dt">const</span> <span class="dt">int</span><span class="op">[]){</span> <span class="dv">10</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> <span class="dv">30</span> <span class="op">};</span></span></code></pre></div>
+<p>Attempting to modify the contents of a <code>const</code>-qualified
+compound literal produces a compiler error or undefined behavior at
+runtime.</p>
+<h3 id="key-benefits">Key Benefits</h3>
+<ol type="1">
+<li><strong>Eliminates Boilerplate:</strong> Removes the clutter of
+temporary, single-use variable declarations.</li>
+<li><strong>Improves Readability:</strong> Keeps data initialization
+colocated with the function call or assignment where it is needed.</li>
+<li><strong>Modifiable Lvalues:</strong> Because compound literals are
+true lvalues (unless declared <code>const</code>), their addresses can
+be taken using the <code>&amp;</code> operator, and their members can be
+modified directly.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

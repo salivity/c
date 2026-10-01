@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Valid C Syntax That Is Invalid in Modern C++ - c</title>
+    <meta name="description" content="While C++ originated as an extension of C, it has evolved into a fundamentally distinct language with stricter type safety, different scoping rules, and unique keywords. Consequently, several common syntax constructs and idiomatic patterns that compile c">
+    <link rel="canonical" href="https://salivity.github.io/c/article/valid-c-syntax-that-is-invalid-in-modern-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Valid C Syntax That Is Invalid in Modern C++ - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/valid-c-syntax-that-is-invalid-in-modern-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="While C++ originated as an extension of C, it has evolved into a fundamentally distinct language with stricter type safety, different scoping rules, and unique keywords. Consequently, several common syntax constructs and idiomatic patterns that compile c" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="valid-c-syntax-that-is-invalid-in-modern-c">Valid C Syntax That
+Is Invalid in Modern C++</h1>
+<p>While C++ originated as an extension of C, it has evolved into a
+fundamentally distinct language with stricter type safety, different
+scoping rules, and unique keywords. Consequently, several common syntax
+constructs and idiomatic patterns that compile cleanly in standard C
+will fail to compile in modern C++. This article outlines the most
+significant C syntax constructs that are invalid in modern C++,
+including implicit pointer conversions, variable-length arrays,
+unprototyped functions, and restrictive designated initializers.</p>
+<h2 id="implicit-conversion-from-void">Implicit Conversion from
+<code>void*</code></h2>
+<p>In C, a <code>void*</code> pointer implicitly converts to any other
+object pointer type. This pattern is ubiquitous when allocating memory
+with <code>malloc</code>.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> <span class="op">*</span>ptr <span class="op">=</span> malloc<span class="op">(</span><span class="kw">sizeof</span><span class="op">(</span><span class="dt">int</span><span class="op">)</span> <span class="op">*</span> <span class="dv">10</span><span class="op">);</span></span></code></pre></div>
+<p>In modern C++, implicit conversion from <code>void*</code> to a typed
+pointer is forbidden to preserve type safety. Compiling the snippet
+above in C++ results in a compilation error. C++ requires an explicit
+cast or the use of modern memory management:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> <span class="op">*</span>ptr <span class="op">=</span> <span class="kw">static_cast</span><span class="op">&lt;</span><span class="dt">int</span><span class="op">*&gt;(</span>malloc<span class="op">(</span><span class="kw">sizeof</span><span class="op">(</span><span class="dt">int</span><span class="op">)</span> <span class="op">*</span> <span class="dv">10</span><span class="op">));</span> <span class="co">// Explicit cast</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co">// Or preferably in C++:</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> <span class="op">*</span>ptr <span class="op">=</span> <span class="kw">new</span> <span class="dt">int</span><span class="op">[</span><span class="dv">10</span><span class="op">];</span></span></code></pre></div>
+<h2 id="functions-with-empty-parameter-lists">Functions with Empty
+Parameter Lists</h2>
+<p>In C, a function declaration with empty parentheses indicates that
+the function takes an unspecified number of arguments rather than zero
+arguments.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> func<span class="op">();</span> <span class="co">// In C: takes an unspecified number of parameters</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    func<span class="op">(</span><span class="dv">1</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">3</span><span class="op">);</span> <span class="co">// Valid in C (though deprecated in modern revisions)</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In C++, an empty parameter list <code>void func()</code> is strictly
+equivalent to <code>void func(void)</code>. Passing arguments to a
+function declared with <code>()</code> triggers a compiler error in C++
+because the signature expects zero parameters.</p>
+<h2 id="variable-length-arrays-vlas">Variable-Length Arrays (VLAs)</h2>
+<p>Introduced as a standard feature in C99, Variable-Length Arrays allow
+array dimensions to be determined at runtime on the stack.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> allocate<span class="op">(</span><span class="dt">int</span> n<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> arr<span class="op">[</span>n<span class="op">];</span> <span class="co">// Valid in C99/C11</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Standard modern C++ does not support VLAs. Array bounds in C++ must
+be compile-time constant expressions. While some compilers provide VLAs
+as an extension, standard-compliant C++ code rejects this syntax,
+requiring alternatives like <code>std::vector</code> or dynamic
+allocation.</p>
+<h2 id="implicit-int-and-unchecked-enum-conversions">Implicit
+<code>int</code> and Unchecked Enum Conversions</h2>
+<p>In C, integer types can be implicitly converted into enumeration
+types without an explicit cast.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">enum</span> Color <span class="op">{</span> RED<span class="op">,</span> GREEN<span class="op">,</span> BLUE <span class="op">};</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">enum</span> Color c <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> <span class="co">// Valid in C</span></span></code></pre></div>
+<p>C++ enforces strict type boundaries around enumerations. An integer
+literal or variable cannot be assigned to an <code>enum</code> without
+an explicit cast:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>Color c <span class="op">=</span> <span class="kw">static_cast</span><span class="op">&lt;</span>Color<span class="op">&gt;(</span><span class="dv">1</span><span class="op">);</span> <span class="co">// Required in C++</span></span></code></pre></div>
+<h2
+id="designated-initializers-with-out-of-order-fields-or-arrays">Designated
+Initializers with Out-of-Order Fields or Arrays</h2>
+<p>C99 introduced designated initializers, permitting structure members
+to be initialized in any order and allowing array indexing syntax.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Point <span class="op">{</span> <span class="dt">int</span> x<span class="op">;</span> <span class="dt">int</span> y<span class="op">;</span> <span class="op">};</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Point p <span class="op">=</span> <span class="op">{</span> <span class="op">.</span>y <span class="op">=</span> <span class="dv">20</span><span class="op">,</span> <span class="op">.</span>x <span class="op">=</span> <span class="dv">10</span> <span class="op">};</span> <span class="co">// Out of order: Valid in C</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> arr<span class="op">[</span><span class="dv">5</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span> <span class="op">[</span><span class="dv">2</span><span class="op">]</span> <span class="op">=</span> <span class="dv">5</span><span class="op">,</span> <span class="op">[</span><span class="dv">4</span><span class="op">]</span> <span class="op">=</span> <span class="dv">9</span> <span class="op">};</span>     <span class="co">// Array designation: Valid in C</span></span></code></pre></div>
+<p>C++20 introduced designated initializers to C++, but with strict
+limitations:</p>
+<ol type="1">
+<li>Field designators must appear in the exact order of their
+declaration within the class or struct.</li>
+<li>Array index designators (e.g., <code>[2] = 5</code>) are completely
+unsupported.</li>
+</ol>
+<p>Both examples above produce compiler errors in modern C++.</p>
+<h2 id="flexible-array-members">Flexible Array Members</h2>
+<p>C99 formally supports flexible array members, where the last element
+of a structure has an incomplete array type to allow dynamic tail
+allocation.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Packet <span class="op">{</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> length<span class="op">;</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> data<span class="op">[];</span> <span class="co">// Flexible array member: Valid in C</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Standard C++ does not support flexible array members. Using an empty
+bracket declaration at the end of a <code>struct</code> or
+<code>class</code> is non-standard in C++ and results in an error under
+strict standard conformance flags.</p>
+<h2 id="using-c-keywords-as-identifiers">Using C++ Keywords as
+Identifiers</h2>
+<p>C++ reserves dozens of keywords that are regular identifiers in C.
+Variable or function names using terms like <code>new</code>,
+<code>delete</code>, <code>class</code>, <code>template</code>,
+<code>virtual</code>, or <code>public</code> are valid C syntax but
+invalid C++.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> new <span class="op">=</span> <span class="dv">5</span><span class="op">;</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> export<span class="op">(</span><span class="dt">void</span><span class="op">);</span></span></code></pre></div>
+<p>Both declarations fail to compile in C++ because the identifiers
+clash with core language keywords.</p>
+<h2 id="tentative-definitions">Tentative Definitions</h2>
+<p>In C, a global variable can be declared multiple times without the
+<code>extern</code> specifier in the same translation unit, provided
+only one instance includes an initializer.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> count<span class="op">;</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> count<span class="op">;</span> <span class="co">// Valid in C (treated as a tentative definition)</span></span></code></pre></div>
+<p>C++ strictly enforces the One Definition Rule (ODR). In C++, every
+declaration of this form is treated as a definition, leading to a
+"redefinition of 'count'" compilation error.</p>
+<h2 id="jumping-over-variable-declarations-with-goto">Jumping Over
+Variable Declarations with <code>goto</code></h2>
+<p>C allows a <code>goto</code> statement to jump over variable
+declarations, provided the variable is not a VLA.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> test<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">goto</span> label<span class="op">;</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> x <span class="op">=</span> <span class="dv">10</span><span class="op">;</span> <span class="co">// Skipped</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>label<span class="op">:</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In C++, jumping over a variable declaration with an initializer—or
+jumping over any non-trivial object construction—into a scope where that
+variable would be visible is strictly illegal and produces a compiler
+error.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

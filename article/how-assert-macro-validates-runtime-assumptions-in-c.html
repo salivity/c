@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Assert Macro Validates Runtime Assumptions in C - c</title>
+    <meta name="description" content="The assert macro in C is a diagnostic tool designed to verify internal program assumptions at runtime during the software development phase. Defined in the standard <assert.h> header, it evaluates a condition specified by the developer; if that condition">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-assert-macro-validates-runtime-assumptions-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Assert Macro Validates Runtime Assumptions in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-assert-macro-validates-runtime-assumptions-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The assert macro in C is a diagnostic tool designed to verify internal program assumptions at runtime during the software development phase. Defined in the standard <assert.h> header, it evaluates a condition specified by the developer; if that condition" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-assert-macro-validates-runtime-assumptions-in-c">How Assert
+Macro Validates Runtime Assumptions in C</h1>
+<p>The <code>assert</code> macro in C is a diagnostic tool designed to
+verify internal program assumptions at runtime during the software
+development phase. Defined in the standard <code>&lt;assert.h&gt;</code>
+header, it evaluates a condition specified by the developer; if that
+condition evaluates to false, the program halts immediately and outputs
+detailed diagnostic information to the standard error stream. This
+article explains the underlying mechanics of <code>assert</code>, how it
+halts execution upon logical errors, how to safely disable it for
+production builds, and best practices for implementing it effectively in
+C projects.</p>
+<h3 id="how-the-assert-macro-operates">How the <code>assert</code> Macro
+Operates</h3>
+<p>The <code>assert</code> macro accepts a single scalar expression as
+its argument. When execution reaches the macro:</p>
+<ol type="1">
+<li><strong>Expression Evaluation:</strong> The expression inside
+<code>assert(expression)</code> is evaluated.</li>
+<li><strong>True Condition:</strong> If the expression evaluates to
+non-zero (true), execution proceeds to the next line of code with no
+performance penalty beyond the evaluation itself.</li>
+<li><strong>False Condition:</strong> If the expression evaluates to
+zero (false), the macro writes a diagnostic message to
+<code>stderr</code> and calls <code>abort()</code>.</li>
+</ol>
+<p>The diagnostic output typically includes:</p>
+<ul>
+<li>The exact text of the failed expression.</li>
+<li>The name of the source file (<code>__FILE__</code>).</li>
+<li>The line number where the failure occurred
+(<code>__LINE__</code>).</li>
+<li>The enclosing function name (<code>__func__</code> in C99 and
+later).</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdio.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;assert.h&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process_percentage<span class="op">(</span><span class="dt">int</span> value<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Assert that the value falls within an expected range</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    assert<span class="op">(</span>value <span class="op">&gt;=</span> <span class="dv">0</span> <span class="op">&amp;&amp;</span> value <span class="op">&lt;=</span> <span class="dv">100</span><span class="op">);</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    printf<span class="op">(</span><span class="st">&quot;Processing: </span><span class="sc">%d%%\n</span><span class="st">&quot;</span><span class="op">,</span> value<span class="op">);</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    process_percentage<span class="op">(</span><span class="dv">50</span><span class="op">);</span>  <span class="co">// Passes</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    process_percentage<span class="op">(</span><span class="dv">150</span><span class="op">);</span> <span class="co">// Fails: outputs diagnostic info and aborts</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="disabling-assertions-in-production">Disabling Assertions in
+Production</h3>
+<p>Assertions are designed primarily for debugging and testing. Running
+assertion checks in production can introduce unnecessary overhead and
+cause abrupt program termination in environments where graceful
+degradation or error recovery is preferred.</p>
+<p>To disable assertions, define the <code>NDEBUG</code> (No Debug)
+macro before including <code>&lt;assert.h&gt;</code>:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#define NDEBUG</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;assert.h&gt;</span></span></code></pre></div>
+<p>When <code>NDEBUG</code> is defined, the preprocessor expands
+<code>assert(expression)</code> into <code>((void)0)</code>. This
+completely eliminates the runtime check, ensuring zero CPU overhead and
+generating no binary code for the assertion. In practice,
+<code>NDEBUG</code> is typically passed globally as a compiler flag
+during release builds (e.g., <code>gcc -DNDEBUG main.c</code>).</p>
+<h3 id="what-to-assert">What to Assert</h3>
+<p>The <code>assert</code> macro should validate internal logic and
+developer assumptions that should theoretically <em>never</em> fail if
+the program is written correctly:</p>
+<ul>
+<li><strong>Preconditions and Postconditions:</strong> Confirming valid
+parameters inside internal, non-public functions.</li>
+<li><strong>Invariants:</strong> Verifying that a loop variable, data
+structure property, or pointer remains in a valid state throughout
+execution.</li>
+<li><strong>Unreachable States:</strong> Placing <code>assert(0);</code>
+or <code>assert(!"Unreachable code reached");</code> in paths that
+program logic should never allow, such as default cases in exhaustive
+<code>switch</code> statements.</li>
+<li><strong>Sanity Checks:</strong> Confirming internal assumptions,
+such as checking that an index does not exceed an allocated buffer's
+boundaries.</li>
+</ul>
+<h3 id="what-not-to-assert">What Not to Assert</h3>
+<p>Misusing <code>assert</code> can introduce bugs or hide critical
+runtime failures:</p>
+<ul>
+<li><strong>Do not use <code>assert</code> for general error
+handling:</strong> Dynamic errors such as invalid user input, missing
+configuration files, network timeouts, or failed system calls should be
+handled via regular control flow and return codes, not program-aborting
+assertions.</li>
+<li><strong>Do not validate memory allocations with
+<code>assert</code>:</strong> Handling memory exhaustion
+(<code>malloc</code> returning <code>NULL</code>) using
+<code>assert</code> causes undefined behavior when <code>NDEBUG</code>
+is enabled in production.</li>
+<li><strong>Avoid side effects inside assertions:</strong> Since the
+entire expression is stripped out when <code>NDEBUG</code> is defined,
+any state changes inside the macro will disappear in production
+builds:</li>
+</ul>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Incorrect: if NDEBUG is defined, perform_action() is never executed</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>assert<span class="op">(</span>perform_action<span class="op">()</span> <span class="op">==</span> SUCCESS<span class="op">);</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Correct: execution occurs independently of the assertion</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> status <span class="op">=</span> perform_action<span class="op">();</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>assert<span class="op">(</span>status <span class="op">==</span> SUCCESS<span class="op">);</span></span></code></pre></div></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

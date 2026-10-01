@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Short-Circuit Evaluation in C: Logical AND and OR - c</title>
+    <meta name="description" content="Short-circuit evaluation is a control-flow feature in the C programming language where the second operand of a logical operation is executed only when the first operand is insufficient to determine the overall result. This article explains the exact mech">
+    <link rel="canonical" href="https://salivity.github.io/c/article/short-circuit-evaluation-in-c-logical-and-and-or">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Short-Circuit Evaluation in C: Logical AND and OR - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/short-circuit-evaluation-in-c-logical-and-and-or" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Short-circuit evaluation is a control-flow feature in the C programming language where the second operand of a logical operation is executed only when the first operand is insufficient to determine the overall result. This article explains the exact mech" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="short-circuit-evaluation-in-c-logical-and-and-or">Short-Circuit
+Evaluation in C: Logical AND and OR</h1>
+<p>Short-circuit evaluation is a control-flow feature in the C
+programming language where the second operand of a logical operation is
+executed only when the first operand is insufficient to determine the
+overall result. This article explains the exact mechanisms behind
+short-circuiting with the logical AND (<code>&amp;&amp;</code>) and
+logical OR (<code>||</code>) operators, the guarantee of sequence
+points, practical coding patterns like safe pointer dereferencing, and
+the risks associated with expressions containing side effects.</p>
+<h3 id="how-logical-and--short-circuits">How Logical AND
+(<code>&amp;&amp;</code>) Short-Circuits</h3>
+<p>In C, the logical AND operator (<code>&amp;&amp;</code>) yields a
+result of <code>1</code> (true) only if both operands evaluate to a
+non-zero value. If the left-hand operand evaluates to <code>0</code>
+(false), the entire expression is guaranteed to be false regardless of
+the right-hand operand's value.</p>
+<p>Consequently, the compiler skips the evaluation of the right-hand
+operand entirely when the left-hand side is <code>0</code>.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>ptr <span class="op">!=</span> NULL <span class="op">&amp;&amp;</span> <span class="op">*</span>ptr <span class="op">==</span> <span class="dv">10</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Executes safely</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In the example above, if <code>ptr</code> is <code>NULL</code>, the
+left operand <code>ptr != NULL</code> evaluates to <code>0</code>. The
+right operand <code>*ptr == 10</code> is never evaluated, successfully
+avoiding a null-pointer dereference and a program crash.</p>
+<h3 id="how-logical-or--short-circuits">How Logical OR (<code>||</code>)
+Short-Circuits</h3>
+<p>The logical OR operator (<code>||</code>) yields a result of
+<code>1</code> (true) if at least one operand evaluates to a non-zero
+value. If the left-hand operand evaluates to any non-zero value (true),
+the entire expression is guaranteed to be true.</p>
+<p>Under this condition, the compiler does not evaluate the right-hand
+operand.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>is_cached <span class="op">||</span> fetch_from_database<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Executes if cached or successfully fetched</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Here, if <code>is_cached</code> is non-zero, the expression evaluates
+to true immediately, and the expensive
+<code>fetch_from_database()</code> function call is bypassed
+entirely.</p>
+<h3 id="evaluation-order-and-sequence-points">Evaluation Order and
+Sequence Points</h3>
+<p>The C standard explicitly defines that logical AND and logical OR
+operators enforce a left-to-right evaluation order. Furthermore, there
+is a sequence point introduced immediately after the evaluation of the
+first operand.</p>
+<p>This sequence point guarantees that all side effects of the left-hand
+operand—such as variable assignments or increments—are fully committed
+before the right-hand operand is evaluated (if it is evaluated at
+all).</p>
+<h3 id="the-danger-of-side-effects">The Danger of Side Effects</h3>
+<p>While short-circuiting provides safety and performance optimizations,
+it can introduce logic bugs when expressions rely on side effects, such
+as the increment (<code>++</code>) and decrement (<code>--</code>)
+operators or state-modifying functions.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> a <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> b <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>a <span class="op">||</span> b<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// b++ is never executed because &#39;a&#39; is non-zero</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In this scenario, <code>b</code> remains <code>0</code> because the
+truth of <code>a</code> terminates evaluation before <code>b++</code> is
+reached. To write robust C code, avoid placing operations with side
+effects on the right-hand side of <code>&amp;&amp;</code> and
+<code>||</code> operators unless the conditional execution of that side
+effect is explicitly intended.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

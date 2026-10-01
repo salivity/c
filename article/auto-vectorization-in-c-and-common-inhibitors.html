@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto-Vectorization in C and Common Inhibitors - c</title>
+    <meta name="description" content="Auto-vectorization is an automated compiler optimization that transforms scalar loop operations into Single Instruction, Multiple Data (SIMD) instructions, allowing hardware to process multiple data elements concurrently. While modern C compilers like GC">
+    <link rel="canonical" href="https://salivity.github.io/c/article/auto-vectorization-in-c-and-common-inhibitors">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Auto-Vectorization in C and Common Inhibitors - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/auto-vectorization-in-c-and-common-inhibitors" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Auto-vectorization is an automated compiler optimization that transforms scalar loop operations into Single Instruction, Multiple Data (SIMD) instructions, allowing hardware to process multiple data elements concurrently. While modern C compilers like GC" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="auto-vectorization-in-c-and-common-inhibitors">Auto-Vectorization in
+C and Common Inhibitors</h1>
+<p>Auto-vectorization is an automated compiler optimization that
+transforms scalar loop operations into Single Instruction, Multiple Data
+(SIMD) instructions, allowing hardware to process multiple data elements
+concurrently. While modern C compilers like GCC and Clang attempt this
+optimization automatically at higher optimization levels, certain
+programming patterns introduce ambiguity or architectural constraints
+that halt the process. This article explains how auto-vectorization
+works and examines the specific coding anti-patterns—such as pointer
+aliasing, loop-carried dependencies, and non-contiguous memory
+access—that prevent compilers from vectorizing C loops.</p>
+<h2 id="what-is-auto-vectorization">What Is Auto-Vectorization?</h2>
+<p>CPUs feature dedicated SIMD execution units (such as Intel/AMD AVX or
+ARM NEON) capable of applying a single operation across a vector
+register containing multiple values (e.g., operating on four 32-bit
+floats simultaneously in a 128-bit register).</p>
+<p>Auto-vectorization is the process whereby the compiler inspects
+standard loop constructs—such as a <code>for</code> loop processing an
+array—and replaces individual scalar instructions with equivalent SIMD
+instructions. This optimization increases throughput and reduces CPU
+instruction count without requiring developers to manually write
+hardware-specific intrinsics or inline assembly.</p>
+<h2 id="coding-patterns-that-prevent-vectorization">Coding Patterns That
+Prevent Vectorization</h2>
+<p>For a compiler to vectorize a loop, it must prove that doing so will
+produce the exact same outcome as sequential scalar execution across all
+target architecture states. When a compiler cannot guarantee safety, it
+falls back to scalar execution. Several common patterns trigger this
+fallback.</p>
+<h3 id="1-pointer-aliasing">1. Pointer Aliasing</h3>
+<p>The C standard allows multiple pointers to reference the same memory
+location, a condition known as aliasing. If the compiler cannot prove
+that source and destination memory buffers are distinct, it assumes an
+update through one pointer could alter data read through another within
+the same iteration.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> add_arrays<span class="op">(</span><span class="dt">float</span> <span class="op">*</span>a<span class="op">,</span> <span class="dt">float</span> <span class="op">*</span>b<span class="op">,</span> <span class="dt">float</span> <span class="op">*</span>c<span class="op">,</span> <span class="dt">int</span> n<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> n<span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>        c<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> a<span class="op">[</span>i<span class="op">]</span> <span class="op">+</span> b<span class="op">[</span>i<span class="op">];</span> <span class="co">// If c overlaps with a or b, vectorization may be unsafe</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>If <code>c</code> points to <code>a + 1</code>, a vectorized write
+would overwrite data before it is read by subsequent iterations.</p>
+<p><strong>Solution:</strong> Use the <code>restrict</code> keyword on
+pointers that are guaranteed not to overlap, signaling to the compiler
+that the buffers are independent.</p>
+<h3 id="2-loop-carried-dependencies">2. Loop-Carried Dependencies</h3>
+<p>A loop-carried dependency occurs when the computation of the current
+iteration depends on the result of a previous iteration
+(Read-After-Write or RAW dependency).</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> cumulative_sum<span class="op">(</span><span class="dt">float</span> <span class="op">*</span>a<span class="op">,</span> <span class="dt">int</span> n<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">1</span><span class="op">;</span> i <span class="op">&lt;</span> n<span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        a<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> a<span class="op">[</span>i<span class="op">]</span> <span class="op">+</span> a<span class="op">[</span>i <span class="op">-</span> <span class="dv">1</span><span class="op">];</span> <span class="co">// Iteration i depends directly on iteration i - 1</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Because SIMD operations execute chunks of data simultaneously,
+iteration <code>i</code> and iteration <code>i - 1</code> cannot be
+calculated concurrently if the input of one depends on the output of the
+other.</p>
+<h3 id="3-non-contiguous-and-indirect-memory-access">3. Non-Contiguous
+and Indirect Memory Access</h3>
+<p>SIMD registers load and store data most efficiently when memory
+addresses are contiguous and aligned to vector register boundaries.</p>
+<ul>
+<li><strong>Strided Access:</strong> Accessing every <span
+class="math inline">\(N\)</span>-th element (e.g.,
+<code>a[i * 4]</code>) forces the CPU to gather non-adjacent elements
+into a single register, which often incurs a performance penalty large
+enough that the compiler opts out of vectorization.</li>
+<li><strong>Indirect Access (Index Arrays):</strong> Using lookup tables
+(e.g., <code>a[indices[i]]</code>) prevents the compiler from
+determining memory layout at compile time, complicating load/store
+operations.</li>
+</ul>
+<p>Refactoring data from an Array of Structures (AoS) to a Structure of
+Arrays (SoA) generally resolves strided access issues.</p>
+<h3 id="4-complex-branching-and-early-exits">4. Complex Branching and
+Early Exits</h3>
+<p>Loops must execute a deterministic number of iterations that can be
+divided evenly into vector chunks.</p>
+<ul>
+<li><strong>Early Exits:</strong> Loops containing <code>break</code>,
+<code>return</code>, or dynamic termination criteria (such as searching
+a null-terminated string) cannot be easily split into uniform parallel
+execution blocks because the exit condition may trigger midway through a
+vector block.</li>
+<li><strong>Divergent Control Flow:</strong> While simple
+<code>if-else</code> blocks can often be converted into SIMD blend or
+masked instructions, deeply nested or data-dependent branching
+frequently forces the compiler to abandon vectorization.</li>
+</ul>
+<h3 id="5-non-inlined-function-calls">5. Non-Inlined Function Calls</h3>
+<p>Calling an external or non-inlined function inside a loop body halts
+auto-vectorization:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span><span class="dt">int</span> <span class="op">*</span>a<span class="op">,</span> <span class="dt">int</span> n<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> n<span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>        a<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> external_computation<span class="op">(</span>a<span class="op">[</span>i<span class="op">]);</span> <span class="co">// Side effects unknown to compiler</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The compiler cannot verify whether <code>external_computation</code>
+alters global state, modifies the array, or preserves register contents.
+Declaring functions <code>static inline</code> or using compiler
+attributes helps the compiler analyze the entire function body within
+the loop context.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

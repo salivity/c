@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Standard Floating-Point Types in C Explained - c</title>
+    <meta name="description" content="The C programming language provides several native floating-point types designed to balance numerical range, precision, and hardware performance. While traditional C standards specify three primary real floating-point types—float, double, and long doub">
+    <link rel="canonical" href="https://salivity.github.io/c/article/standard-floating-point-types-in-c-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Standard Floating-Point Types in C Explained - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/standard-floating-point-types-in-c-explained" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The C programming language provides several native floating-point types designed to balance numerical range, precision, and hardware performance. While traditional C standards specify three primary real floating-point types—float, double, and long doub" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="standard-floating-point-types-in-c-explained">Standard
+Floating-Point Types in C Explained</h1>
+<p>The C programming language provides several native floating-point
+types designed to balance numerical range, precision, and hardware
+performance. While traditional C standards specify three primary real
+floating-point types—<code>float</code>, <code>double</code>, and
+<code>long double</code>—later standard revisions such as C99 and C23
+expanded native language support to include complex numbers, interchange
+floating formats, and decimal floating-point representations. This guide
+outlines every floating-point type natively defined by the ISO C
+standard and explains their roles in systems programming.</p>
+<h3 id="standard-real-floating-point-types">Standard Real Floating-Point
+Types</h3>
+<p>The core C standard defines three basic floating-point types to
+represent real numbers:</p>
+<ul>
+<li><strong><code>float</code></strong>: Typically implemented as a
+single-precision 32-bit format conforming to IEEE 754 (IEC 60559). It
+provides at least 6 decimal digits of precision and is commonly used
+when memory conservation is prioritized over extreme numerical
+accuracy.</li>
+<li><strong><code>double</code></strong>: Typically implemented as a
+double-precision 64-bit IEEE 754 format. It yields at least 10 decimal
+digits of precision (usually 15 to 17 in practice) and serves as the
+default floating-point type for mathematical operations and standard
+library functions in <code>&lt;math.h&gt;</code>.</li>
+<li><strong><code>long double</code></strong>: An extended-precision
+type intended to provide higher precision than <code>double</code>.
+Depending on the target compiler and architecture,
+<code>long double</code> may be represented as an 80-bit
+extended-precision format (common on x86), a true 128-bit
+quadruple-precision format, or an alias identical to a 64-bit
+<code>double</code>.</li>
+</ul>
+<p>The properties, limits, and minimum precision guarantees for these
+types are standardized in the <code>&lt;float.h&gt;</code> header using
+constants such as <code>FLT_DIG</code>, <code>DBL_MAX</code>, and
+<code>LDBL_EPSILON</code>.</p>
+<h3 id="complex-and-imaginary-types-c99">Complex and Imaginary Types
+(C99)</h3>
+<p>Starting with the C99 standard, C introduced native keywords for
+complex and pure imaginary arithmetic:</p>
+<ul>
+<li><strong><code>float _Complex</code></strong>,
+<strong><code>double _Complex</code></strong>, and
+<strong><code>long double _Complex</code></strong>: Store a pair of
+floating-point values representing the real and imaginary components.
+When <code>&lt;complex.h&gt;</code> is included, these types can be
+written using the convenience macro <code>complex</code> (e.g.,
+<code>double complex</code>).</li>
+<li><strong><code>float _Imaginary</code></strong>,
+<strong><code>double _Imaginary</code></strong>, and
+<strong><code>long double _Imaginary</code></strong>: Optional types
+representing pure imaginary numbers without allocating memory for a real
+component.</li>
+</ul>
+<h3 id="fixed-width-and-extended-types-c23">Fixed-Width and Extended
+Types (C23)</h3>
+<p>The C23 standard adopted parts of ISO/IEC TS 18661 to standardize
+fixed-width binary and decimal floating-point representations directly
+into the language grammar:</p>
+<ul>
+<li><strong>Interchange Floating Types (<code>_FloatN</code>)</strong>:
+Optional types that explicitly map to IEEE 754 binary formats of fixed
+widths, specifically <code>_Float16</code>, <code>_Float32</code>,
+<code>_Float64</code>, and <code>_Float128</code>.</li>
+<li><strong>Extended Floating Types (<code>_FloatNx</code>)</strong>:
+Types providing at least the precision and range of the corresponding
+standard type with extra precision or exponent range (e.g.,
+<code>_Float32x</code>, <code>_Float64x</code>).</li>
+<li><strong>Decimal Floating Types (<code>_DecimalN</code> and
+<code>_DecimalNx</code>)</strong>: Native types intended for financial
+and commercial computing where base-10 rounding is required, including
+<code>_Decimal32</code>, <code>_Decimal64</code>, and
+<code>_Decimal128</code>.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How setjmp and longjmp Work in C - c</title>
+    <meta name="description" content="In the C programming language, setjmp and longjmp provide a low-level mechanism for executing nonlocal jumps, allowing control flow to transfer directly from one function back to a previously executed ancestor frame on the call stack. This article examin">
+    <link rel="canonical" href="https://salivity.github.io/c/article/how-setjmp-and-longjmp-work-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How setjmp and longjmp Work in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/how-setjmp-and-longjmp-work-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, setjmp and longjmp provide a low-level mechanism for executing nonlocal jumps, allowing control flow to transfer directly from one function back to a previously executed ancestor frame on the call stack. This article examin" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-setjmp-and-longjmp-work-in-c">How setjmp and longjmp Work in
+C</h1>
+<p>In the C programming language, <code>setjmp</code> and
+<code>longjmp</code> provide a low-level mechanism for executing
+nonlocal jumps, allowing control flow to transfer directly from one
+function back to a previously executed ancestor frame on the call stack.
+This article examines the low-level execution context used by these
+functions, how they manipulate the CPU registers and stack pointer, and
+the implications this bypass of normal function return semantics has on
+memory and variable state.</p>
+<h3 id="the-role-of-nonlocal-jumps">The Role of Nonlocal Jumps</h3>
+<p>Standard C control-flow constructs, such as <code>goto</code>, only
+permit branching within the local scope of a single function. In
+contrast, nonlocal jumps traverse the call hierarchy, enabling a deeply
+nested function to transfer execution directly back to an earlier
+caller. This pattern is primarily used for low-level error handling,
+exception emulation, and implementing cooperative multitasking or
+coroutines.</p>
+<h3
+id="the-low-level-mechanism-saving-and-restoring-execution-context">The
+Low-Level Mechanism: Saving and Restoring Execution Context</h3>
+<p>The mechanics of <code>setjmp</code> and <code>longjmp</code> rely on
+manipulating the process's execution context directly at the
+architecture level via a special buffer type, <code>jmp_buf</code>.</p>
+<p>The <code>jmp_buf</code> array stores the minimum hardware state
+necessary to resume execution at a specific point in the program. While
+the exact contents depend on the target CPU architecture and calling
+convention, a <code>jmp_buf</code> typically preserves:</p>
+<ul>
+<li><strong>Program Counter (Instruction Pointer):</strong> The address
+of the next machine instruction to execute.</li>
+<li><strong>Stack Pointer:</strong> The memory address pointing to the
+current top of the call stack.</li>
+<li><strong>Frame Pointer / Base Pointer:</strong> The register defining
+the local stack frame boundary.</li>
+<li><strong>Callee-Saved Registers:</strong> General-purpose registers
+that calling conventions dictate must be preserved across function
+boundaries.</li>
+</ul>
+<h3 id="how-setjmp-captures-the-state">How <code>setjmp</code> Captures
+the State</h3>
+<p>When <code>setjmp(env)</code> is called, the function executes
+architecture-specific assembly instructions to copy the current values
+of the CPU's register set into the provided <code>env</code> buffer.</p>
+<p>When executed directly by the program, <code>setjmp</code> stores
+this state and returns <code>0</code>. The CPU continues executing the
+subsequent lines of code normally, but the snapshot stored within
+<code>jmp_buf</code> remains intact in memory for future reference.</p>
+<h3 id="how-longjmp-restores-the-state">How <code>longjmp</code>
+Restores the State</h3>
+<p>The <code>longjmp(env, val)</code> function triggers the jump by
+reading the saved machine registers out of <code>env</code> and loading
+them directly back into the CPU.</p>
+<ol type="1">
+<li><strong>Stack Pointer Reset:</strong> The stack pointer is reset to
+the value captured during <code>setjmp</code>. Any stack frames pushed
+onto the call stack since the invocation of <code>setjmp</code> are
+discarded instantly without traditional epilogues or cleanup.</li>
+<li><strong>Register Restoration:</strong> Callee-saved registers are
+overwritten with their saved values.</li>
+<li><strong>Execution Redirection:</strong> The instruction pointer is
+updated to point immediately after the original <code>setjmp</code> call
+site.</li>
+<li><strong>Return Value Substitution:</strong> The CPU resumes
+execution as if <code>setjmp</code> has just returned for a second time,
+evaluating to the integer provided by <code>val</code> (or
+<code>1</code> if <code>val</code> was set to <code>0</code>).</li>
+</ol>
+<h3 id="critical-considerations">Critical Considerations</h3>
+<p>Because <code>longjmp</code> bypasses standard function return
+sequences, it introduces specific runtime behaviors:</p>
+<ul>
+<li><strong>No Automatic Cleanup:</strong> Local resources allocated
+between <code>setjmp</code> and <code>longjmp</code>—such as dynamically
+allocated heap memory, file descriptors, or mutex locks—are not released
+automatically, often leading to resource leaks.</li>
+<li><strong>Dangling Frames:</strong> Invoking <code>longjmp</code> on
+an <code>env</code> buffer initialized inside a function that has
+already returned results in undefined behavior, as the target stack
+frame no longer exists.</li>
+<li><strong>Compiler Optimizations and <code>volatile</code>:</strong>
+Compilers often keep local variables in registers rather than on the
+stack. If a non-volatile local variable is modified after
+<code>setjmp</code> and before <code>longjmp</code>, its value becomes
+indeterminate upon the jump back. Declaring such variables with the
+<code>volatile</code> qualifier forces the compiler to read and write
+them directly from memory, ensuring their values remain consistent after
+a nonlocal jump.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

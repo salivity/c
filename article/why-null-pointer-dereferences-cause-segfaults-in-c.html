@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Null Pointer Dereferences Cause Segfaults in C - c</title>
+    <meta name="description" content="Dereferencing a null pointer in C typically results in a runtime segmentation fault because the operating system and CPU hardware work together to prevent unauthorized memory access. In modern systems, a null pointer generally resolves to virtual memory">
+    <link rel="canonical" href="https://salivity.github.io/c/article/why-null-pointer-dereferences-cause-segfaults-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Null Pointer Dereferences Cause Segfaults in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/why-null-pointer-dereferences-cause-segfaults-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Dereferencing a null pointer in C typically results in a runtime segmentation fault because the operating system and CPU hardware work together to prevent unauthorized memory access. In modern systems, a null pointer generally resolves to virtual memory" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-null-pointer-dereferences-cause-segfaults-in-c">Why Null
+Pointer Dereferences Cause Segfaults in C</h1>
+<p>Dereferencing a null pointer in C typically results in a runtime
+segmentation fault because the operating system and CPU hardware work
+together to prevent unauthorized memory access. In modern systems, a
+null pointer generally resolves to virtual memory address zero, which
+the operating system deliberately leaves unmapped or marks as
+restricted. When a program attempts to read or write to this address,
+the hardware triggers a memory protection fault, prompting the operating
+system to abort the process via a segmentation violation signal
+(<code>SIGSEGV</code>).</p>
+<h2 id="the-concept-of-a-null-pointer">The Concept of a Null
+Pointer</h2>
+<p>In the C programming language, a pointer holds the memory address of
+an object or function. A null pointer is a reserved value indicating
+that the pointer does not refer to any valid memory location. In
+standard implementations on modern architectures, <code>NULL</code> is
+represented as an integer constant zero cast to a <code>void *</code>
+pointer (<code>(void *)0</code>).</p>
+<p>Dereferencing occurs when a program uses the unary <code>*</code>
+operator or arrow <code>-&gt;</code> operator to access or modify the
+data residing at the address stored in the pointer:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> <span class="op">*</span>ptr <span class="op">=</span> NULL<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> value <span class="op">=</span> <span class="op">*</span>ptr<span class="op">;</span> <span class="co">// Dereferencing NULL</span></span></code></pre></div>
+<p>The C standard categorizes dereferencing a null pointer as
+<strong>Undefined Behavior</strong>. This means the language
+specification does not dictate what must happen. However, on virtually
+all modern consumer and server operating systems, this operation
+reliably triggers a segmentation fault.</p>
+<h2 id="virtual-memory-and-the-memory-management-unit">Virtual Memory
+and the Memory Management Unit</h2>
+<p>To understand why the crash occurs, it is necessary to examine how
+memory is structured in modern computing. Processes do not interact
+directly with physical RAM. Instead, they operate within an isolated
+<strong>virtual address space</strong> managed cooperatively by the
+operating system kernel and a hardware component called the
+<strong>Memory Management Unit (MMU)</strong>.</p>
+<p>Virtual memory is segmented into fixed-size blocks called
+<strong>pages</strong> (commonly 4 KB in size). The operating system
+maintains <strong>page tables</strong> that map these virtual pages to
+physical memory frames, along with access permissions such as read,
+write, or execute.</p>
+<h2 id="why-address-zero-is-protected">Why Address Zero is
+Protected</h2>
+<p>During process initialization, the operating system intentionally
+leaves the lowest page of the virtual address space (including address
+<code>0x00000000</code>) <strong>unmapped</strong> or explicitly
+configured with <strong>no access permissions</strong> (neither readable
+nor writable).</p>
+<p>Operating system designers do this by design precisely to catch null
+pointer dereferences and similar bugs. Because programmers frequently
+initialize pointers to zero, reserving the first page guarantees that
+any accidental attempt to read from or write to a null pointer will
+immediately fail rather than silently corrupting memory or returning
+garbage data.</p>
+<h2 id="the-sequence-leading-to-a-segmentation-fault">The Sequence
+Leading to a Segmentation Fault</h2>
+<p>When the program executes an instruction that dereferences a null
+pointer, the following low-level sequence takes place:</p>
+<ol type="1">
+<li><strong>Instruction Execution:</strong> The CPU encounters an
+instruction requesting a load or store operation targeting virtual
+address <code>0</code>.</li>
+<li><strong>Address Translation:</strong> The CPU passes the virtual
+address to the MMU to translate it into a physical RAM address using the
+process's page table.</li>
+<li><strong>Hardware Trap (Page Fault):</strong> The MMU examines the
+entry for address <code>0</code> and detects that the page is either
+non-existent in physical memory or designated as inaccessible. The MMU
+immediately halts execution of the instruction and raises a hardware
+exception known as a <strong>page fault</strong>.</li>
+<li><strong>Kernel Mode Transition:</strong> The CPU switches execution
+context from user mode to kernel mode and jumps to the operating
+system's page fault handler.</li>
+<li><strong>Violation Detection:</strong> The kernel examines the cause
+of the page fault and the requested address. Since the address falls
+within the reserved zero-page region, the kernel determines that the
+process attempted an illegal memory access rather than a legitimate
+memory-loading event (like dynamic paging).</li>
+<li><strong>Signal Dispatch (<code>SIGSEGV</code>):</strong> The kernel
+dispatches a <code>SIGSEGV</code> (Segmentation Violation) signal to the
+offending process.</li>
+<li><strong>Process Termination:</strong> By default, processes do not
+handle <code>SIGSEGV</code>. The operating system terminates the process
+immediately, prints an error message such as
+<code>Segmentation fault (core dumped)</code>, and prevents the program
+from compromising the integrity of the system or its own state.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operator Precedence and Associativity in C - c</title>
+    <meta name="description" content="In the C programming language, writing complex expressions without a solid grasp of operator precedence and associativity often leads to logic errors, unexpected behaviors, and subtle bugs. Operator precedence establishes the parsing hierarchy among diff">
+    <link rel="canonical" href="https://salivity.github.io/c/article/operator-precedence-and-associativity-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Operator Precedence and Associativity in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/operator-precedence-and-associativity-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C programming language, writing complex expressions without a solid grasp of operator precedence and associativity often leads to logic errors, unexpected behaviors, and subtle bugs. Operator precedence establishes the parsing hierarchy among diff" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="operator-precedence-and-associativity-in-c">Operator Precedence
+and Associativity in C</h1>
+<p>In the C programming language, writing complex expressions without a
+solid grasp of operator precedence and associativity often leads to
+logic errors, unexpected behaviors, and subtle bugs. Operator precedence
+establishes the parsing hierarchy among different operators, while
+associativity determines the direction of grouping when operators share
+the same precedence level. Understanding these two concepts is essential
+for ensuring predictable execution, correctly manipulating pointers and
+bitwise operations, avoiding undefined behaviors, and writing
+maintainable code.</p>
+<h2 id="defining-precedence-and-associativity">Defining Precedence and
+Associativity</h2>
+<p>When a compiler encounters an expression containing multiple
+operators, it must determine which operations bind to which
+operands.</p>
+<ul>
+<li><strong>Operator Precedence</strong> acts as the fundamental
+hierarchy. Just as standard arithmetic performs multiplication before
+addition, C evaluates higher-precedence operators before
+lower-precedence ones. For instance, in the expression
+<code>x = a + b * c</code>, <code>b * c</code> is grouped first because
+the multiplication operator (<code>*</code>) has higher precedence than
+the addition operator (<code>+</code>).</li>
+<li><strong>Associativity</strong> resolves ties between operators of
+identical precedence. Associativity can be left-to-right or
+right-to-left. For example, binary arithmetic operators (<code>+</code>,
+<code>-</code>, <code>*</code>, <code>/</code>) associate from left to
+right, meaning <code>a - b - c</code> is grouped as
+<code>(a - b) - c</code>. Conversely, assignment operators
+(<code>=</code>, <code>+=</code>, etc.) associate from right to left,
+allowing chained assignments such as <code>a = b = c = 5</code>, which
+evaluates as <code>a = (b = (c = 5))</code>.</li>
+</ul>
+<h2 id="preventing-subtle-logic-errors">Preventing Subtle Logic
+Errors</h2>
+<p>A failure to account for precedence frequently introduces silent
+runtime bugs. One of the most notorious examples occurs when mixing
+bitwise and relational operators.</p>
+<p>In C, relational and equality operators (<code>==</code>,
+<code>!=</code>, <code>&lt;</code>, <code>&gt;</code>) have higher
+precedence than bitwise operators (<code>&amp;</code>, <code>^</code>,
+<code>|</code>). Consider this common test:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>flags <span class="op">&amp;</span> MASK <span class="op">==</span> <span class="dv">0</span><span class="op">)</span></span></code></pre></div>
+<p>Because <code>==</code> takes precedence over <code>&amp;</code>, the
+compiler interprets this statement as:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>flags <span class="op">&amp;</span> <span class="op">(</span>MASK <span class="op">==</span> <span class="dv">0</span><span class="op">))</span></span></code></pre></div>
+<p>This drastically alters the intended logic, checking whether
+<code>flags</code> masked with a boolean outcome (<code>0</code> or
+<code>1</code>) is truthy, rather than checking if the bitwise masking
+result equals zero. The correct expression requires explicit
+grouping:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">((</span>flags <span class="op">&amp;</span> MASK<span class="op">)</span> <span class="op">==</span> <span class="dv">0</span><span class="op">)</span></span></code></pre></div>
+<h2 id="mastering-pointer-arithmetic-and-dereferencing">Mastering
+Pointer Arithmetic and Dereferencing</h2>
+<p>Pointers are fundamental to C, and expressions combining pointer
+dereferencing with increment or decrement operators heavily depend on
+precedence and associativity rules.</p>
+<p>The unary operators <code>*</code> (dereference) and <code>++</code>
+(post-increment) share close interactions:</p>
+<ul>
+<li><code>*ptr++</code>: Postfix <code>++</code> has higher precedence
+than prefix <code>*</code>. The expression increments the pointer itself
+(<code>ptr</code>), but evaluates to the value pointed to by
+<code>ptr</code> before the increment occurred.</li>
+<li><code>(*ptr)++</code>: The parentheses force the dereference first,
+incrementing the actual value stored at the memory location rather than
+advancing the pointer address.</li>
+<li><code>*++ptr</code>: Prefix <code>++</code> and prefix
+<code>*</code> share the same precedence and associate from right to
+left. The pointer is incremented first, and the new memory address is
+then dereferenced.</li>
+</ul>
+<p>Misinterpreting these rules can cause a program to read from invalid
+memory segments, corrupt memory, or trigger segmentation faults.</p>
+<h2 id="precedence-vs-order-of-evaluation">Precedence vs. Order of
+Evaluation</h2>
+<p>A critical distinction in C is that operator precedence and
+associativity govern syntactic grouping, not the chronological order of
+operand evaluation.</p>
+<p>In the expression <code>f() + g() * h()</code>, precedence guarantees
+that the return value of <code>g()</code> is multiplied by the return
+value of <code>h()</code> before adding the return value of
+<code>f()</code>. However, the C standard does not specify whether
+<code>f()</code>, <code>g()</code>, or <code>h()</code> is called first.
+If these functions modify shared state or produce side effects, relying
+on evaluation order introduces undefined behavior. Precedence determines
+how results are combined, not the sequence in which sub-expressions are
+executed.</p>
+<h2 id="writing-robust-code">Writing Robust Code</h2>
+<p>While understanding the complete C precedence table is necessary for
+reading existing codebases, relying on subtle precedence rules in
+production code increases cognitive load and invites human error. The
+standard industry practice is to employ defensive parenthesization to
+make intent explicit:</p>
+<ol type="1">
+<li>Always use parentheses around bitwise and shift operations mixed
+with arithmetic or relational comparisons.</li>
+<li>Group complex pointer dereferences explicitly.</li>
+<li>Keep conditional expressions within control statements readable and
+unambiguously structured.</li>
+</ol>
+<p>Mastering precedence and associativity allows developers to
+anticipate compiler interpretations accurately, debug legacy
+implementations effectively, and construct robust, defect-free C
+applications.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

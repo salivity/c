@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Avoid Mapping C Structs Over Network Buffers - c</title>
+    <meta name="description" content="Casting a raw network byte buffer directly to a C struct pointer is a common shortcut for decoding network packets, but it introduces critical bugs and vulnerabilities. This article examines the architectural, standard-compliance, and security reasons wh">
+    <link rel="canonical" href="https://salivity.github.io/c/article/why-avoid-mapping-c-structs-over-network-buffers">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Avoid Mapping C Structs Over Network Buffers - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/why-avoid-mapping-c-structs-over-network-buffers" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Casting a raw network byte buffer directly to a C struct pointer is a common shortcut for decoding network packets, but it introduces critical bugs and vulnerabilities. This article examines the architectural, standard-compliance, and security reasons wh" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-avoid-mapping-c-structs-over-network-buffers">Why Avoid
+Mapping C Structs Over Network Buffers</h1>
+<p>Casting a raw network byte buffer directly to a C <code>struct</code>
+pointer is a common shortcut for decoding network packets, but it
+introduces critical bugs and vulnerabilities. This article examines the
+architectural, standard-compliance, and security reasons why wire
+protocols must avoid this practice, covering issues such as structure
+padding, endianness, memory alignment, strict aliasing violations, and
+protocol evolution, while pointing toward safer deserialization
+alternatives.</p>
+<h3 id="endianness-differences">Endianness Differences</h3>
+<p>Network protocols historically standardize on big-endian byte order
+(network byte order), whereas the vast majority of modern consumer and
+server processors (such as x86 and ARM) use little-endian byte order.
+When a program casts a raw buffer directly to a multi-byte integer field
+in a C structure:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Header <span class="op">*</span>hdr <span class="op">=</span> <span class="op">(</span><span class="kw">struct</span> Header <span class="op">*)</span>network_buffer<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">uint32_t</span> length <span class="op">=</span> hdr<span class="op">-&gt;</span>packet_length<span class="op">;</span> <span class="co">// Incorrect byte order on little-endian CPUs</span></span></code></pre></div>
+<p>The system interprets the bytes in native host order rather than
+converting them. To correct this, developers must explicitly call
+conversion functions like <code>ntohs()</code> and <code>ntohl()</code>.
+If manual byte conversion is required anyway, direct mapping yields no
+real syntactic or performance advantage.</p>
+<h3 id="compiler-padding-and-memory-layout">Compiler Padding and Memory
+Layout</h3>
+<p>The C standard does not dictate exact byte offsets for structure
+members. Compilers insert padding bytes between fields to align data
+according to the target architecture's performance requirements. This
+means the memory layout of a structure can vary wildly based on:</p>
+<ul>
+<li>The target CPU architecture (e.g., 32-bit vs. 64-bit pointers and
+alignments).</li>
+<li>The compiler vendor and version (GCC, Clang, MSVC).</li>
+<li>Optimization levels and compiler flags.</li>
+</ul>
+<p>While developers often rely on non-standard compiler extensions like
+<code>#pragma pack(1)</code> or <code>__attribute__((packed))</code> to
+eliminate padding, packed structures severely penalize memory access
+performance and can generate illegal instructions on certain CPU
+architectures.</p>
+<h3 id="alignment-faults-and-hardware-traps">Alignment Faults and
+Hardware Traps</h3>
+<p>Modern processors require specific data types to reside at memory
+addresses that are multiples of their size (e.g., a 4-byte integer must
+be placed at an address divisible by 4). Network packets arrive as
+arbitrary byte streams, and protocol headers frequently place 16-bit or
+32-bit fields at odd byte offsets.</p>
+<p>Casting an unaligned buffer address to a structured type and
+accessing an unaligned member can cause:</p>
+<ul>
+<li><strong>Hardware crashes:</strong> On architectures such as SPARC,
+older ARM, or MIPS, unaligned memory access triggers an alignment fault
+(<code>SIGBUS</code>) and terminates the process immediately.</li>
+<li><strong>Performance degradation:</strong> On modern x86
+architectures, the CPU handles unaligned access silently in hardware,
+but at the cost of multiple memory cycles.</li>
+</ul>
+<h3 id="strict-aliasing-violations-and-undefined-behavior">Strict
+Aliasing Violations and Undefined Behavior</h3>
+<p>Modern C compilers rely on the <em>strict aliasing rule</em>
+(introduced in C99) for optimization. This rule states that two pointers
+of different types cannot point to the same memory location, with narrow
+exceptions (such as <code>char *</code>).</p>
+<p>Reinterpreting a buffer of <code>uint8_t</code> or <code>char</code>
+as an arbitrary <code>struct</code> pointer breaks strict aliasing:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process_packet<span class="op">(</span><span class="dt">uint8_t</span> <span class="op">*</span>buffer<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> Packet <span class="op">*</span>pkt <span class="op">=</span> <span class="op">(</span><span class="kw">struct</span> Packet <span class="op">*)</span>buffer<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Undefined behavior under strict aliasing rules</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>When optimizing, the compiler may assume that accesses through
+<code>buffer</code> and <code>pkt</code> do not interfere with one
+another, leading to reordered operations, dead code elimination, and
+silent runtime corruption.</p>
+<h3 id="security-vulnerabilities-and-lack-of-validation">Security
+Vulnerabilities and Lack of Validation</h3>
+<p>Direct casting treats untrusted input from the network as valid
+application state without validation. Wire data is inherently hostile.
+If a protocol message contains variable-length arrays, dynamic strings,
+or nested structures, direct casting cannot guarantee:</p>
+<ul>
+<li>That the buffer is large enough to contain the expected fields
+(leading to out-of-bounds reads).</li>
+<li>That enumerated fields contain valid values.</li>
+<li>That embedded offsets or lengths do not cause integer
+overflows.</li>
+</ul>
+<h3 id="the-correct-approach-explicit-deserialization">The Correct
+Approach: Explicit Deserialization</h3>
+<p>Wire protocols should always parse data explicitly using portable
+deserialization routines. Reading bytes sequentially guarantees
+correctness across all platforms:</p>
+<ol type="1">
+<li><strong>Shift-and-Mask Parsing:</strong> Manually assemble
+multi-byte fields using bitwise shifts. This eliminates endianness
+issues and alignment faults regardless of CPU architecture.
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">uint32_t</span> read_uint32_be<span class="op">(</span><span class="dt">const</span> <span class="dt">uint8_t</span> <span class="op">*</span>buf<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">((</span><span class="dt">uint32_t</span><span class="op">)</span>buf<span class="op">[</span><span class="dv">0</span><span class="op">]</span> <span class="op">&lt;&lt;</span> <span class="dv">24</span><span class="op">)</span> <span class="op">|</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>           <span class="op">((</span><span class="dt">uint32_t</span><span class="op">)</span>buf<span class="op">[</span><span class="dv">1</span><span class="op">]</span> <span class="op">&lt;&lt;</span> <span class="dv">16</span><span class="op">)</span> <span class="op">|</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>           <span class="op">((</span><span class="dt">uint32_t</span><span class="op">)</span>buf<span class="op">[</span><span class="dv">2</span><span class="op">]</span> <span class="op">&lt;&lt;</span> <span class="dv">8</span><span class="op">)</span>  <span class="op">|</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>           <span class="op">((</span><span class="dt">uint32_t</span><span class="op">)</span>buf<span class="op">[</span><span class="dv">3</span><span class="op">]);</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div></li>
+<li><strong>Buffer Bounds Checking:</strong> Validate that the packet
+contains enough remaining bytes before reading each field.</li>
+<li><strong>Established Serializers:</strong> For complex protocols, use
+well-tested serialization frameworks such as Protocol Buffers,
+FlatBuffers, or CBOR, which inherently enforce memory safety, schema
+validation, and backward compatibility.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

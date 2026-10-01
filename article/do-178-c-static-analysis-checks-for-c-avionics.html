@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DO-178C Static Analysis Checks for C Avionics - c</title>
+    <meta name="description" content="This article outlines the essential static analysis checks mandated by DO-178C guidelines for avionics software implemented in the C programming language. DO-178C ("Software Considerations in Airborne Systems and Equipment Certification") relies on objec">
+    <link rel="canonical" href="https://salivity.github.io/c/article/do-178-c-static-analysis-checks-for-c-avionics">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="DO-178C Static Analysis Checks for C Avionics - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/do-178-c-static-analysis-checks-for-c-avionics" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article outlines the essential static analysis checks mandated by DO-178C guidelines for avionics software implemented in the C programming language. DO-178C ("Software Considerations in Airborne Systems and Equipment Certification") relies on objec" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="do-178c-static-analysis-checks-for-c-avionics">DO-178C Static
+Analysis Checks for C Avionics</h1>
+<p>This article outlines the essential static analysis checks mandated
+by DO-178C guidelines for avionics software implemented in the C
+programming language. DO-178C ("Software Considerations in Airborne
+Systems and Equipment Certification") relies on objective-based
+verification rather than prescribing specific tools. To satisfy these
+regulatory objectives for the C language—notorious for undefined
+behaviors and loose typing—development teams must employ static analysis
+to verify coding standards compliance, detect run-time errors, validate
+data and control flow, and ensure predictable resource consumption.</p>
+<h3 id="1-coding-standards-compliance">1. Coding Standards
+Compliance</h3>
+<p>DO-178C Table A-5, Objective 4 requires verification that the source
+code conforms to defined software code standards. Because raw C contains
+undefined and implementation-defined behaviors, certification demands
+strict adherence to safety-critical subsets such as MISRA C (Guidelines
+for the Use of the C Language in Critical Systems). Static analysis
+tools must enforce:</p>
+<ul>
+<li><strong>Prohibition of Non-Deterministic Constructs:</strong>
+Prevention of dynamic memory allocation (<code>malloc</code>,
+<code>free</code>) after initialization to avoid heap fragmentation and
+allocation failure.</li>
+<li><strong>Restricted Control Structures:</strong> Prevention of
+unstructured control flow, such as <code>goto</code> statements,
+multiple <code>return</code> points (depending on project standards),
+and recursion, which can cause unpredictable call-stack growth.</li>
+<li><strong>Safe Type Casting:</strong> Prohibition of dangerous
+implicit conversions, pointer-to-integer conversions, and invalid type
+punning that violate strict aliasing rules.</li>
+</ul>
+<h3 id="2-control-flow-analysis">2. Control Flow Analysis</h3>
+<p>DO-178C Section 6.3.4 requires analysis of source code structure to
+ensure alignment with software architecture and low-level requirements.
+Static control flow analysis verifies:</p>
+<ul>
+<li><strong>Dead and Unreachable Code Detection:</strong> Identification
+of statements that can never be executed (dead code) or code that has no
+effect on outputs. DO-178C requires that dead code be removed, while
+deactivated code must be identified and traced.</li>
+<li><strong>Infinite Loop Analysis:</strong> Verification that all loops
+have deterministic, statically provable termination conditions.</li>
+<li><strong>Single Entry/Single Exit Properties:</strong> Ensuring
+subroutines follow strict structural entry and exit rules required for
+architectural determinism.</li>
+</ul>
+<h3 id="3-data-flow-analysis">3. Data Flow Analysis</h3>
+<p>Data flow analysis tracks variable lifecycles across the execution
+paths to guarantee integrity:</p>
+<ul>
+<li><strong>Uninitialized Variables:</strong> Ensuring no variable or
+pointer is read before it is explicitly initialized.</li>
+<li><strong>Data Coupling Verification:</strong> Confirming that data
+shared between modules strictly follows architectural definitions,
+particularly when using global variables or shared memory.</li>
+<li><strong>Race Conditions and Concurrency Checks:</strong> Detecting
+unprotected shared resources across concurrent tasks or interrupt
+service routines (ISRs).</li>
+</ul>
+<h3 id="4-run-time-error-and-undefined-behavior-prevention">4. Run-Time
+Error and Undefined Behavior Prevention</h3>
+<p>Static analysis engines (especially those employing formal methods
+and abstract interpretation) must mathematically prove the absence of
+run-time crashes and undefined behaviors:</p>
+<ul>
+<li><strong>Array Bounds and Buffer Overflows:</strong> Verifying that
+array indices never exceed allocated boundaries.</li>
+<li><strong>Pointer Safety:</strong> Proving the absence of null-pointer
+dereferences, wild pointers, and dangling pointers.</li>
+<li><strong>Arithmetic Faults:</strong> Proving that execution paths are
+immune to division by zero, modulo by zero, and signed/unsigned integer
+overflows or underflows.</li>
+</ul>
+<h3 id="5-worst-case-stack-and-resource-usage-analysis">5. Worst-Case
+Stack and Resource Usage Analysis</h3>
+<p>Section 6.4.3 emphasizes source code verification against target
+hardware constraints:</p>
+<ul>
+<li><strong>Maximum Stack Depth:</strong> Statically computing the
+worst-case call-tree depth and stack memory usage to ensure stack
+overflow cannot occur during flight operations.</li>
+<li><strong>Recursion Elimination:</strong> Verifying that direct and
+indirect recursion are entirely absent, as non-deterministic call depths
+invalidate static stack guarantees.</li>
+</ul>
+<h3 id="6-interface-and-type-consistency">6. Interface and Type
+Consistency</h3>
+<p>For modular C systems split across multiple compilation units, static
+analysis must ensure:</p>
+<ul>
+<li><strong>Prototype Verification:</strong> Matching function parameter
+types, return types, and parameter counts between declarations in header
+files and definitions across source files.</li>
+<li><strong>Scope and Linkage Enforcement:</strong> Restricting variable
+visibility via the <code>static</code> keyword where global visibility
+is not required by software architecture.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

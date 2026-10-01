@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POSIX File Descriptors as Abstract IO Handles in C - c</title>
+    <meta name="description" content="This article explains how POSIX file descriptors function as abstract input/output (I/O) communication handles within the C programming language. It explores the relationship between user-space integer handles and kernel-space data structures, demonstrat">
+    <link rel="canonical" href="https://salivity.github.io/c/article/posix-file-descriptors-as-abstract-io-handles-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="POSIX File Descriptors as Abstract IO Handles in C - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/posix-file-descriptors-as-abstract-io-handles-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how POSIX file descriptors function as abstract input/output (I/O) communication handles within the C programming language. It explores the relationship between user-space integer handles and kernel-space data structures, demonstrat" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="posix-file-descriptors-as-abstract-io-handles-in-c">POSIX File
+Descriptors as Abstract IO Handles in C</h1>
+<p>This article explains how POSIX file descriptors function as abstract
+input/output (I/O) communication handles within the C programming
+language. It explores the relationship between user-space integer
+handles and kernel-space data structures, demonstrates how POSIX
+achieves polymorphic I/O across disparate resources like files, sockets,
+and pipes, and outlines the low-level system calls used to manage these
+resources consistently.</p>
+<h2 id="the-integer-handle-and-the-per-process-table">The Integer Handle
+and the Per-Process Table</h2>
+<p>In a POSIX environment, a file descriptor is represented in C as a
+simple signed integer (<code>int</code>). When a process requests access
+to an I/O resource, the operating system kernel does not grant the user
+application direct access to hardware or kernel memory. Instead, it
+returns a non-negative integer that serves as an index into the
+process's private file descriptor table maintained within the
+kernel.</p>
+<p>Standard POSIX systems allocate three default descriptors when a
+process starts:</p>
+<ul>
+<li><code>0</code> (<code>STDIN_FILENO</code>): Standard Input</li>
+<li><code>1</code> (<code>STDOUT_FILENO</code>): Standard Output</li>
+<li><code>2</code> (<code>STDERR_FILENO</code>): Standard Error</li>
+</ul>
+<p>Any subsequent resource allocations return the lowest available
+non-negative integer. By exposing only an integer to user space, the
+kernel prevents direct tampering with internal data structures and
+enforces isolation between processes.</p>
+<h2 id="the-three-tier-kernel-architecture">The Three-Tier Kernel
+Architecture</h2>
+<p>The abstraction of a file descriptor relies on three distinct layers
+of data structures inside the kernel:</p>
+<ol type="1">
+<li><strong>The Per-Process File Descriptor Table</strong>: Contains an
+array of entries indexed by the integer file descriptor. Each entry
+holds descriptor-specific flags (such as <code>FD_CLOEXEC</code>) and a
+pointer to an entry in the system-wide open file table.</li>
+<li><strong>The Open File Description Table (System-Wide)</strong>:
+Stores the state of an open instance of an I/O stream. This entry
+includes the current file offset, the access mode (e.g., read-only,
+write-only, non-blocking via <code>O_NONBLOCK</code>), a reference count
+of how many descriptors point to it, and a pointer to the underlying
+inode/vnode object.</li>
+<li><strong>The Inode / Vnode Table (System-Wide)</strong>: Represents
+the concrete entity being accessed. In traditional Unix terms, this
+points to filesystem metadata (like an ext4 inode) or an internal kernel
+abstraction (like a socket buffer or a character device driver). It
+contains a table of function pointers mapping generic operations to
+device-specific implementations.</li>
+</ol>
+<p>This three-tier separation explains how operations like
+<code>fork()</code> and <code>dup()</code> work: multiple file
+descriptors in the same or different processes can point to the same
+open file description, sharing file offsets and status flags.</p>
+<h2
+id="polymorphic-io-through-the-everything-is-a-file-paradigm">Polymorphic
+I/O Through the "Everything is a File" Paradigm</h2>
+<p>POSIX environments apply the principle that resources should be
+treated as streams of bytes. Whether a program interacts with a regular
+disk file, an anonymous pipe, a UNIX domain socket, an internet TCP
+stream, or a terminal device, the handle remains an <code>int</code>,
+and the C interface remains identical.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;unistd.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;fcntl.h&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;sys/socket.h&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> file_fd <span class="op">=</span> open<span class="op">(</span><span class="st">&quot;data.txt&quot;</span><span class="op">,</span> O_RDONLY<span class="op">);</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> sock_fd <span class="op">=</span> socket<span class="op">(</span>AF_INET<span class="op">,</span> SOCK_STREAM<span class="op">,</span> <span class="dv">0</span><span class="op">);</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="dt">char</span> buffer<span class="op">[</span><span class="dv">128</span><span class="op">];</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co">// The same interface works identically across different underlying resources:</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="dt">ssize_t</span> bytes_from_file <span class="op">=</span> read<span class="op">(</span>file_fd<span class="op">,</span> buffer<span class="op">,</span> <span class="kw">sizeof</span><span class="op">(</span>buffer<span class="op">));</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="dt">ssize_t</span> bytes_from_sock <span class="op">=</span> read<span class="op">(</span>sock_fd<span class="op">,</span> buffer<span class="op">,</span> <span class="kw">sizeof</span><span class="op">(</span>buffer<span class="op">));</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>close<span class="op">(</span>file_fd<span class="op">);</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>close<span class="op">(</span>sock_fd<span class="op">);</span></span></code></pre></div>
+<p>Under the hood, the kernel translates the call to <code>read()</code>
+by looking up the descriptor's vnode operation vector. The vnode
+functions as a C-style virtual method table:</p>
+<ul>
+<li>If the descriptor references a disk file, the kernel invokes the
+filesystem driver’s read routine to retrieve blocks from storage.</li>
+<li>If the descriptor references a network socket, the kernel executes
+the network stack's receive routine to drain the TCP receive
+buffer.</li>
+<li>If the descriptor references a pipe, the kernel reads directly from
+a circular buffer in kernel memory.</li>
+</ul>
+<h2 id="unified-control-and-multiplexing">Unified Control and
+Multiplexing</h2>
+<p>Because all I/O handles share the integer descriptor format, POSIX
+provides generic APIs for stream management and multiplexing:</p>
+<ul>
+<li><strong>Control Operations (<code>fcntl</code> and
+<code>ioctl</code>)</strong>: These system calls modify descriptor
+behavior (e.g., toggling non-blocking I/O using
+<code>fcntl(fd, F_SETFL, O_NONBLOCK)</code>) without needing
+device-specific control libraries.</li>
+<li><strong>I/O Multiplexing (<code>select</code>, <code>poll</code>,
+<code>epoll</code>)</strong>: Event notification APIs accept arrays or
+sets of raw integer file descriptors. A single thread can monitor a mix
+of storage devices, client sockets, and IPC pipes simultaneously by
+waiting for activity on their respective descriptors.</li>
+</ul>
+<p>By decoupling the application layer from hardware specifics through a
+simple numeric handle and a virtualized kernel dispatch table, POSIX
+file descriptors provide C programs with a consistent, extensible, and
+secure abstraction for all input and output operations.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

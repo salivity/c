@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tail-Call Optimization in Modern C Compilers - c</title>
+    <meta name="description" content="Tail-call optimization (TCO) is a compiler technique that transforms a function call occurring as the final action of a subroutine into a direct jump, reusing the caller's stack frame instead of allocating a new one. In modern optimizing C compilers like">
+    <link rel="canonical" href="https://salivity.github.io/c/article/tail-call-optimization-in-modern-c-compilers">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Tail-Call Optimization in Modern C Compilers - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/tail-call-optimization-in-modern-c-compilers" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Tail-call optimization (TCO) is a compiler technique that transforms a function call occurring as the final action of a subroutine into a direct jump, reusing the caller's stack frame instead of allocating a new one. In modern optimizing C compilers like" />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="tail-call-optimization-in-modern-c-compilers">Tail-Call
+Optimization in Modern C Compilers</h1>
+<p>Tail-call optimization (TCO) is a compiler technique that transforms
+a function call occurring as the final action of a subroutine into a
+direct jump, reusing the caller's stack frame instead of allocating a
+new one. In modern optimizing C compilers like GCC and Clang, this
+optimization prevents stack overflow during deep recursion, reduces
+stack memory consumption, and improves CPU instruction cache locality.
+This article explores the internal mechanics of tail-call optimization
+in C compilers, how compilers identify eligible tail calls, the
+low-level transformations they apply, and the specific language
+constraints that can prevent the optimization from taking place.</p>
+<h3 id="the-mechanics-of-tail-calls">The Mechanics of Tail Calls</h3>
+<p>A tail call occurs when a function executes another function call as
+its absolute final operation before returning. In standard C execution
+following typical calling conventions (such as System V AMD64 or
+Microsoft x64), calling a function involves pushing arguments onto the
+stack or into registers, pushing the return address, and jumping to the
+callee. The callee then sets up its own stack frame.</p>
+<p>Without optimization, a sequence of <span
+class="math inline">\(N\)</span> nested or recursive calls creates <span
+class="math inline">\(N\)</span> stack frames:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> factorial_tail<span class="op">(</span><span class="dt">int</span> n<span class="op">,</span> <span class="dt">int</span> accumulator<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>n <span class="op">&lt;=</span> <span class="dv">1</span><span class="op">)</span> <span class="cf">return</span> accumulator<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> factorial_tail<span class="op">(</span>n <span class="op">-</span> <span class="dv">1</span><span class="op">,</span> n <span class="op">*</span> accumulator<span class="op">);</span> <span class="co">// Tail call</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>When TCO is applied, the compiler recognizes that the caller's
+execution state is no longer needed after the callee is invoked. Instead
+of emitting a standard <code>call</code> instruction followed by a
+<code>ret</code>, the compiler:</p>
+<ol type="1">
+<li>Evaluates the arguments for the callee.</li>
+<li>Overwrites the current frame’s arguments (or updates the designated
+argument registers).</li>
+<li>Restores any callee-saved registers altered by the current
+function.</li>
+<li>Executes an unconditional jump (<code>jmp</code> on x86,
+<code>b</code> on ARM) directly to the target function's entry
+point.</li>
+</ol>
+<p>Because the return address of the <em>original</em> caller remains
+intact at the top of the stack, the final target function returns
+directly to the original caller, completely bypassing the intermediate
+stack frames.</p>
+<h3 id="sibling-calls-vs-tail-recursion-elimination">Sibling Calls vs.
+Tail Recursion Elimination</h3>
+<p>Modern compilers classify tail-call optimizations into two distinct
+categories:</p>
+<ul>
+<li><strong>Tail Recursion Elimination (TRE):</strong> When a function
+calls itself in the tail position, the compiler rewrites the recursion
+into a standard iterative loop within the same function body. This
+eliminates call overhead entirely, turning the recursive step into a
+local branch instruction.</li>
+<li><strong>Sibling Call Optimization:</strong> When a function calls a
+completely different function with a compatible signature in the tail
+position, the compiler adapts the current frame to enter the new
+function via an unconditional jump.</li>
+</ul>
+<h3 id="compiler-passes-and-intermediate-representation">Compiler Passes
+and Intermediate Representation</h3>
+<p>Compilers evaluate tail calls across multiple intermediate
+representation (IR) passes:</p>
+<ol type="1">
+<li><strong>Detection in the Frontend/Mid-level IR:</strong> In LLVM,
+for example, the <code>TailCallElim</code> pass scans functions to
+identify call instructions immediately followed by a <code>ret</code>.
+If found, the instruction is tagged with a <code>tail</code> or
+<code>musttail</code> marker.</li>
+<li><strong>Liveness and Escape Analysis:</strong> The compiler verifies
+that local variables allocated on the stack do not have their addresses
+passed to the callee. If a pointer to a local variable escapes to the
+callee, the current stack frame must remain active, which invalidates
+TCO.</li>
+<li><strong>Backend Target Lowering:</strong> During the machine
+instruction generation phase, the target backend checks whether the
+target calling convention and the architecture support the jump. If the
+arguments fit in the existing frame or can be passed purely via
+registers, the backend generates an unconditional branch instruction
+instead of a call instruction.</li>
+</ol>
+<h3 id="constraints-preventing-tco-in-c">Constraints Preventing TCO in
+C</h3>
+<p>Unlike languages such as Scheme, the ISO C standard does not mandate
+tail-call optimization. Consequently, C compilers treat TCO as an
+optional optimization rather than a semantic guarantee. Several
+C-specific factors frequently prevent the optimization:</p>
+<ul>
+<li><strong>Escaped Stack Pointers:</strong> If the address of any local
+variable is taken and passed to the callee, the current stack frame
+cannot be discarded because the callee might dereference that
+memory.</li>
+<li><strong>Mismatch in Calling Conventions:</strong> If the caller and
+callee use different calling conventions (for example, standard C
+calling convention vs. a convention where the callee cleans up the
+stack), the stack layout cannot be seamlessly transferred.</li>
+<li><strong>Variable Argument Lists:</strong> Functions accepting
+variable arguments (<code>...</code>) often require dedicated stack
+space for the argument save area, complicating or completely prohibiting
+frame reuse.</li>
+<li><strong>Return Value Manipulation:</strong> A call that looks like a
+tail call but performs an operation on the return value cannot be
+optimized. For instance, <code>return 1 + foo(x);</code> requires the
+current function to wait for <code>foo</code> to finish before
+completing the addition.</li>
+<li><strong>Compiler Extensions and Attributes:</strong> Constructs such
+as GCC's <code>__attribute__((cleanup))</code> or non-trivial cleanups
+in mixed C/C++ translation units force the compiler to keep the frame
+alive to execute destruction logic after the function call
+finishes.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

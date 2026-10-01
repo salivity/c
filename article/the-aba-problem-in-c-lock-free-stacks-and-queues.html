@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The ABA Problem in C Lock-Free Stacks and Queues - c</title>
+    <meta name="description" content="The ABA problem is one of the most critical concurrency pitfalls encountered when developing lock-free data structures like stacks and queues in C. This article explores the mechanics of the ABA problem, why manual memory management in C exacerbates it,">
+    <link rel="canonical" href="https://salivity.github.io/c/article/the-aba-problem-in-c-lock-free-stacks-and-queues">
+    <link rel="search" type="application/opensearchdescription+xml" title="c" href="/c/opensearch.xml">
+    <link rel="icon" href="/c/favicon.ico">
+    <link rel="stylesheet" href="/c/css/style.css">
+    <link media="print" rel="stylesheet" href="/c/css/print.css">
+    <script src="/c/js/fuse.min.js"></script>
+    <script src="/c/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="The ABA Problem in C Lock-Free Stacks and Queues - c" />
+    <meta property="og:url" content="https://salivity.github.io/c/article/the-aba-problem-in-c-lock-free-stacks-and-queues" />
+    <meta property="og:image" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/c/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The ABA problem is one of the most critical concurrency pitfalls encountered when developing lock-free data structures like stacks and queues in C. This article explores the mechanics of the ABA problem, why manual memory management in C exacerbates it," />
+    <link rel="manifest" href="/c/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/c/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>c</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/c/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="the-aba-problem-in-c-lock-free-stacks-and-queues">The ABA
+Problem in C Lock-Free Stacks and Queues</h1>
+<p>The ABA problem is one of the most critical concurrency pitfalls
+encountered when developing lock-free data structures like stacks and
+queues in C. This article explores the mechanics of the ABA problem, why
+manual memory management in C exacerbates it, how it causes silent state
+corruption during atomic Compare-And-Swap (CAS) operations, and the
+standard strategies engineers use to resolve it.</p>
+<h2 id="understanding-the-aba-phenomenon">Understanding the ABA
+Phenomenon</h2>
+<p>The ABA problem occurs during multithreaded execution when an atomic
+operation relies on memory state comparison to determine if a structure
+has changed. The sequence unfolds as follows:</p>
+<ol type="1">
+<li><strong>Thread 1</strong> reads memory location <span
+class="math inline">\(V\)</span>, observing value <code>A</code>.</li>
+<li><strong>Thread 1</strong> is suspended or interrupted before
+completing its update.</li>
+<li><strong>Thread 2</strong> modifies location <span
+class="math inline">\(V\)</span> from <code>A</code> to
+<code>B</code>.</li>
+<li><strong>Thread 2</strong> (or another thread) modifies location
+<span class="math inline">\(V\)</span> back from <code>B</code> to
+<code>A</code>.</li>
+<li><strong>Thread 1</strong> resumes, performs a Compare-And-Swap (CAS)
+expecting <code>A</code>, and succeeds because the pointer value
+matches.</li>
+</ol>
+<p>Although the value is indeed <code>A</code>, the underlying
+structural state, node topology, or linked references may have
+fundamentally shifted. Thread 1 executes its operation under the false
+assumption that nothing changed between reading and writing.</p>
+<h2 id="why-c-makes-the-aba-problem-particularly-dangerous">Why C Makes
+the ABA Problem Particularly Dangerous</h2>
+<p>In managed languages with automatic garbage collection (such as Java
+or Go), a node referenced by an active thread is kept alive, preventing
+its address from being immediately recycled. In C, however, developers
+manage memory manually using <code>malloc</code> and
+<code>free</code>.</p>
+<p>When a thread pops a node from a lock-free structure and frees it,
+the system memory allocator frequently reuses that exact virtual address
+for subsequent allocations. Consequently, a new node can easily be
+assigned the same pointer address as a recently freed node. A
+pointer-based CAS checking for equality cannot distinguish between the
+original node and a newly allocated node that happens to share the same
+address.</p>
+<h2 id="failure-case-the-treiber-stack">Failure Case: The Treiber
+Stack</h2>
+<p>To illustrate the danger, consider a classic lock-free Treiber
+stack:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">typedef</span> <span class="kw">struct</span> Node <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> <span class="op">*</span>data<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> Node <span class="op">*</span>next<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> Node<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>Node <span class="op">*</span>top<span class="op">;</span></span></code></pre></div>
+<p>A thread attempts to pop an item using the following logic:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>Node <span class="op">*</span>old_top<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>Node <span class="op">*</span>new_top<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="cf">do</span> <span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    old_top <span class="op">=</span> top<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>old_top <span class="op">==</span> NULL<span class="op">)</span> <span class="cf">return</span> NULL<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    new_top <span class="op">=</span> old_top<span class="op">-&gt;</span>next<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="cf">while</span> <span class="op">(!</span>atomic_compare_exchange_weak<span class="op">(&amp;</span>top<span class="op">,</span> <span class="op">&amp;</span>old_top<span class="op">,</span> new_top<span class="op">));</span></span></code></pre></div>
+<p>If <strong>Thread 1</strong> reads <code>top</code> as node
+<code>A</code> and determines <code>new_top</code> to be <code>B</code>
+(<code>A-&gt;next</code>), it may pause before executing the CAS.</p>
+<p>While Thread 1 is paused:</p>
+<ol type="1">
+<li><strong>Thread 2</strong> pops <code>A</code> and frees it.</li>
+<li><strong>Thread 2</strong> pops <code>B</code> and frees it.</li>
+<li><strong>Thread 2</strong> pushes a new item, which
+<code>malloc</code> allocates at the same memory address where
+<code>A</code> previously resided.</li>
+<li>The stack now consists of the new <code>A</code> pointing to an
+entirely different node <code>C</code>.</li>
+</ol>
+<p>When <strong>Thread 1</strong> wakes up, it compares <code>top</code>
+against <code>old_top</code> (address <code>A</code>). Because the
+memory address matches, the CAS succeeds and sets <code>top</code> to
+<code>new_top</code> (address <code>B</code>). However, node
+<code>B</code> has already been freed and may contain garbage or be
+reallocated elsewhere. The stack's head pointer is now corrupted,
+pointing to invalid memory and inevitably leading to segmentation faults
+or undefined behavior.</p>
+<h2 id="solutions-in-c">Solutions in C</h2>
+<p>Resolving the ABA problem requires separating the identity of an
+address from its historical state:</p>
+<ul>
+<li><strong>Tagged Pointers (Double-Word CAS):</strong> Augment each
+pointer with an integer version counter. On 64-bit systems, a 128-bit
+atomic compare-and-swap (such as <code>cmpxchg16b</code> via
+<code>atomic_compare_exchange_strong</code> with <code>__int128</code>)
+updates both the pointer and the counter simultaneously. Even if memory
+is reused at address <code>A</code>, the counter differs, causing the
+CAS to safely fail.</li>
+<li><strong>Hazard Pointers:</strong> Active threads register the
+pointers they are currently reading into a globally visible hazard
+pointer array. A thread that removes a node cannot call
+<code>free()</code> on it until no other thread has that address
+registered as a hazard pointer.</li>
+<li><strong>Epoch-Based Reclamation (EBR):</strong> Memory reclamation
+is deferred across logical time intervals (epochs). Nodes removed in
+epoch <span class="math inline">\(N\)</span> are only freed when all
+threads have progressed past epoch <span
+class="math inline">\(N\)</span>, guaranteeing that no thread holds a
+stale pointer to the freed node.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/c'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            utterancesScript.setAttribute('theme', localStorage.getItem('theme') === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="/c/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/c/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>
